@@ -1,15 +1,15 @@
 import math
+import threading
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Tuple, Optional, Dict, Callable
-
+from typing import List, Tuple, Optional, Dict, Callable, Any
 import pygame
 import pygame.gfxdraw
-
 from UPST.config import config
 from UPST.modules.profiler import profile
 
 
+# --- [GizmoType и GizmoData остаются без изменений] ---
 class GizmoType(Enum):
     POINT = "point"
     LINE = "line"
@@ -91,15 +91,128 @@ class GizmosManager:
         self._circle_cache = {}
         self._rect_cache = {}
 
+        self._worker_thread: Optional[threading.Thread] = None
+        self._worker_stop_event = threading.Event()
+        self._worker_input_queue = []
+        self._worker_output = None
+        self._worker_lock = threading.Lock()
+        self._worker_ready = threading.Event()
+        self._start_worker_thread()
+
+    def _start_worker_thread(self):
+        self._worker_stop_event.clear()
+        self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+        self._worker_thread.start()
+
+    def _worker_loop(self):
+        while not self._worker_stop_event.is_set():
+            if not self._worker_input_queue:
+                self._worker_ready.clear()
+                self._worker_ready.wait(timeout=0.016)  # ~60 FPS
+                continue
+
+            with self._worker_lock:
+                input_data = self._worker_input_queue.pop(0)
+                camera_state = input_data['camera']
+                gizmos_list = input_data['gizmos']
+
+            cam_pos = camera_state['pos']
+            cam_scale = camera_state['scale']
+            screen_size = camera_state['screen_size']
+
+            visible_gizmos = []
+            stats = {'total_gizmos': len(gizmos_list), 'culled_frustum': 0, 'culled_distance': 0, 'culled_occlusion': 0}
+
+            for g in gizmos_list:
+                if g.world_space:
+                    sx = int((g.position[0] - cam_pos[0]) * cam_scale + screen_size[0] / 2)
+                    sy = int((g.position[1] - cam_pos[1]) * cam_scale + screen_size[1] / 2)
+                else:
+                    sx, sy = int(g.position[0]), int(g.position[1])
+                g._screen_pos = (sx, sy)
+
+                if g.gizmo_type in (GizmoType.POINT, GizmoType.CIRCLE, GizmoType.CROSS):
+                    g._screen_size = g.size * cam_scale if g.world_space else g.size
+                elif g.gizmo_type == GizmoType.RECT:
+                    g._screen_size = max(g.width, g.height) * (cam_scale if g.world_space else 1.0) * 0.5
+                elif g.gizmo_type in (GizmoType.LINE, GizmoType.ARROW) and g.end_position:
+                    dx = g.end_position[0] - g.position[0]
+                    dy = g.end_position[1] - g.position[1]
+                    g._screen_size = math.hypot(dx, dy) * (cam_scale if g.world_space else 1.0) * 0.5
+                elif g.gizmo_type == GizmoType.TEXT:
+                    fs = g.font_size * (cam_scale if (g.font_world_space and g.world_space) else 1.0)
+                    g._screen_size = fs * len(g.text) * 0.3
+                else:
+                    g._screen_size = 10.0
+
+                x, y = g._screen_pos
+                r = g._screen_size
+                margin = self.cull_margin
+                w, h = screen_size
+                if (x + r < -margin or x - r > w + margin or
+                    y + r < -margin or y - r > h + margin):
+                    stats['culled_frustum'] += 1
+                    continue
+
+                if self.distance_culling_enabled and g.cull_distance > 0 and g.world_space:
+                    dx = g.position[0] - cam_pos[0]
+                    dy = g.position[1] - cam_pos[1]
+                    if dx*dx + dy*dy > g.cull_distance * g.cull_distance:
+                        stats['culled_distance'] += 1
+                        continue
+
+                if g.cull_bounds:
+                    min_x, min_y, max_x, max_y = g.cull_bounds
+                    px, py = g.position
+                    if px < min_x or px > max_x or py < min_y or py > max_y:
+                        continue
+
+                g._is_visible = True
+                visible_gizmos.append(g)
+
+            texts = [g for g in visible_gizmos if g.gizmo_type == GizmoType.TEXT and g.collision]
+            others = [g for g in visible_gizmos if not (g.gizmo_type == GizmoType.TEXT and g.collision)]
+
+            adjusted_texts = []
+            if texts:
+                occupied = []
+                screen_rect = (0, 0, screen_size[0], screen_size[1])
+                for g in sorted(texts, key=lambda x: (x._screen_pos[1], x._screen_pos[0])):
+                    size = int(g.font_size * cam_scale) if (g.font_world_space and g.world_space) else g.font_size
+                    tw = int(size * len(g.text) * 0.6)
+                    th = size
+                    cx, cy = g._screen_pos
+                    rect = [cx - tw//2, cy - th//2, tw, th]
+                    for other in occupied:
+                        if (rect[0] < other[0] + other[2] and rect[0] + rect[2] > other[0] and
+                            rect[1] < other[1] + other[3] and rect[1] + rect[3] > other[1]):
+                            rect[1] = other[1] + other[3] + 2
+                    rect[0] = max(0, min(rect[0], screen_size[0] - tw))
+                    rect[1] = max(0, min(rect[1], screen_size[1] - th))
+                    g._adjusted_screen_pos = (rect[0] + tw//2, rect[1] + th//2)
+                    occupied.append(rect)
+                    adjusted_texts.append(g)
+
+            result = {
+                'texts': adjusted_texts,
+                'others': others,
+                'stats': stats
+            }
+
+            with self._worker_lock:
+                self._worker_output = result
+
     def handle_event(self, event: pygame.event.Event):
         if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
             return
         mx, my = event.pos
         all_gizmos = list(self.unique_gizmos.values()) + self.gizmos + self.persistent_gizmos
+        for g in all_gizmos:
+            if g.gizmo_type == GizmoType.BUTTON and g._screen_pos is None:
+                g._screen_pos = self.camera.world_to_screen(g.position) if g.world_space else g.position
         for g in reversed(all_gizmos):
             if g.gizmo_type != GizmoType.BUTTON or g.on_click is None:
                 continue
-            self._update_gizmo_cache(g)
             w = int(g.width * (self.camera.target_scaling if g.world_space else 1))
             h = int(g.height * (self.camera.target_scaling if g.world_space else 1))
             r = pygame.Rect(0, 0, w, h)
@@ -134,61 +247,7 @@ class GizmosManager:
         unused_keys = set(self.unique_gizmos.keys()) - self.used_unique_gizmos
         for key in unused_keys:
             del self.unique_gizmos[key]
-
         self.used_unique_gizmos.clear()
-
-        camera_pos = self.camera.screen_to_world((self._half_screen_width, self._half_screen_height))
-        camera_scale = self.camera.target_scaling
-        if self._last_camera_pos != camera_pos or self._last_camera_scale != camera_scale:
-            self._invalidate_visibility_cache()
-            self._last_camera_pos = camera_pos
-            self._last_camera_scale = camera_scale
-
-    def _invalidate_visibility_cache(self):
-        self._visibility_cache_valid = False
-        all_gizmos = list(self.unique_gizmos.values()) + self.gizmos + self.persistent_gizmos
-        for gizmo in all_gizmos:
-            gizmo._screen_pos = None
-            gizmo._screen_size = None
-            gizmo._is_visible = None
-
-    @profile("_update_gizmo_cache", "gizmos")
-    def _update_gizmo_cache(self, gizmo: GizmoData):
-        if gizmo._screen_pos is None:
-            gizmo._screen_pos = self.camera.world_to_screen(gizmo.position
-                                                            ) if gizmo.world_space else gizmo.position
-        if gizmo._screen_size is None:
-            gizmo._screen_size = self._get_gizmo_screen_size(gizmo)
-
-    @profile("is_gizmo_visible", "gizmos")
-    def is_gizmo_visible(self, gizmo: GizmoData) -> bool:
-        if not self.occlusion_culling_enabled:
-            return True
-        if gizmo._is_visible is not None:
-            return gizmo._is_visible
-        self._update_gizmo_cache(gizmo)
-        if self.frustum_culling_enabled and gizmo.world_space:
-            x, y = gizmo._screen_pos
-            r = gizmo._screen_size
-            if x + r < -self.cull_margin or x - r > self._screen_width + self.cull_margin or y + r < -self.cull_margin or y - r > self._screen_height + self.cull_margin:
-                gizmo._is_visible = False
-                self.stats['culled_frustum'] += 1
-                return False
-        if self.distance_culling_enabled and gizmo.cull_distance > 0 and gizmo.world_space:
-            dx = gizmo.position[0] - self._last_camera_pos[0]
-            dy = gizmo.position[1] - self._last_camera_pos[1]
-            if dx * dx + dy * dy > gizmo.cull_distance * gizmo.cull_distance:
-                gizmo._is_visible = False
-                self.stats['culled_distance'] += 1
-                return False
-        if gizmo.cull_bounds:
-            min_x, min_y, max_x, max_y = gizmo.cull_bounds
-            if gizmo.position[0] < min_x or gizmo.position[0] > max_x or gizmo.position[1] < min_y or gizmo.position[
-                1] > max_y:
-                gizmo._is_visible = False
-                return False
-        gizmo._is_visible = True
-        return True
 
     def _get_gizmo_screen_size(self, gizmo: GizmoData) -> float:
         scale = self.camera.target_scaling if gizmo.world_space else 1.0
@@ -214,86 +273,51 @@ class GizmosManager:
             self._alpha_surface_frame[alpha] = self._frame_id
         return self._alpha_surfaces[alpha]
 
-    @profile("gizmos_draw", "gizmos")
+    @profile("draw", "gizmos")
     def draw(self):
         if not self.enabled:
             return
-
         all_gizmos = list(self.unique_gizmos.values()) + self.gizmos + self.persistent_gizmos
         if not all_gizmos:
             return
+
         self._frame_id += 1
-        all_gizmos.sort(key=lambda g: g.layer)
-        draw_options = self.camera.get_draw_options(self.screen)
-        self.stats = {
-            'total_gizmos': len(all_gizmos),
-            'culled_frustum': 0,
-            'culled_distance': 0,
-            'culled_occlusion': 0,
-            'drawn_gizmos': 0
+
+        camera_state = {
+            'pos': self.camera.screen_to_world((self._half_screen_width, self._half_screen_height)),
+            'scale': self.camera.target_scaling,
+            'screen_size': (self._screen_width, self._screen_height)
         }
+
+        with self._worker_lock:
+            self._worker_input_queue.append({'camera': camera_state, 'gizmos': all_gizmos.copy()})
+            self._worker_ready.set()
+
+        output = None
+        with self._worker_lock:
+            if self._worker_output is not None:
+                output = self._worker_output
+                self._worker_output = None
+
+        if output is None:
+            return
+
+        texts = output['texts']
+        others = output['others']
+        self.stats = output['stats']
+        self.stats['drawn_gizmos'] = len(texts) + len(others)
+
         alpha_used = set()
-        texts = []
-        others = []
-        is_visible = self.is_gizmo_visible
-        append_text = texts.append
-        append_other = others.append
-        for gizmo in all_gizmos:
-            if not is_visible(gizmo):
-                continue
-            gt = gizmo.gizmo_type
-            if gt is GizmoType.TEXT and gizmo.collision:
-                append_text(gizmo)
-            else:
-                append_other(gizmo)
-        texts.sort(key=lambda g: (g._screen_pos[1], g._screen_pos[0]))
-        cell_size = 64
-        grid = {}
-        max_collisions = 8
-        screen_rect = pygame.Rect(0, 0, self._screen_width, self._screen_height)
-        for g in texts:
-            size = int(g.font_size * self.camera.target_scaling) if (
-                    g.font_world_space and g.world_space) else g.font_size
-            surf = self._get_text_surface(g.text, g.color, g.font_name, size)
-            rect = surf.get_rect(center=(int(g._screen_pos[0]), int(g._screen_pos[1])))
-            if not rect.colliderect(screen_rect):
-                self.stats['culled_occlusion'] += 1
-                g.collision = False
-                continue
-            w2, h2 = rect.width >> 1, rect.height >> 1
-            cx = min(max(rect.centerx, w2), self._screen_width - w2)
-            cy = min(max(rect.centery, h2), self._screen_height - h2)
-            rect.center = (cx, cy)
-            collision_attempts = 0
-            while collision_attempts < max_collisions:
-                bx, by = rect.centerx // cell_size, rect.centery // cell_size
-                bucket = grid.get((bx, by))
-                if bucket is None:
-                    break
-                overlap_found = False
-                for r in bucket:
-                    if rect.colliderect(r):
-                        rect.top = r.bottom + 2
-                        overlap_found = True
-                        break
-                if not overlap_found:
-                    break
-                collision_attempts += 1
-            if collision_attempts == max_collisions:
-                g.collision = False
-                self.stats['culled_occlusion'] += 1
-                continue
-            g._adjusted_screen_pos = rect.center
-            left_cell = rect.left // cell_size
-            right_cell = rect.right // cell_size
-            top_cell = rect.top // cell_size
-            bottom_cell = rect.bottom // cell_size
-            for ix in range(left_cell, right_cell + 1):
-                for iy in range(top_cell, bottom_cell + 1):
-                    grid.setdefault((ix, iy), []).append(rect)
+        self._render_non_text_gizmos(others, alpha_used)
+        self._render_adjusted_texts(texts, alpha_used)
+        self._blit_alpha_surfaces(alpha_used)
+
+    def _render_non_text_gizmos(self, others, alpha_used):
         for g in others:
-            self._draw_gizmo(g, draw_options, alpha_used)
-        for g in texts:
+            self._draw_gizmo(g, alpha_used)
+
+    def _render_adjusted_texts(self, adjusted_texts, alpha_used):
+        for g in adjusted_texts:
             if not hasattr(g, '_adjusted_screen_pos'):
                 continue
             pos = g._screen_pos
@@ -303,7 +327,7 @@ class GizmosManager:
                 alpha_used.add(g.alpha)
             self._draw_line_gfx(surf_target, pos, adj, g.color, 2)
             size = int(g.font_size * self.camera.target_scaling) if (
-                    g.font_world_space and g.world_space) else g.font_size
+                        g.font_world_space and g.world_space) else g.font_size
             surf = self._get_text_surface(g.text, g.color, g.font_name, size)
             r = surf.get_rect(center=adj)
             if g.background_color:
@@ -311,11 +335,11 @@ class GizmosManager:
                 bg.fill(g.background_color)
                 surf_target.blit(bg, (r.left - 2, r.top - 2))
             surf_target.blit(surf, r)
-            self.stats['drawn_gizmos'] += 1
+
+    def _blit_alpha_surfaces(self, alpha_used):
         for a in alpha_used:
             self.screen.blit(self._alpha_surfaces[a], (0, 0))
 
-    @profile("_draw_line_gfx", "gizmos")
     def _draw_line_gfx(self, surface, start, end, color, thickness):
         x1, y1 = map(int, start)
         x2, y2 = map(int, end)
@@ -341,8 +365,7 @@ class GizmosManager:
                 color = tuple(int(min(255, max(0, c))) for c in color)
                 pygame.gfxdraw.line(surface, lx1, ly1, lx2, ly2, color)
 
-    @profile("_draw_gizmo", "gizmos")
-    def _draw_gizmo(self, gizmo: GizmoData, draw_options, alpha_used):
+    def _draw_gizmo(self, gizmo: GizmoData, alpha_used):
         pos = gizmo._screen_pos
         surface = self.screen if gizmo.alpha == 255 else self._get_temp_surface(gizmo.alpha)
         if gizmo.alpha < 255:
@@ -421,23 +444,44 @@ class GizmosManager:
             txt_surf = self.get_font(gizmo.font_name, font_size).render(gizmo.text, True, color)
             txt_rect = txt_surf.get_rect(center=rect.center)
             surface.blit(txt_surf, txt_rect)
-            self.stats['drawn_gizmos'] += 1
             return
 
-        self.stats['drawn_gizmos'] += 1
+    def _draw_circle_gfx(self, surface, center, radius, color, filled, thickness):
+        x, y = int(center[0]), int(center[1])
+        r = int(radius)
+        if r <= 0:
+            return
+        if filled:
+            pygame.gfxdraw.filled_circle(surface, x, y, r, color)
+        else:
+            if thickness == 1:
+                pygame.gfxdraw.circle(surface, x, y, r, color)
+            else:
+                for i in range(thickness):
+                    if r - i > 0:
+                        pygame.gfxdraw.circle(surface, x, y, r - i, color)
 
+    def _draw_rect_gfx(self, surface, rect, color, filled, thickness):
+        x, y, w, h = int(rect.x), int(rect.y), int(rect.width), int(rect.height)
+        if w <= 0 or h <= 0:
+            return
+        if filled:
+            pygame.gfxdraw.box(surface, (x, y, w, h), color)
+        else:
+            if thickness == 1:
+                pygame.gfxdraw.rectangle(surface, (x, y, w, h), color)
+            else:
+                for i in range(thickness):
+                    pygame.gfxdraw.rectangle(surface, (x - i, y - i, w + 2 * i, h + 2 * i), color)
 
     def clear(self):
         self.gizmos.clear()
-        self._invalidate_visibility_cache()
 
     def clear_persistent(self):
         self.persistent_gizmos.clear()
-        self._invalidate_visibility_cache()
 
     def clear_unique(self):
         self.unique_gizmos.clear()
-        self._invalidate_visibility_cache()
 
     def toggle(self):
         self.enabled = not self.enabled
@@ -460,43 +504,10 @@ class GizmosManager:
     def _reuse_or_create_button(self, key: str, **kwargs) -> GizmoData:
         if key in self.unique_gizmos:
             g = self.unique_gizmos[key]
-            g.position = kwargs["position"]
-            g.text = kwargs["text"]
-            g.color = kwargs["color"]
-            g.background_color = kwargs["background_color"]
-            g.pressed_background_color = kwargs["pressed_background_color"]
-            g.border_thickness = kwargs["border_thickness"]
-            g.width = kwargs["width"]
-            g.height = kwargs["height"]
-            g.filled = True
-            g.font_size = kwargs["font_size"]
-            g.font_name = kwargs["font_name"]
-            g.font_world_space = kwargs["font_world_space"]
-            g.layer = kwargs["layer"]
-            g.world_space = kwargs["world_space"]
-            g.on_click = kwargs["on_click"]
-            g.cull_distance = kwargs["cull_distance"]
+            for k, v in kwargs.items():
+                setattr(g, k, v)
             return g
-        g = GizmoData(
-            gizmo_type=GizmoType.BUTTON,
-            position=kwargs["position"],
-            text=kwargs["text"],
-            color=kwargs["color"],
-            background_color=kwargs["background_color"],
-            pressed_background_color=kwargs["pressed_background_color"],
-            border_thickness=kwargs["border_thickness"],
-            width=kwargs["width"],
-            height=kwargs["height"],
-            filled=True,
-            font_size=kwargs["font_size"],
-            font_name=kwargs["font_name"],
-            font_world_space=kwargs["font_world_space"],
-            layer=kwargs["layer"],
-            world_space=kwargs["world_space"],
-            on_click=kwargs["on_click"],
-            cull_distance=kwargs["cull_distance"],
-            unique_id=key
-        )
+        g = GizmoData(gizmo_type=GizmoType.BUTTON, unique_id=key, **kwargs)
         self.unique_gizmos[key] = g
         return g
 
@@ -520,6 +531,7 @@ class GizmosManager:
             "border_thickness": border_thickness,
             "width": width,
             "height": height,
+            "filled": True,
             "font_size": font_size,
             "font_name": font_name,
             "font_world_space": font_world_space,
@@ -530,63 +542,12 @@ class GizmosManager:
         }
         self._reuse_or_create_button(key, **cfg)
 
-    @profile("_draw_circle_gfx", "gizmos")
-    def _draw_circle_gfx(self, surface, center, radius, color, filled, thickness):
-        x, y = int(center[0]), int(center[1])
-        r = int(radius)
-        if r <= 0:
-            return
-        if filled:
-            pygame.gfxdraw.filled_circle(surface, x, y, r, color)
+    def _add_gizmo(self, gizmo: GizmoData):
+        if gizmo.duration == -1:
+            self.persistent_gizmos.append(gizmo)
         else:
-            if thickness == 1:
-                pygame.gfxdraw.circle(surface, x, y, r, color)
-            else:
-                for i in range(thickness):
-                    if r - i > 0:
-                        pygame.gfxdraw.circle(surface, x, y, r - i, color)
+            self.gizmos.append(gizmo)
 
-    @profile("_draw_rect_gfx", "gizmos")
-    def _draw_rect_gfx(self, surface, rect, color, filled, thickness):
-        x, y, w, h = int(rect.x), int(rect.y), int(rect.width), int(rect.height)
-        if w <= 0 or h <= 0:
-            return
-        if filled:
-            pygame.gfxdraw.box(surface, (x, y, w, h), color)
-        else:
-            if thickness == 1:
-                pygame.gfxdraw.rectangle(surface, (x, y, w, h), color)
-            else:
-                for i in range(thickness):
-                    pygame.gfxdraw.rectangle(surface, (x - i, y - i, w + 2 * i, h + 2 * i), color)
-
-    @profile("_draw_arrow_gfx", "gizmos")
-    def _draw_arrow_gfx(self, surface, start_pos, end_pos, color, thickness, draw_options, world_space):
-        end_screen = self.camera.world_to_screen(end_pos) if world_space else end_pos
-        self._draw_line_gfx(surface, start_pos, end_screen, color, thickness)
-        dx = end_screen[0] - start_pos[0]
-        dy = end_screen[1] - start_pos[1]
-        length = math.hypot(dx, dy)
-        if length == 0:
-            return
-        nx = dx / length
-        ny = dy / length
-        arrow_size = min(length * 0.3, 20)
-        left = (end_screen[0] - arrow_size * (nx * 0.8 + ny * 0.6),
-                end_screen[1] - arrow_size * (ny * 0.8 - nx * 0.6))
-        right = (end_screen[0] - arrow_size * (nx * 0.8 - ny * 0.6),
-                 end_screen[1] - arrow_size * (ny * 0.8 + nx * 0.6))
-        self._draw_line_gfx(surface, end_screen, left, color, thickness)
-        self._draw_line_gfx(surface, end_screen, right, color, thickness)
-
-    @profile("_draw_cross_gfx", "gizmos")
-    def _draw_cross_gfx(self, surface, pos, color, size, thickness, world_space):
-        s = size * self.camera.target_scaling if world_space else size
-        h = s * 0.5
-        self._draw_line_gfx(surface, (pos[0] - h, pos[1]), (pos[0] + h, pos[1]), color, thickness)
-        self._draw_line_gfx(surface, (pos[0], pos[1] - h), (pos[0], pos[1] + h), color, thickness)
-
-    @profile("draw_point", "gizmos")
     def draw_point(self, position: Tuple[float, float], color='white', size=3.0, duration=0.1, layer=0,
                    world_space=True, cull_distance=-1.0, cull_bounds=None):
         g = GizmoData(gizmo_type=GizmoType.POINT, position=position,
@@ -595,7 +556,6 @@ class GizmosManager:
                       cull_bounds=cull_bounds)
         self._add_gizmo(g)
 
-    @profile("draw_line", "gizmos")
     def draw_line(self, start: Tuple[float, float], end: Tuple[float, float], color='white', thickness=1, duration=0.1,
                   layer=0, world_space=True, cull_distance=-1.0, cull_bounds=None):
         g = GizmoData(gizmo_type=GizmoType.LINE, position=start, end_position=end,
@@ -603,7 +563,7 @@ class GizmosManager:
                       duration=duration, layer=layer, world_space=world_space, cull_distance=cull_distance,
                       cull_bounds=cull_bounds)
         self._add_gizmo(g)
-    @profile("draw_circle", "gizmos")
+
     def draw_circle(self, center: Tuple[float, float], radius: float, color='white', filled=False, thickness=1,
                     duration=0.1, layer=0, world_space=True, cull_distance=-1.0, cull_bounds=None):
         g = GizmoData(gizmo_type=GizmoType.CIRCLE, position=center,
@@ -611,7 +571,7 @@ class GizmosManager:
                       filled=filled, thickness=thickness, duration=duration, layer=layer, world_space=world_space,
                       cull_distance=cull_distance, cull_bounds=cull_bounds)
         self._add_gizmo(g)
-    @profile("draw_rect", "gizmos")
+
     def draw_rect(self, center: Tuple[float, float], width: float, height: float, color='white', filled=False,
                   thickness=1, duration=0.1, layer=0, world_space=True, cull_distance=-1.0, cull_bounds=None):
         g = GizmoData(gizmo_type=GizmoType.RECT, position=center,
@@ -619,7 +579,7 @@ class GizmosManager:
                       height=height, filled=filled, thickness=thickness, duration=duration, layer=layer,
                       world_space=world_space, cull_distance=cull_distance, cull_bounds=cull_bounds)
         self._add_gizmo(g)
-    @profile("draw_arrow", "gizmos")
+
     def draw_arrow(self, start: Tuple[float, float], end: Tuple[float, float], color='white', thickness=2, duration=0.1,
                    layer=0, world_space=True, cull_distance=-1.0, cull_bounds=None):
         g = GizmoData(gizmo_type=GizmoType.ARROW, position=start, end_position=end,
@@ -627,7 +587,7 @@ class GizmosManager:
                       duration=duration, layer=layer, world_space=world_space, cull_distance=cull_distance,
                       cull_bounds=cull_bounds)
         self._add_gizmo(g)
-    @profile("draw_cross", "gizmos")
+
     def draw_cross(self, center: Tuple[float, float], size: float, color='white', thickness=1, duration=0.1, layer=0,
                    world_space=True, cull_distance=-1.0, cull_bounds=None):
         g = GizmoData(gizmo_type=GizmoType.CROSS, position=center,
@@ -635,14 +595,13 @@ class GizmosManager:
                       thickness=thickness, duration=duration, layer=layer, world_space=world_space,
                       cull_distance=cull_distance, cull_bounds=cull_bounds)
         self._add_gizmo(g)
-    @profile("draw_text", "gizmos")
+
     def draw_text(self, position: Tuple[float, float], text: str, color='white',
                   background_color: Optional[Tuple[int, int, int, int]] = None,
                   duration=0.1, layer=0,
                   world_space=True,
                   font_name="Consolas", font_size=14, font_world_space=False, cull_distance=-1.0, cull_bounds=None,
-                  collision=False,
-                  ):
+                  collision=False):
         g = GizmoData(
             gizmo_type=GizmoType.TEXT,
             position=position,
@@ -661,36 +620,27 @@ class GizmosManager:
         )
         self._add_gizmo(g)
 
-    def _add_gizmo(self, gizmo: GizmoData):
-        if gizmo.duration == -1:
-            self.persistent_gizmos.append(gizmo)
-        else:
-            self.gizmos.append(gizmo)
-
     def draw_debug_gizmos(self):
         if not config.debug.gizmos:
             return
-        if hasattr(Gizmos, 'get_stats'):
-            stats = Gizmos.get_stats()
-            if stats:
-                Gizmos.draw_text(
-                    (500, 30),
-                    f"Gizmos: {stats.get('drawn_gizmos', 0)}/{stats.get('total_gizmos', 0)}"
-                    f"\nculled_frustum: {stats.get('culled_frustum', 0)}/{stats.get('culled_distance', 0)}",
-                    'white',
-                    font_size=16,
-                    world_space=False,
-                    duration=0.1,
-                    font_world_space=False
-                )
+        stats = self.get_stats()
+        if stats:
+            self.draw_text(
+                (500, 30),
+                f"Gizmos: {stats.get('drawn_gizmos', 0)}/{stats.get('total_gizmos', 0)}"
+                f"\nculled_frustum: {stats.get('culled_frustum', 0)}/{stats.get('culled_distance', 0)}",
+                'white',
+                font_size=16,
+                world_space=False,
+                duration=0.1,
+                font_world_space=False
+            )
 
 
 _gizmos_instance: Optional[GizmosManager] = None
 
-
 def get_gizmos():
     return _gizmos_instance
-
 
 def set_gizmos(gizmos_manager):
     global _gizmos_instance
@@ -699,72 +649,44 @@ def set_gizmos(gizmos_manager):
 
 class Gizmos:
     @staticmethod
-    def draw_button(position: Tuple[float, float], text: str,
-                    on_click: Callable[[], None],
-                    width: float = 120, height: float = 40,
-                    color='white',
-                    background_color=(10, 10, 10, 255),
-                    pressed_background_color=(100, 100, 100, 255),
-                    border_thickness: int = 2,
-                    layer=0, world_space=True, font_size=18, font_name="Consolas",
-                    font_world_space: bool = False,
-                    cull_distance=-1.0, unique_id: Optional[str] = None):
+    def draw_button(*args, **kwargs):
         if _gizmos_instance:
-            _gizmos_instance.draw_button(position, text, on_click,
-                                         width, height,
-                                         color, background_color,
-                                         pressed_background_color, border_thickness,
-                                         layer, world_space, font_size, font_name,
-                                         font_world_space, cull_distance, unique_id)
+            _gizmos_instance.draw_button(*args, **kwargs)
 
     @staticmethod
-    def draw_point(position, color='white', size=3.0, duration=0.1, layer=0, world_space=True, cull_distance=-1.0,
-                   cull_bounds=None):
+    def draw_point(*args, **kwargs):
         if _gizmos_instance:
-            _gizmos_instance.draw_point(position, color, size, duration, layer, world_space, cull_distance, cull_bounds)
+            _gizmos_instance.draw_point(*args, **kwargs)
 
     @staticmethod
-    def draw_line(start, end, color='white', thickness=1, duration=0.1, layer=0, world_space=True, cull_distance=-1.0,
-                  cull_bounds=None):
+    def draw_line(*args, **kwargs):
         if _gizmos_instance:
-            _gizmos_instance.draw_line(start, end, color, thickness, duration, layer, world_space, cull_distance,
-                                       cull_bounds)
+            _gizmos_instance.draw_line(*args, **kwargs)
 
     @staticmethod
-    def draw_circle(center, radius, color='white', filled=False, thickness=1, duration=0.1, layer=0, world_space=True,
-                    cull_distance=-1.0, cull_bounds=None):
+    def draw_circle(*args, **kwargs):
         if _gizmos_instance:
-            _gizmos_instance.draw_circle(center, radius, color, filled, thickness, duration, layer, world_space,
-                                         cull_distance, cull_bounds)
+            _gizmos_instance.draw_circle(*args, **kwargs)
 
     @staticmethod
-    def draw_rect(center, width, height, color='white', filled=False, thickness=1, duration=0.1, layer=0,
-                  world_space=True, cull_distance=-1.0, cull_bounds=None):
+    def draw_rect(*args, **kwargs):
         if _gizmos_instance:
-            _gizmos_instance.draw_rect(center, width, height, color, filled, thickness, duration, layer, world_space,
-                                       cull_distance, cull_bounds)
+            _gizmos_instance.draw_rect(*args, **kwargs)
 
     @staticmethod
-    def draw_arrow(start, end, color='white', thickness=2, duration=0.1, layer=0, world_space=True, cull_distance=-1.0,
-                   cull_bounds=None):
+    def draw_arrow(*args, **kwargs):
         if _gizmos_instance:
-            _gizmos_instance.draw_arrow(start, end, color, thickness, duration, layer, world_space, cull_distance,
-                                        cull_bounds)
+            _gizmos_instance.draw_arrow(*args, **kwargs)
 
     @staticmethod
-    def draw_cross(center, size, color='white', thickness=1, duration=0.1, layer=0, world_space=True,
-                   cull_distance=-1.0, cull_bounds=None):
+    def draw_cross(*args, **kwargs):
         if _gizmos_instance:
-            _gizmos_instance.draw_cross(center, size, color, thickness, duration, layer, world_space, cull_distance,
-                                        cull_bounds)
+            _gizmos_instance.draw_cross(*args, **kwargs)
 
     @staticmethod
-    def draw_text(position, text, color='white', background_color=(0, 0, 0, 0), duration=0.1, layer=0, world_space=True,
-                  font_name="Consolas", font_size=14, font_world_space=False, cull_distance=-1.0, cull_bounds=None,
-                  collision=False):
+    def draw_text(*args, **kwargs):
         if _gizmos_instance:
-            _gizmos_instance.draw_text(position, text, color, background_color, duration, layer, world_space, font_name,
-                                       font_size, font_world_space, cull_distance, cull_bounds, collision)
+            _gizmos_instance.draw_text(*args, **kwargs)
 
     @staticmethod
     def clear():

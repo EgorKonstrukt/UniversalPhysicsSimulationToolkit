@@ -58,7 +58,7 @@ def profile_context(key, group=None):
 
 
 class Profiler:
-    def __init__(self, manager, max_samples=config.profiler.max_samples, refresh_rate=config.profiler.max_samples, smoothing_factor=0.15):
+    def __init__(self, manager, max_samples=config.profiler.max_samples, refresh_rate=config.profiler.update_delay, smoothing_factor=0.15):
         self.manager = manager
         self.data = collections.defaultdict(lambda: collections.deque(maxlen=max_samples))
         self.current = {}
@@ -352,7 +352,7 @@ def stop_profiling(key):
         profiler.stop(key)
 
 
-# Примеры использования:
+# Примеры использования профайлера:
 """
 # Использование декоратора с группой
 @profile("database_query", group="database")
