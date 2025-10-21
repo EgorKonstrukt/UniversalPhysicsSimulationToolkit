@@ -1,0 +1,239 @@
+{
+  "version": "1.0",
+  "timestamp": 1756295580.7429466,
+  "script_objects": [
+    {
+      "id": "f0050636-b513-4369-93b2-dc22839566b9",
+      "name": "Circle Spawner",
+      "code": "\n# Spawn circles in a pattern\nimport math\nimport time\n\nfor i in range(5):\n    angle = i * (2 * math.pi / 5)\n    x = 100 * math.cos(angle)\n    y = 100 * math.sin(angle)\n    \n    spawn_circle((x, y), radius=20, color=(255, 100, 100, 255))\n    play_note(f\"C{4+i//2}\", 0.2)\n    time.sleep(0.1)\n\nlog_info(\"Circle pattern created!\")\n",
+      "position": [
+        100.0,
+        1170.0922642853698
+      ],
+      "auto_run": false,
+      "created_time": 1756295280.8620486,
+      "last_modified": 1756295280.8620486,
+      "execution_count": 0,
+      "visual_radius": 30,
+      "color": [
+        100,
+        150,
+        255,
+        200
+      ],
+      "physics_body": {
+        "position": [
+          100.0,
+          1170.0922642853698
+        ],
+        "velocity": [
+          0.0,
+          0.0
+        ],
+        "angle": 0.0,
+        "angular_velocity": 0.0,
+        "mass": 10.0,
+        "moment": 4500.0
+      }
+    },
+    {
+      "id": "a5362a01-7c86-4361-b25f-5f173c02d3ec",
+      "name": "Physics Demo",
+      "code": "\n# Physics demonstration\nbodies = get_all_bodies()\nlog_info(f\"Found {len(bodies)} bodies\")\n\n# Apply upward impulse to all bodies\nfor body in bodies:\n    body.apply_impulse_at_world_point((0, -500), body.position)\n\n# Create explosion at mouse position\nmouse_pos = get_mouse_world_pos()\ncreate_explosion(mouse_pos, 1000, 200)\n\n# Draw explosion visualization\ndraw_circle(mouse_pos, 200, 'red', False, 3, True, 2.0)\ndraw_text(\"BOOM!\", (mouse_pos[0], mouse_pos[1] - 50), 'yellow', 24, True, 2.0)\n",
+      "position": [
+        -100.0,
+        1170.0922642853698
+      ],
+      "auto_run": false,
+      "created_time": 1756295280.862548,
+      "last_modified": 1756295280.862548,
+      "execution_count": 0,
+      "visual_radius": 30,
+      "color": [
+        100,
+        150,
+        255,
+        200
+      ],
+      "physics_body": {
+        "position": [
+          -100.0,
+          1170.0922642853698
+        ],
+        "velocity": [
+          0.0,
+          0.0
+        ],
+        "angle": 0.0,
+        "angular_velocity": 0.0,
+        "mass": 10.0,
+        "moment": 4500.0
+      }
+    },
+    {
+      "id": "deb0660b-97ca-4fa6-8f61-7449d23b04fb",
+      "name": "Music Generator",
+      "code": "\n# Generate a random melody\nimport random\n\nscales = {\n    'major': [0, 2, 4, 5, 7, 9, 11],\n    'minor': [0, 2, 3, 5, 7, 8, 10],\n    'pentatonic': [0, 2, 4, 7, 9]\n}\n\nscale = scales['pentatonic']\nbase_note = 60  # Middle C\n\nmelody = []\nfor i in range(8):\n    note_offset = random.choice(scale)\n    octave_offset = random.choice([0, 12, 24])\n    frequency = 440 * (2 ** ((base_note + note_offset + octave_offset - 69) / 12))\n    melody.append(frequency)\n\n# Play the melody\nfor freq in melody:\n    play_frequency(freq, 0.3, waveform='sine')\n    time.sleep(0.35)\n\nlog_info(\"Random melody played!\")\n",
+      "position": [
+        0.0,
+        1170.100000001491
+      ],
+      "auto_run": false,
+      "created_time": 1756295280.8635495,
+      "last_modified": 1756295280.8635495,
+      "execution_count": 0,
+      "visual_radius": 30,
+      "color": [
+        100,
+        150,
+        255,
+        200
+      ],
+      "physics_body": {
+        "position": [
+          0.0,
+          1170.100000001491
+        ],
+        "velocity": [
+          0.0,
+          0.0
+        ],
+        "angle": 0.0,
+        "angular_velocity": 0.0,
+        "mass": 10.0,
+        "moment": 4500.0
+      }
+    },
+    {
+      "id": "59ebcf93-4d09-49e5-a845-42df8a602521",
+      "name": "Visual Art",
+      "code": "\n# Create visual art with gizmos\nimport math\n\ncenter = (0, 0)\nlayers = 5\npoints_per_layer = 12\n\nfor layer in range(layers):\n    radius = 50 + layer * 30\n    color_hue = layer * 60  # Different colors for each layer\n    \n    # Convert HSV to RGB (simplified)\n    if color_hue < 60:\n        color = 'red'\n    elif color_hue < 120:\n        color = 'yellow'\n    elif color_hue < 180:\n        color = 'green'\n    elif color_hue < 240:\n        color = 'cyan'\n    elif color_hue < 300:\n        color = 'blue'\n    else:\n        color = 'magenta'\n    \n    # Draw points in a circle\n    for i in range(points_per_layer):\n        angle = i * (2 * math.pi / points_per_layer)\n        x = center[0] + radius * math.cos(angle)\n        y = center[1] + radius * math.sin(angle)\n        \n        # Draw line from center to point\n        draw_line(center, (x, y), color, 2, True, 10.0)\n        \n        # Draw small circle at point\n        draw_circle((x, y), 5, color, True, 1, True, 10.0)\n\n# Draw center\ndraw_circle(center, 10, 'white', True, 1, True, 10.0)\ndraw_text(\"Art Generator\", (center[0], center[1] - 200), 'white', 20, True, 10.0)\n\nlog_info(\"Visual art created!\")\n",
+      "position": [
+        200.0,
+        1170.100000001491
+      ],
+      "auto_run": false,
+      "created_time": 1756295280.8640444,
+      "last_modified": 1756295280.8640444,
+      "execution_count": 0,
+      "visual_radius": 30,
+      "color": [
+        100,
+        150,
+        255,
+        200
+      ],
+      "physics_body": {
+        "position": [
+          200.0,
+          1170.100000001491
+        ],
+        "velocity": [
+          0.0,
+          0.0
+        ],
+        "angle": 0.0,
+        "angular_velocity": 0.0,
+        "mass": 10.0,
+        "moment": 4500.0
+      }
+    }
+  ],
+  "script_engine_state": {
+    "running_scripts": [],
+    "script_outputs": {},
+    "global_namespace_keys": [
+      "__builtins__",
+      "math",
+      "random",
+      "time",
+      "numpy",
+      "pygame",
+      "pymunk",
+      "context",
+      "spawn_circle",
+      "spawn_rectangle",
+      "spawn_triangle",
+      "play_note",
+      "play_frequency",
+      "draw_line",
+      "draw_circle",
+      "draw_text",
+      "log",
+      "get_mouse_pos",
+      "get_bodies",
+      "delete_all_bodies",
+      "np",
+      "script_engine",
+      "physics_manager",
+      "ui_manager",
+      "camera",
+      "spawner",
+      "sound_manager",
+      "synthesizer",
+      "gizmos",
+      "debug",
+      "save_load_manager",
+      "input_handler",
+      "console",
+      "draw_rectangle",
+      "draw_polygon",
+      "draw_arrow",
+      "draw_grid",
+      "draw_coordinate_system",
+      "draw_vector_field",
+      "clear_gizmos",
+      "spawn_polygon",
+      "spawn_chain",
+      "create_compound_object",
+      "play_chord",
+      "play_sequence",
+      "play_scale",
+      "create_melody",
+      "set_audio_effects",
+      "get_all_bodies",
+      "get_bodies_in_area",
+      "apply_force_to_all",
+      "apply_impulse_to_all",
+      "create_explosion",
+      "create_gravity_well",
+      "set_gravity",
+      "get_gravity",
+      "pause_simulation",
+      "resume_simulation",
+      "step_simulation",
+      "create_joint",
+      "get_camera_position",
+      "set_camera_position",
+      "move_camera",
+      "get_camera_zoom",
+      "set_camera_zoom",
+      "zoom_to_fit",
+      "screen_to_world",
+      "world_to_screen",
+      "get_mouse_world_pos",
+      "get_mouse_screen_pos",
+      "get_time",
+      "sleep",
+      "log_info",
+      "log_warning",
+      "log_error",
+      "sin",
+      "cos",
+      "tan",
+      "pi",
+      "sqrt",
+      "atan2",
+      "degrees",
+      "radians",
+      "random_float",
+      "random_int",
+      "random_choice"
+    ]
+  },
+  "idle_integration_state": {
+    "integration_enabled": true,
+    "execution_history_count": 0,
+    "is_idle_running": false
+  }
+}
