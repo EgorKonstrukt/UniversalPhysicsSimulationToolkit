@@ -61,7 +61,7 @@ class Profiler:
     def __init__(self, manager, max_samples=config.profiler.max_samples, refresh_rate=config.profiler.update_delay, smoothing_factor=0.15):
         self.manager = manager
         self.data = collections.defaultdict(lambda: collections.deque(maxlen=max_samples))
-        self.current = {}
+        self.thread_local = threading.local()
         self.lock = threading.Lock()
         self.visible = False
         self.running = True
@@ -85,6 +85,11 @@ class Profiler:
 
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
+
+    def _get_current_dict(self):
+        if not hasattr(self.thread_local, 'current'):
+            self.thread_local.current = {}
+        return self.thread_local.current
 
     def _get_color(self, key):
         return self.plotter._get_color(key)
@@ -140,8 +145,8 @@ class Profiler:
         )
 
         self.group_dropdown = pygame_gui.elements.UIDropDownMenu(
-            relative_rect=pygame.Rect((550, button_y), (150, 30)),
-            expansion_height_limit = 1000,
+            relative_rect=pygame.Rect((350, button_y), (150, 30)),
+            expansion_height_limit=1000,
             options_list=self.plotter.get_available_groups(),
             starting_option="All",
             manager=self.manager,
@@ -173,7 +178,7 @@ class Profiler:
         self.group_buttons.clear()
 
         groups = self.plotter.get_available_groups()
-        if len(groups) <= 1:  # Только "All"
+        if len(groups) <= 1:
             return
 
         x_offset = 3
@@ -260,48 +265,43 @@ class Profiler:
     def start(self, key, group=None):
         if self.paused:
             return
-        self.current[key] = {"time": time.perf_counter(), "group": group}
+        current = self._get_current_dict()
+        current[key] = {"time": time.perf_counter(), "group": group}
 
     def stop(self, key):
-        if key in self.current:
-            start_data = self.current[key]
-            elapsed = (time.perf_counter() - start_data["time"]) * 1000
-            group = start_data["group"]
+        current = self._get_current_dict()
+        if key not in current:
+            return
+        start_data = current[key]
+        elapsed = (time.perf_counter() - start_data["time"]) * 1000
+        group = start_data["group"]
 
-            if self.lock.acquire(blocking=False):
-                try:
-                    self.plotter.add_data(key, elapsed, group)
-                    self.needs_update = True
-
-                    if group and group not in self.group_buttons:
-                        self._update_group_controls()
-                        self._update_dropdown()
-
-                finally:
-                    self.lock.release()
-            del self.current[key]
+        if self.lock.acquire(blocking=False):
+            try:
+                self.plotter.add_data(key, elapsed, group)
+                self.needs_update = True
+                if group and group not in self.group_buttons:
+                    self._update_group_controls()
+                    self._update_dropdown()
+            finally:
+                self.lock.release()
+        del current[key]
 
     @profile("profiler_update")
     def run(self):
-        """Оптимизированный основной цикл"""
-
         while self.running:
-
             if self.visible and not self.paused and self.needs_update:
                 current_time = time.perf_counter()
                 if current_time - self.last_update_time >= self.refresh_rate:
                     self.update_graph()
                     self.last_update_time = current_time
                     self.needs_update = False
-
             sleep_time = config.profiler.update_delay if self.visible else 0.5
             time.sleep(sleep_time)
 
     def update_graph(self):
-        """Обновить график только при необходимости"""
         if not self.image_element:
             return
-
         if self.lock.acquire(blocking=False):
             try:
                 self.image_element.set_image(self.plotter.get_surface())
@@ -334,7 +334,6 @@ class Profiler:
         self.running = False
         if self.thread.is_alive():
             self.thread.join(timeout=1.0)
-
         global _global_profiler
         if _global_profiler is self:
             _global_profiler = None

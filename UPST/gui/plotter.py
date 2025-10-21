@@ -2,7 +2,7 @@ import collections
 import pygame
 
 class Plotter:
-    def __init__(self, surface_size, max_samples=120, smoothing_factor=0.15, font_size=16, sort_by_value=False):
+    def __init__(self, surface_size, max_samples=120, smoothing_factor=0.15, font_size=16, sort_by_value=True):
         self.surface_size = surface_size
         self.max_samples = int(max_samples) if max_samples else 120
         self.smoothing_factor = smoothing_factor
