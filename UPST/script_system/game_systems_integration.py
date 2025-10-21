@@ -5,7 +5,7 @@ import time
 import random
 from typing import Dict, Any, List, Optional, Tuple, Union
 import numpy as np
-from UPST.config import Config
+from UPST.config import config
 
 
 class GizmosAPI:

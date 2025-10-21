@@ -1,6 +1,6 @@
 import pymunk
 import pygame
-from UPST.config import Config
+from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
 
 class InputHandler:

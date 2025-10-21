@@ -21,7 +21,7 @@ if IS_LINUX:
         IS_LINUX = False
 
 
-from UPST.config import Config
+from UPST.config import config
 from UPST.gizmos.gizmos_manager import Gizmos
 from UPST.modules.profiler import profile
 
@@ -35,14 +35,14 @@ class GridManager:
         self.grid_color_minor = (40, 40, 40, 255)
         self.grid_color_origin = (120, 120, 120, 255)
 
-        self.base_grid_size = Config.grid.base_size
-        self.major_grid_multiplier = Config.grid.major_multiplier
-        self.min_pixel_spacing = Config.grid.min_pixel_spacing
-        self.max_pixel_spacing = Config.grid.max_pixel_spacing
+        self.base_grid_size = config.grid.base_size
+        self.major_grid_multiplier = config.grid.major_multiplier
+        self.min_pixel_spacing = config.grid.min_pixel_spacing
+        self.max_pixel_spacing = config.grid.max_pixel_spacing
 
-        self.minor_line_thickness = Config.grid.minor_line_thickness
-        self.major_line_thickness = Config.grid.major_line_thickness
-        self.origin_line_thickness = Config.grid.origin_line_thickness
+        self.minor_line_thickness = config.grid.minor_line_thickness
+        self.major_line_thickness = config.grid.major_line_thickness
+        self.origin_line_thickness = config.grid.origin_line_thickness
 
         self.ruler_font = pygame.font.SysFont("Consolas", 12)
 
@@ -258,8 +258,8 @@ class GridManager:
             self.grid_color_origin = origin_color
 
     def set_theme_colors(self, theme_name):
-        if theme_name in Config.world.themes:
-            theme = Config.world.themes[theme_name]
+        if theme_name in config.world.themes:
+            theme = config.world.themes[theme_name]
             bg_color = theme.background_color
             if sum(bg_color[:3]) > 382:
                 self.grid_color_minor = (60, 60, 60, 255)

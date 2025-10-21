@@ -1,7 +1,7 @@
 import pymunk
 import pygame
 from pymunk import Vec2d
-from UPST.config import Config
+from UPST.config import config
 import pymunk.pygame_util
 
 
@@ -22,16 +22,16 @@ class Camera:
         self.scaling = 1.0
         self.inverse_scaling = 1.0
         self.target_scaling = 1.0
-        self.smoothness = Config.camera.smoothness
-        self.shift_speed = Config.camera.shift_speed
+        self.smoothness = config.camera.smoothness
+        self.shift_speed = config.camera.shift_speed
 
         self.mouse_velocity = Vec2d(0, 0)
-        self.mouse_friction = Config.camera.mouse_friction
+        self.mouse_friction = config.camera.mouse_friction
 
         self.velocity = Vec2d(0, 0)
-        self.friction = Config.camera.friction
-        self.acceleration_factor = Config.camera.acceleration_factor
-        self.zoom_speed = Config.camera.zoom_speed
+        self.friction = config.camera.friction
+        self.acceleration_factor = config.camera.acceleration_factor
+        self.zoom_speed = config.camera.zoom_speed
 
         self.offset_x = 0.0
         self.offset_y = 0.0

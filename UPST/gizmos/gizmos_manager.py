@@ -6,7 +6,7 @@ from typing import List, Tuple, Optional, Dict, Callable
 import pygame
 import pygame.gfxdraw
 
-from UPST.config import Config
+from UPST.config import config
 from UPST.modules.profiler import profile
 
 
@@ -668,7 +668,7 @@ class GizmosManager:
             self.gizmos.append(gizmo)
 
     def draw_debug_gizmos(self):
-        if not Config.debug.gizmos:
+        if not config.debug.gizmos:
             return
         if hasattr(Gizmos, 'get_stats'):
             stats = Gizmos.get_stats()

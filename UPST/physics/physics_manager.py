@@ -1,4 +1,4 @@
-from UPST.config import Config
+from UPST.config import config
 import pymunk
 
 from UPST.debug.debug_manager import Debug
@@ -14,29 +14,29 @@ class PhysicsManager:
         Debug.log_info("PhysicsManager initialization started.", "Physics")
         self.app = game_app
         self.undo_redo_manager = undo_redo_manager
-        self.space = pymunk.Space(threaded=Config.physics.pymunk_threaded)
-        self.space.threads = Config.physics.pymunk_threads
-        self.space.iterations = Config.physics.iterations
-        self.space.sleep_time_threshold = Config.physics.sleep_time_threshold
+        self.space = pymunk.Space(threaded=config.physics.pymunk_threaded)
+        self.space.threads = config.physics.pymunk_threads
+        self.space.iterations = config.physics.iterations
+        self.space.sleep_time_threshold = config.physics.sleep_time_threshold
         self.static_body = self.space.static_body
-        self.simulation_frequency = Config.physics.simulation_frequency
+        self.simulation_frequency = config.physics.simulation_frequency
         self.running_physics = True
         self.static_lines = []
 
-        self.theme = Config.world.themes.get(self.app.world_theme)
+        self.theme = config.world.themes.get(self.app.world_theme)
         if not self.theme:
             Debug.log_warning(f"Theme '{self.app.world_theme}' not found, defaulting to Classic.", "Physics")
-            self.theme = Config.world.themes["Classic"]
+            self.theme = config.world.themes["Classic"]
         Debug.log_info(f"Physics space initialized with {self.space.threads} threads and {self.space.iterations} iterations.", "Physics")
 
-        if Config.app.create_base_world:
+        if config.app.create_base_world:
             self.create_base_world()
             Debug.log_info("Base world created.", "Physics")
 
     def create_base_world(self):
         Debug.log_info("Creating base world geometry and debug texts.", "Physics")
-        vertices = [(-10000, Config.app.screen_height - 200), (-10000, Config.app.screen_height),
-                    (10000, Config.app.screen_height), (10000, Config.app.screen_height - 200)]
+        vertices = [(-10000, config.app.screen_height - 200), (-10000, config.app.screen_height),
+                    (10000, config.app.screen_height), (10000, config.app.screen_height - 200)]
         floor = pymunk.Poly(self.static_body, vertices)
         floor.friction = 1.0
         floor.elasticity = 0.5
@@ -46,7 +46,7 @@ class PhysicsManager:
 
         Gizmos.draw_text(
             position=(950, 350),
-            text="Welcome to the " + Config.app.version + "!",
+            text="Welcome to the " + config.app.version + "!",
             font_name="Consolas",
             font_size=40,
             font_world_space=True,
@@ -56,7 +56,7 @@ class PhysicsManager:
         )
         Gizmos.draw_text(
             position=(1000, 600),
-            text=Config.app.guide_text,
+            text=config.app.guide_text,
             font_name="Consolas",
             font_size=30,
             font_world_space=True,
@@ -66,7 +66,7 @@ class PhysicsManager:
         )
         Gizmos.draw_text(
             position=(1000, 600),
-            text=Config.app.guide_text,
+            text=config.app.guide_text,
             font_name="Consolas",
             font_size=30,
             font_world_space=True,

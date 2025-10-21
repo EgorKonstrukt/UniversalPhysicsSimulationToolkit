@@ -2,7 +2,7 @@ import traceback
 import math
 import pymunk
 import random
-from UPST.config import Config
+from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
 
 
@@ -18,7 +18,7 @@ class ObjectSpawner:
 
 
     def get_random_color_from_theme(self):
-        theme = Config.world.themes.get(Config.world.current_theme, Config.world.themes["Classic"])
+        theme = config.world.themes.get(config.world.current_theme, config.world.themes["Classic"])
         r_range, g_range, b_range = theme.shape_color_range
         r = random.randint(r_range[0], r_range[1])
         g = random.randint(g_range[0], g_range[1])

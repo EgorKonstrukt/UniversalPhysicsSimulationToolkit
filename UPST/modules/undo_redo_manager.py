@@ -2,7 +2,7 @@ import pygame
 from UPST.debug.debug_manager import Debug, get_debug
 from UPST.gizmos.gizmos_manager import Gizmos
 import pickle
-from UPST.config import Config
+from UPST.config import config
 
 debug = get_debug()
 

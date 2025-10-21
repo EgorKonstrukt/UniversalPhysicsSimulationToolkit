@@ -7,9 +7,9 @@ import json
 @dataclass
 class PhysicsConfig:
     collision_type_default: int = 1
-    simulation_frequency: int = 100  # Hz
+    simulation_frequency: int = 100
     iterations: int = 512
-    sleep_time_threshold: float = 0.5  # seconds
+    sleep_time_threshold: float = 0.5
     pymunk_threaded: bool = True
     pymunk_threads: int = 2
 
@@ -28,7 +28,7 @@ class CameraConfig:
 
 @dataclass
 class ProfilerConfig:
-    update_delay: float = 0.016  # seconds (~60 FPS)
+    update_delay: float = 0.016
     max_samples: int = 200
     normal_size: Tuple[int, int] = (800, 400)
     paused: bool = False
@@ -37,7 +37,7 @@ class ProfilerConfig:
 class SynthesizerConfig:
     sample_rate: int = 44100
     buffer_size: int = 4096
-    volume: float = 0.5  # 0.0–1.0
+    volume: float = 0.5
 
 @dataclass
 class GridColorScheme:
@@ -67,7 +67,7 @@ class GridConfig:
     min_alpha: int = 30
     max_alpha: int = 255
     snap_to_grid_enabled: bool = False
-    snap_tolerance: int = 5  # pixels
+    snap_tolerance: int = 5
     max_lines: int = 1000
     skip_offscreen_lines: bool = True
 
@@ -114,6 +114,11 @@ class DebugConfig:
     draw_constraints: bool = True
     draw_body_outlines: bool = True
     draw_center_of_mass: bool = True
+    show_performance: bool = True
+    show_physics_debug: bool = True
+    show_camera_debug: bool = True
+    show_snapshots_debug: bool = True
+    show_console: bool = True
 
 @dataclass
 class AppConfig:
@@ -154,32 +159,45 @@ class AppConfig:
     ])
 
 class Config:
-    """
-    Centralized, structured, and serializable configuration container.
-    """
-    app = AppConfig()
-    physics = PhysicsConfig()
-    camera = CameraConfig()
-    profiler = ProfilerConfig()
-    synthesizer = SynthesizerConfig()
-    grid = GridConfig()
-    world = WorldConfig()
-    input = InputConfig()
-    debug = DebugConfig()
+    _default_path = "config.json"
+
+    def __init__(self,
+                 app: AppConfig = None,
+                 physics: PhysicsConfig = None,
+                 camera: CameraConfig = None,
+                 profiler: ProfilerConfig = None,
+                 synthesizer: SynthesizerConfig = None,
+                 grid: GridConfig = None,
+                 world: WorldConfig = None,
+                 input: InputConfig = None,
+                 debug: DebugConfig = None):
+        self.app = app or AppConfig()
+        self.physics = physics or PhysicsConfig()
+        self.camera = camera or CameraConfig()
+        self.profiler = profiler or ProfilerConfig()
+        self.synthesizer = synthesizer or SynthesizerConfig()
+        self.grid = grid or GridConfig()
+        self.world = world or WorldConfig()
+        self.input = input or InputConfig()
+        self.debug = debug or DebugConfig()
 
     @classmethod
-    def load_from_file(cls, path: str = "config.json") -> "Config":
+    def load_from_file(cls, path: str = None) -> "Config":
+        path = path or cls._default_path
         if not os.path.exists(path):
-            instance = cls()
-            instance.save_to_file(path)
-            return instance
+            default_instance = cls()
+            default_instance.save_to_file(path)
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return cls.from_dict(data)
 
-    def save_to_file(self, path: str = "config.json") -> None:
+    def save_to_file(self, path: str = None) -> None:
+        path = path or self._default_path
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=4, ensure_ascii=False)
+
+    def save(self) -> None:
+        self.save_to_file()
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -241,3 +259,5 @@ class Config:
             return 0.1
         else:
             return 1.0
+
+config = Config()

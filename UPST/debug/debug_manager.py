@@ -6,6 +6,7 @@ from enum import Enum
 from dataclasses import dataclass
 from collections import defaultdict, deque
 import json
+from UPST.config import config
 
 _debug_instance = None
 
@@ -122,7 +123,7 @@ class DebugManager:
             print(f"Failed to save log entry: {e}")
 
     def draw_console(self, screen: pygame.Surface):
-        if not self.show_console:
+        if not config.debug.show_console:
             return
 
         screen_width = screen.get_width()
@@ -267,8 +268,9 @@ class DebugManager:
                 self.clear_logs()
 
     def toggle_console(self):
-        self.show_console = not self.show_console
-        self.log(LogLevel.INFO, f"Console {'enabled' if self.show_console else 'disabled'}", "Debug")
+        config.debug.show_console = not config.debug.show_console
+        config.save()
+        self.log(LogLevel.INFO, f"Console {'enabled' if config.debug.show_console else 'disabled'}", "Debug")
 
     def toggle_performance(self):
         self.show_performance = not self.show_performance

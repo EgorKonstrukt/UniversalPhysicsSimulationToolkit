@@ -1,5 +1,5 @@
 import pygame
-from UPST.config import Config
+from UPST.config import config
 import subprocess
 
 

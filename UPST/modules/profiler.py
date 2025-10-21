@@ -7,7 +7,7 @@ import pygame.gfxdraw
 from UPST.gui.plotter import Plotter
 from contextlib import contextmanager
 # from UPST.gizmos_manager import Gizmos
-from UPST.config import Config
+from UPST.config import config
 
 _global_profiler = None
 
@@ -58,18 +58,18 @@ def profile_context(key, group=None):
 
 
 class Profiler:
-    def __init__(self, manager, max_samples=Config.profiler.max_samples, refresh_rate=Config.profiler.max_samples, smoothing_factor=0.15):
+    def __init__(self, manager, max_samples=config.profiler.max_samples, refresh_rate=config.profiler.max_samples, smoothing_factor=0.15):
         self.manager = manager
         self.data = collections.defaultdict(lambda: collections.deque(maxlen=max_samples))
         self.current = {}
         self.lock = threading.Lock()
         self.visible = False
         self.running = True
-        self.paused = Config.profiler.paused
+        self.paused = config.profiler.paused
         self.refresh_rate = refresh_rate
         self.max_samples = max_samples
         self.smoothing_factor = smoothing_factor
-        self.surface_size = Config.profiler.normal_size
+        self.surface_size = config.profiler.normal_size
         self.plotter = Plotter(self.surface_size, max_samples, smoothing_factor, sort_by_value=False)
         self.window = None
         self.tooltip_label = None
@@ -102,7 +102,7 @@ class Profiler:
             return
 
         self.window = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect((Config.app.screen_width / 2 - 400, 10),
+            rect=pygame.Rect((config.app.screen_width / 2 - 400, 10),
                              (self.surface_size[0] + 40, self.surface_size[1] + 150)),
             manager=self.manager,
             window_display_title='SysProfiler',
@@ -294,7 +294,7 @@ class Profiler:
                     self.last_update_time = current_time
                     self.needs_update = False
 
-            sleep_time = Config.profiler.update_delay if self.visible else 0.5
+            sleep_time = config.profiler.update_delay if self.visible else 0.5
             time.sleep(sleep_time)
 
     def update_graph(self):
