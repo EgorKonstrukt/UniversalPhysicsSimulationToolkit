@@ -41,6 +41,7 @@ class ConsoleGUI:
             'text_debug': (200, 200, 200),
             'prompt': (100, 200, 255)
         }
+
         
         self.setup_ui_elements()
         self.setup_default_commands()
