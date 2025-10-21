@@ -45,7 +45,6 @@ class ConsoleGUI:
         self.setup_ui_elements()
         self.setup_default_commands()
         
-        # Register as debug listener
         self.debug_manager.add_log_listener(self.on_log_entry)
         
     def setup_ui_elements(self):
