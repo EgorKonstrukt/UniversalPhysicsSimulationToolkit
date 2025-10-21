@@ -296,7 +296,7 @@ class Profiler:
                     self.last_update_time = current_time
                     self.needs_update = False
 
-            sleep_time = 0.1 if self.visible else 0.5
+            sleep_time = 0.016 if self.visible else 0.5
             time.sleep(sleep_time)
 
     def update_graph(self):

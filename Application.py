@@ -267,7 +267,6 @@ class Application:
             self.draw_script_system_info()
 
 
-
         pygame.display.flip()
 
         draw_time = pygame.time.get_ticks() - start_time
