@@ -2,3 +2,5 @@
 /core_main.exe
 /debug_log.txt
 /venv/
+/__pycache__
+/UPST/__pycache__
