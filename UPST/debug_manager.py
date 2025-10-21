@@ -42,11 +42,11 @@ class DebugManager:
         self.frame_count = 0
         self.start_time = time.time()
 
-        self.show_console = False
-        self.show_performance = False
-        self.show_physics_debug = False
-        self.show_camera_debug = False
-        self.show_snapshots_debug = False
+        self.show_console = True
+        self.show_performance = True
+        self.show_physics_debug = True
+        self.show_camera_debug = True
+        self.show_snapshots_debug = True
 
         self.performance_history = defaultdict(lambda: deque(maxlen=60))  # 60 кадров истории
         self.performance_counters = defaultdict(float)
@@ -227,13 +227,14 @@ class DebugManager:
         bg_surface = pygame.Surface((240, 120), pygame.SRCALPHA)
         bg_surface.fill((0, 0, 0, 180))
         screen.blit(bg_surface, (x, y))
+        pos = camera.position
         camera_text = [
             "Camera Debug:",
-            f"Position: ({camera.screen_to_world[0]:.1f}, {camera.screen_to_world[1]:.1f})",
-            f"Zoom: {camera.zoom:.2f}",
-            f"Target Zoom: {camera.target_zoom:.2f}",
+            f"Position: ({pos[0]:.1f}, {pos[1]:.1f})",
+            f"Zoom: {camera.scaling:.2f}",
+            f"Target Zoom: {camera.target_scaling:.2f}",
             f"Rotation: {camera.rotation:.1f}°",
-            f"Target Rotation: {camera.target_rotation:.1f}°",
+            # f"Target Rotation: {camera.target_rotation:.1f}°",
             f"Scaling: {camera.target_scaling:.2f}"
         ]
         for i, text in enumerate(camera_text):

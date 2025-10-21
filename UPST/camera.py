@@ -226,3 +226,7 @@ class Camera:
     def screen_to_world_y(self, screen_y):
         """Преобразует экранную координату Y в мировую координату Y"""
         return ((self.screen_height // 2 - screen_y) / self.target_scaling) + self.offset_y
+
+    @property
+    def position(self):
+        return (-self.translation.tx, -self.translation.ty)
