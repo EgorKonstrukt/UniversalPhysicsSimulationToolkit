@@ -58,18 +58,18 @@ def profile_context(key, group=None):
 
 
 class Profiler:
-    def __init__(self, manager, max_samples=200, refresh_rate=0.016, smoothing_factor=0.15):
+    def __init__(self, manager, max_samples=Config.PROFILER_MAX_SAMPLES, refresh_rate=Config.PROFILER_UPDATE_DELAY, smoothing_factor=0.15):
         self.manager = manager
         self.data = collections.defaultdict(lambda: collections.deque(maxlen=max_samples))
         self.current = {}
         self.lock = threading.Lock()
         self.visible = False
         self.running = True
-        self.paused = False
+        self.paused = Config.PROFILER_PAUSED
         self.refresh_rate = refresh_rate
         self.max_samples = max_samples
         self.smoothing_factor = smoothing_factor
-        self.surface_size = (800, 400)
+        self.surface_size = Config.PROFILER_NORMAL_SIZE
         self.plotter = Plotter(self.surface_size, max_samples, smoothing_factor, sort_by_value=False)
         self.window = None
         self.tooltip_label = None
@@ -268,13 +268,11 @@ class Profiler:
             elapsed = (time.perf_counter() - start_data["time"]) * 1000
             group = start_data["group"]
 
-            # Используем try-lock для избежания блокировок
             if self.lock.acquire(blocking=False):
                 try:
                     self.plotter.add_data(key, elapsed, group)
                     self.needs_update = True
 
-                    # Обновить UI групп если появилась новая группа
                     if group and group not in self.group_buttons:
                         self._update_group_controls()
                         self._update_dropdown()
@@ -296,7 +294,7 @@ class Profiler:
                     self.last_update_time = current_time
                     self.needs_update = False
 
-            sleep_time = 0.016 if self.visible else 0.5
+            sleep_time = Config.PROFILER_UPDATE_DELAY if self.visible else 0.5
             time.sleep(sleep_time)
 
     def update_graph(self):

@@ -170,10 +170,10 @@ class Application:
         return pygame.display.set_mode((Config.SCREEN_WIDTH, Config.SCREEN_HEIGHT), flags)
 
     def run(self):
-        synthesizer.play_note("A#4", duration=0.1, waveform="sine",
+        synthesizer.play_note("A3", duration=0.1, waveform="sine",
                               adsr=(0.01, 0.1, 0.7, 0.1), volume=0.5,
                               pan=0.0)
-        
+
         while self.running:
             time_delta = self.clock.tick(Config.CLOCK_TICKRATE) / 1000.0
 

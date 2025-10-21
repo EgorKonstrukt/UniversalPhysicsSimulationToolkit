@@ -7,6 +7,7 @@ import math
 from UPST.modules.profiler import profile
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos
+from UPST.config import Config
 
 class SoundSynthesizer:
     _instance = None
@@ -14,14 +15,15 @@ class SoundSynthesizer:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
-    def __init__(self, sample_rate=44100, buffer_size=4024):
+    def __init__(self, sample_rate=Config.SYNTHESIZER_SAMPLE_RATE,
+                 buffer_size=Config.SYNTHESIZER_BUFFER_SIZE):
         if getattr(self, '_initialized', False):
             return
         pygame.mixer.pre_init(sample_rate, -16, 2, buffer_size)
         pygame.mixer.init()
         self.sample_rate = sample_rate
         self.buffer_size = buffer_size
-        self.volume = 0.5
+        self.volume = Config.SYNTHESIZER_VOLUME
         self.effects = {
             'vibrato_rate': 5.0,
             'vibrato_depth': 0.002,
@@ -209,8 +211,8 @@ class SoundSynthesizer:
         if not Gizmos:
             return
 
-        screen_width = 800
-        screen_height = 600
+        screen_width = Config.SCREEN_WIDTH
+        screen_height = Config.SCREEN_HEIGHT
         surf = pygame.display.get_surface()
         if surf:
             screen_width, screen_height = surf.get_size()

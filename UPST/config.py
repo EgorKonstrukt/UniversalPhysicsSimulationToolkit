@@ -48,6 +48,19 @@ class Config:
     CAMERA_MOUSE_FRICTION = 0.75
     ##------------------------------------------
 
+    ##---------------IN-GAME-PROFILER---------------------
+    PROFILER_UPDATE_DELAY = 0.016 #ms
+    PROFILER_MAX_SAMPLES = 200
+    PROFILER_NORMAL_SIZE = (800, 400)
+    PROFILER_PAUSED = False
+    ##------------------------------------------
+
+    ##---------------SYNTHESIZER---------------------
+    SYNTHESIZER_SAMPLE_RATE = 44100
+    SYNTHESIZER_BUFFER_SIZE = 4096
+    SYNTHESIZER_VOLUME = 0.5
+    ##------------------------------------------
+
     DEBUG_DRAW_COLLISION_POINTS = True
     DEBUG_DRAW_CONSTRAINTS = True
     DEBUG_DRAW_BODY_OUTLINES = True
