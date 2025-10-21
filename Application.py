@@ -165,18 +165,6 @@ class Application:
         synthesizer.play_note("A#4", duration=0.1, waveform="sine",
                               adsr=(0.01, 0.1, 0.7, 0.1), volume=0.5,
                               pan=0.0)
-
-
-        print("\nUPST with Python Scripting System ready!")
-        print("Available scripting features:")
-        print("- In-game Python script editor")
-        print("- IDLE IDE integration")
-        print("- Script objects in game world")
-        print("- Async script execution")
-        print("- Full access to game systems")
-        print("- Script save/load system")
-        print("- Performance monitoring")
-        print("- Event system")
         
         while self.running:
             time_delta = self.clock.tick(Config.CLOCK_TICKRATE) / 1000.0
@@ -351,7 +339,7 @@ if __name__ == '__main__':
     try:
         game_app = Application()
 
-        game_app.create_example_script_world()
+        # game_app.create_example_script_world()
         
         game_app.run()
         

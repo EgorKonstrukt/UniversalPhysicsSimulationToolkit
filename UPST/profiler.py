@@ -70,7 +70,7 @@ class Profiler:
         self.lock = threading.Lock()
         self.visible = False
         self.running = True
-        self.paused = True
+        self.paused = False
         self.refresh_rate = refresh_rate
         self.max_samples = max_samples
         self.smoothing_factor = smoothing_factor

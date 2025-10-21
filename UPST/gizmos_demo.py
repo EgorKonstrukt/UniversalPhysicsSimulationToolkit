@@ -3038,7 +3038,6 @@ class GizmosDemo:
             self._stirling_volume_history.pop(0)
             self._stirling_work_history.pop(0)
 
-        # --- Визуализация Gizmos (по мотивам вашего примера) ---
         # размеры для рисования (пиксели) — масштабируем для удобства отображения
         cylinder_width = 80
         cylinder_height = 150
