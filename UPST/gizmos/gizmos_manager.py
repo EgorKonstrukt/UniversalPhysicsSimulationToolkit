@@ -174,7 +174,7 @@ class GizmosManager:
                 gizmo._is_visible = False
                 self.stats['culled_frustum'] += 1
                 return False
-        if self.distance_culling_enabled and gizmo.cull_distance > 0:
+        if self.distance_culling_enabled and gizmo.cull_distance > 0 and gizmo.world_space:
             dx = gizmo.position[0] - self._last_camera_pos[0]
             dy = gizmo.position[1] - self._last_camera_pos[1]
             if dx * dx + dy * dy > gizmo.cull_distance * gizmo.cull_distance:
@@ -191,19 +191,18 @@ class GizmosManager:
         return True
 
     def _get_gizmo_screen_size(self, gizmo: GizmoData) -> float:
-        if gizmo.gizmo_type in [GizmoType.POINT, GizmoType.CIRCLE, GizmoType.CROSS]:
-            return gizmo.size * self.camera.target_scaling if gizmo.world_space else gizmo.size
+        scale = self.camera.target_scaling if gizmo.world_space else 1.0
+        if gizmo.gizmo_type in (GizmoType.POINT, GizmoType.CIRCLE, GizmoType.CROSS):
+            return gizmo.size * scale
         if gizmo.gizmo_type == GizmoType.RECT:
-            w = gizmo.width * self.camera.target_scaling if gizmo.world_space else gizmo.width
-            h = gizmo.height * self.camera.target_scaling if gizmo.world_space else gizmo.height
-            return max(w, h) * 0.5
-        if gizmo.gizmo_type in [GizmoType.LINE, GizmoType.ARROW] and gizmo.end_position:
+            return max(gizmo.width, gizmo.height) * scale * 0.5
+        if gizmo.gizmo_type in (GizmoType.LINE, GizmoType.ARROW) and gizmo.end_position:
             dx = gizmo.end_position[0] - gizmo.position[0]
             dy = gizmo.end_position[1] - gizmo.position[1]
-            length = math.hypot(dx, dy)
-            return length * self.camera.target_scaling * 0.5 if gizmo.world_space else length * 0.5
+            return math.hypot(dx, dy) * scale * 0.5
         if gizmo.gizmo_type == GizmoType.TEXT:
-            return gizmo.font_size * len(gizmo.text) * 0.5
+            fs = gizmo.font_size * (scale if gizmo.font_world_space else 1.0)
+            return fs * len(gizmo.text) * 0.3
         return 10.0
 
     def _get_temp_surface(self, alpha: int) -> pygame.Surface:
@@ -345,91 +344,83 @@ class GizmosManager:
     @profile("_draw_gizmo", "gizmos")
     def _draw_gizmo(self, gizmo: GizmoData, draw_options, alpha_used):
         pos = gizmo._screen_pos
+        surface = self.screen if gizmo.alpha == 255 else self._get_temp_surface(gizmo.alpha)
         if gizmo.alpha < 255:
-            surface = self._get_temp_surface(gizmo.alpha)
             alpha_used.add(gizmo.alpha)
-        else:
-            surface = self.screen
         color = gizmo.color
+        scale = self.camera.target_scaling if gizmo.world_space else 1.0
 
         if gizmo.gizmo_type == GizmoType.POINT:
-            r = int(gizmo.size)
-            if r <= 0:
-                return
-            pygame.gfxdraw.filled_circle(surface, int(pos[0]), int(pos[1]), r, color)
+            r = int(gizmo.size * scale)
+            if r > 0:
+                pygame.gfxdraw.filled_circle(surface, int(pos[0]), int(pos[1]), r, color)
 
         elif gizmo.gizmo_type == GizmoType.LINE and gizmo.end_position:
-            end_pos = gizmo.end_position
-            if gizmo.world_space:
-                end_pos = self.camera.world_to_screen(end_pos)
-            self._draw_line_gfx(surface, pos, end_pos, color, gizmo.thickness)
+            end_screen = self.camera.world_to_screen(gizmo.end_position) if gizmo.world_space else gizmo.end_position
+            self._draw_line_gfx(surface, pos, end_screen, color, gizmo.thickness)
 
         elif gizmo.gizmo_type == GizmoType.CIRCLE:
-            r = int(gizmo.size * self.camera.target_scaling) if gizmo.world_space else int(gizmo.size)
+            r = int(gizmo.size * scale)
             self._draw_circle_gfx(surface, pos, r, color, gizmo.filled, gizmo.thickness)
 
         elif gizmo.gizmo_type == GizmoType.RECT:
-            w = int(gizmo.width * self.camera.target_scaling) if gizmo.world_space else int(gizmo.width)
-            h = int(gizmo.height * self.camera.target_scaling) if gizmo.world_space else int(gizmo.height)
+            w = int(gizmo.width * scale)
+            h = int(gizmo.height * scale)
             rect = pygame.Rect(0, 0, w, h)
             rect.center = pos
             self._draw_rect_gfx(surface, rect, color, gizmo.filled, gizmo.thickness)
 
         elif gizmo.gizmo_type == GizmoType.ARROW and gizmo.end_position:
-            self._draw_arrow_gfx(surface, pos, gizmo.end_position, color, gizmo.thickness, draw_options,
-                                 gizmo.world_space)
+            end_screen = self.camera.world_to_screen(gizmo.end_position) if gizmo.world_space else gizmo.end_position
+            self._draw_line_gfx(surface, pos, end_screen, color, gizmo.thickness)
+            dx = end_screen[0] - pos[0]
+            dy = end_screen[1] - pos[1]
+            length = math.hypot(dx, dy)
+            if length > 0:
+                nx, ny = dx / length, dy / length
+                arrow_size = min(length * 0.3, 20)
+                left = (end_screen[0] - arrow_size * (nx * 0.8 + ny * 0.6),
+                        end_screen[1] - arrow_size * (ny * 0.8 - nx * 0.6))
+                right = (end_screen[0] - arrow_size * (nx * 0.8 - ny * 0.6),
+                         end_screen[1] - arrow_size * (ny * 0.8 + nx * 0.6))
+                self._draw_line_gfx(surface, end_screen, left, color, gizmo.thickness)
+                self._draw_line_gfx(surface, end_screen, right, color, gizmo.thickness)
 
         elif gizmo.gizmo_type == GizmoType.CROSS:
-            self._draw_cross_gfx(surface, pos, color, gizmo.size, gizmo.thickness, gizmo.world_space)
+            s = gizmo.size * scale
+            h = s * 0.5
+            self._draw_line_gfx(surface, (pos[0] - h, pos[1]), (pos[0] + h, pos[1]), color, gizmo.thickness)
+            self._draw_line_gfx(surface, (pos[0], pos[1] - h), (pos[0], pos[1] + h), color, gizmo.thickness)
 
         elif gizmo.gizmo_type == GizmoType.TEXT:
-            font_size = int(
-                gizmo.font_size * self.camera.target_scaling) if gizmo.font_world_space and gizmo.world_space else gizmo.font_size
+            font_size = int(gizmo.font_size * (scale if gizmo.font_world_space else 1.0))
             txt_surf = self._get_text_surface(gizmo.text, color, gizmo.font_name, font_size)
             surf_rect = txt_surf.get_rect(center=pos)
-
-            if gizmo.background_color is not None:
-                bg_rect = surf_rect.inflate(4, 4)
-                bg_surface = pygame.Surface(bg_rect.size, pygame.SRCALPHA)
-                bg_surface.fill(gizmo.background_color)
-                surface.blit(bg_surface, bg_rect.topleft)
-
+            if gizmo.background_color:
+                bg = pygame.Surface((surf_rect.width + 4, surf_rect.height + 4), pygame.SRCALPHA)
+                bg.fill(gizmo.background_color)
+                surface.blit(bg, (surf_rect.left - 2, surf_rect.top - 2))
             surface.blit(txt_surf, surf_rect)
 
         elif gizmo.gizmo_type == GizmoType.BUTTON:
-            w = int(gizmo.width * (self.camera.target_scaling if gizmo.world_space else 1))
-            h = int(gizmo.height * (self.camera.target_scaling if gizmo.world_space else 1))
+            w = int(gizmo.width * scale)
+            h = int(gizmo.height * scale)
             rect = pygame.Rect(0, 0, w, h)
             rect.center = pos
-
             mouse_pos = pygame.mouse.get_pos()
             is_pressed = pygame.mouse.get_pressed()[0] and rect.collidepoint(mouse_pos)
-
-            if is_pressed and gizmo.pressed_background_color:
-                bg_color = gizmo.pressed_background_color
-            elif gizmo.background_color:
-                bg_color = gizmo.background_color
-            else:
-                bg_color = (50, 50, 50, 255)
-
-            if len(bg_color) == 4:
-                bg_surface = pygame.Surface((w, h), pygame.SRCALPHA)
-                bg_surface.fill(bg_color)
-                surface.blit(bg_surface, rect.topleft)
-            else:
-                pygame.draw.rect(surface, bg_color, rect)
-
-            border_color = gizmo.color
+            bg_color = gizmo.pressed_background_color if is_pressed and gizmo.pressed_background_color else gizmo.background_color
+            if bg_color:
+                bg_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+                bg_surf.fill(bg_color)
+                surface.blit(bg_surf, rect.topleft)
             for i in range(gizmo.border_thickness):
                 border_rect = pygame.Rect(rect.x - i, rect.y - i, rect.width + 2 * i, rect.height + 2 * i)
-                pygame.draw.rect(surface, border_color, border_rect, 1)
-            font_size = int(
-                gizmo.font_size * (self.camera.target_scaling if gizmo.font_world_space and gizmo.world_space else 1))
-            font = self.get_font(gizmo.font_name, font_size)
-            txt_surf = font.render(gizmo.text, True, gizmo.color)
+                pygame.draw.rect(surface, color, border_rect, 1)
+            font_size = int(gizmo.font_size * (scale if gizmo.font_world_space else 1.0))
+            txt_surf = self.get_font(gizmo.font_name, font_size).render(gizmo.text, True, color)
             txt_rect = txt_surf.get_rect(center=rect.center)
             surface.blit(txt_surf, txt_rect)
-
             self.stats['drawn_gizmos'] += 1
             return
 
@@ -573,7 +564,6 @@ class GizmosManager:
     def _draw_arrow_gfx(self, surface, start_pos, end_pos, color, thickness, draw_options, world_space):
         end_screen = self.camera.world_to_screen(end_pos) if world_space else end_pos
         self._draw_line_gfx(surface, start_pos, end_screen, color, thickness)
-
         dx = end_screen[0] - start_pos[0]
         dy = end_screen[1] - start_pos[1]
         length = math.hypot(dx, dy)

@@ -25,6 +25,8 @@ from UPST.modules.undo_redo_manager import UndoRedoManager
 from UPST.sound.sound_manager import SoundManager
 from UPST.gui.console_gui import ConsoleGUI
 
+from UPST.gizmos.gizmos_manager import Gizmos
+
 from UPST.script_system.script_system_main import integrate_script_system
 
 
@@ -263,6 +265,8 @@ class Application:
 
         if self.script_system:
             self.draw_script_system_info()
+
+
 
         pygame.display.flip()
 

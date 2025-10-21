@@ -170,17 +170,18 @@ class ScriptEditorWindow:
         
     def is_visible(self):
         return self.window.visible
-        
+
     def refresh_script_list(self):
         script_objects = self.script_object_manager.get_all_script_objects()
-        
         options = ['New Script'] + [f"{obj.name} ({obj.id[:8]})" for obj in script_objects]
         self.script_dropdown.options_list = options
         self.script_dropdown.selected_option = options[0]
-        
-        object_items = [f"{obj.name} ({'Running' if obj.is_running else 'Stopped'})"
-                       for obj in script_objects]
-        self.objects_list.set_item_list(object_items)
+
+        display_items = [f"{obj.name} ({'Running' if obj.is_running else 'Stopped'})"
+                         for obj in script_objects]
+        self.objects_list.set_item_list(display_items)
+        self._object_list_cache = script_objects
+        self.objects_list.unselect_all()
         
     def handle_event(self, event):
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
@@ -267,33 +268,31 @@ class ScriptEditorWindow:
     def _create_script_object(self):
         name = self.name_input.get_text() or "New Script"
         code = self.code_editor
-        
-        # Get mouse position for placement
         mouse_pos = pygame.mouse.get_pos()
-        world_pos = (mouse_pos[0] - 400, mouse_pos[1] - 300)  # Rough conversion
-        
+        world_pos = (mouse_pos[0] - 400, mouse_pos[1] - 300)
         script_obj = self.script_object_manager.create_script_object(
             position=world_pos,
             name=name,
             code=code,
             auto_run=False
         )
-        
         self.current_script = script_obj
         self.refresh_script_list()
         self.output_box.set_text(f"Created script object: {script_obj.name}")
-        
+
     def _delete_selected_object(self):
-        selected_items = self.objects_list.get_single_selection()
-        if selected_items:
-            script_objects = self.script_object_manager.get_all_script_objects()
-            if script_objects:
-                selected_index = self.objects_list.item_list.index(selected_items)
-                if 0 <= selected_index < len(script_objects):
-                    script_obj = script_objects[selected_index]
-                    self.script_object_manager.remove_script_object(script_obj.id)
-                    self.refresh_script_list()
-                    self.output_box.set_text(f"Deleted script object: {script_obj.name}")
+        selected_text = self.objects_list.get_single_selection()
+        if not selected_text:
+            return
+        try:
+            idx = self.objects_list.item_list.index(selected_text)
+        except ValueError:
+            return
+        if 0 <= idx < len(self._object_list_cache):
+            script_obj = self._object_list_cache[idx]
+            self.script_object_manager.remove_script_object(script_obj.id)
+            self.refresh_script_list()
+            self.output_box.set_text(f"Deleted script object: {script_obj.name}")
                     
     def _load_selected_script(self):
         selected = self.script_dropdown.selected_option
