@@ -48,7 +48,6 @@ class IDLEBridge:
         self.server_thread = threading.Thread(target=server_worker, daemon=True)
         self.server_thread.start()
         
-        # Wait for server to start
         time.sleep(0.1)
         
     def _handle_client(self, client):
