@@ -4,9 +4,9 @@ import threading
 import time
 from scipy import signal
 import math
-from UPST.profiler import profile, profile_context, start_profiling, stop_profiling
-from UPST.debug_manager import Debug
-from UPST.gizmos_manager import Gizmos
+from UPST.modules.profiler import profile
+from UPST.debug.debug_manager import Debug
+from UPST.gizmos.gizmos_manager import Gizmos
 
 class SoundSynthesizer:
     _instance = None

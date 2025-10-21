@@ -1,17 +1,9 @@
-from inspect import Traceback
-from traceback import TracebackException
-
 import pygame
 import pygame_gui
-from pygame_gui.elements import (UIWindow, UIButton, UITextEntryLine, UITextBox, 
-                                UILabel, UIDropDownMenu, UISelectionList, UIPanel,
-                                UIHorizontalSlider, UIVerticalScrollBar)
-from pygame_gui.windows import UIFileDialog
-import os
-import json
-from typing import Dict, Any, Optional, List
-import time
-from UPST.debug_manager import Debug, get_debug
+from pygame_gui.elements import (UIWindow, UIButton, UITextEntryLine, UITextBox,
+                                 UILabel, UIDropDownMenu, UISelectionList, UIPanel)
+from UPST.debug.debug_manager import Debug
+
 
 class ScriptEditorWindow:
     def __init__(self, manager, script_object_manager, idle_integration):

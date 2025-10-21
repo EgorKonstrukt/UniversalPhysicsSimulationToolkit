@@ -1,17 +1,15 @@
 import pygame
 import pygame_gui
 from pygame_gui.elements import UIDropDownMenu, UIHorizontalSlider, UILabel, UIButton, UITextEntryLine, UIImage, \
-    UIPanel, UITextBox, UISelectionList
+    UIPanel
 from pygame_gui.windows import UIConsoleWindow
-import os
 from UPST.config import Config
-import pymunk
-from UPST.sound_synthesizer import synthesizer
-from UPST.profiler import profile, profile_context, start_profiling, stop_profiling
+from UPST.sound.sound_synthesizer import synthesizer
+from UPST.modules.profiler import profile
 import math
-from UPST.physics_debug_manager import PhysicsDebugSettings
-from UPST.contex_menu import ContextMenu
-from UPST.plotter import Plotter
+from UPST.physics.physics_debug_manager import PhysicsDebugSettings
+from UPST.gui.contex_menu import ContextMenu
+
 
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera,

@@ -5,7 +5,7 @@ import pymunk
 import pickle
 import traceback
 
-from UPST.debug_manager import Debug
+from UPST.debug.debug_manager import Debug
 
 class SaveLoadManager:
     def __init__(self, physics_manager, camera, ui_manager, sound_manager):

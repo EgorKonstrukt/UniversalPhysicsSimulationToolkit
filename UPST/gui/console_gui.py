@@ -1,9 +1,8 @@
 import pygame
 import pygame_gui
-from typing import List, Optional, Callable
+from typing import List, Callable
 from collections import deque
-import time
-from UPST.debug_manager import DebugManager, LogLevel, LogEntry
+from UPST.debug.debug_manager import DebugManager, LogLevel, LogEntry
 
 
 class ConsoleGUI:

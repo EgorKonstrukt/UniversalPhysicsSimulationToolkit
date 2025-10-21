@@ -3,14 +3,9 @@ import threading
 import collections
 import pygame
 import pygame_gui
-import psutil
-import pynvml
 import pygame.gfxdraw
-from UPST.config import Config
-from UPST.plotter import Plotter
-import weakref
+from UPST.gui.plotter import Plotter
 from contextlib import contextmanager
-from UPST.debug_manager import Debug
 # from UPST.gizmos_manager import Gizmos
 from UPST.config import Config
 

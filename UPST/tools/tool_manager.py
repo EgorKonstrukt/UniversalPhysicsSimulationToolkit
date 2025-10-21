@@ -1,9 +1,8 @@
 import pymunk
 import pygame
-from pygame_gui.elements import UIDropDownMenu, UIHorizontalSlider, UILabel, UIButton, UITextEntryLine, UIImage, \
-    UIPanel, UITextBox, UISelectionList
-from pygame_gui.windows import UIConsoleWindow
-from UPST.sound_synthesizer import synthesizer
+from pygame_gui.elements import UILabel, UIButton, UIImage, \
+    UIPanel
+from UPST.sound.sound_synthesizer import synthesizer
 
 
 class ToolManager:

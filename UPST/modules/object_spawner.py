@@ -2,10 +2,8 @@ import traceback
 import math
 import pymunk
 import random
-from pymunk import Vec2d
 from UPST.config import Config
-from UPST.gizmos_manager import Gizmos
-from UPST.sound_synthesizer import synthesizer
+from UPST.sound.sound_synthesizer import synthesizer
 
 
 class ObjectSpawner:

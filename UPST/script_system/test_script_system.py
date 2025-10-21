@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
 import sys
-import os
 import traceback
-import time
+
 
 def test_imports():
     """Тест импорта всех модулей системы скриптинга"""
@@ -284,7 +283,7 @@ def test_advanced_manager():
     print("\n=== Тестирование Advanced Manager ===")
     
     try:
-        from advanced_script_manager import AdvancedScriptManager, ScriptScheduler, ScriptEventSystem
+        from UPST.script_system.advanced_script_manager import AdvancedScriptManager, ScriptScheduler, ScriptEventSystem
         
         class MockEngine:
             def execute_script(self, script_id, code, async_exec=False):

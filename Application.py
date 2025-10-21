@@ -3,29 +3,29 @@ import ctypes
 import pygame
 
 from UI_manager import UIManager
-from UPST.camera import Camera
+from UPST.modules.camera import Camera
 from UPST.config import Config
-from UPST.console_handler import ConsoleHandler
-from UPST.debug_manager import DebugManager, Debug, set_debug
-from UPST.force_field_manager import ForceFieldManager
-from UPST.gizmos_demo import GizmosDemo
-from UPST.gizmos_manager import GizmosManager, set_gizmos
-from UPST.grid_manager import GridManager
-from UPST.input_handler import InputHandler
-from UPST.music_composer import InfiniteAmbientComposer
-from UPST.object_spawner import ObjectSpawner
-from UPST.physics_debug_manager import PhysicsDebugManager
-from UPST.physics_manager import PhysicsManager
-from UPST.plotter import Plotter
-from UPST.profiler import Profiler, profile
-from UPST.save_load_manager import SaveLoadManager
-from UPST.sound_synthesizer import synthesizer
-from UPST.tool_manager import ToolManager
-from UPST.snapshot_manager import SnapshotManager
-from UPST.undo_redo_manager import UndoRedoManager
-from sound_manager import SoundManager
+from UPST.modules.console_handler import ConsoleHandler
+from UPST.debug.debug_manager import DebugManager, Debug, set_debug
+from UPST.physics.force_field_manager import ForceFieldManager
+from UPST.demos.gizmos_demo import GizmosDemo
+from UPST.gizmos.gizmos_manager import GizmosManager, set_gizmos
+from UPST.modules.grid_manager import GridManager
+from UPST.modules.input_handler import InputHandler
+from UPST.modules.object_spawner import ObjectSpawner
+from UPST.physics.physics_debug_manager import PhysicsDebugManager
+from UPST.physics.physics_manager import PhysicsManager
+from UPST.gui.plotter import Plotter
+from UPST.modules.profiler import Profiler, profile
+from UPST.modules.save_load_manager import SaveLoadManager
+from UPST.sound.sound_synthesizer import synthesizer
+from UPST.tools.tool_manager import ToolManager
+from UPST.modules.snapshot_manager import SnapshotManager
+from UPST.modules.undo_redo_manager import UndoRedoManager
+from UPST.sound.sound_manager import SoundManager
+from UPST.gui.console_gui import ConsoleGUI
 
-from UPST.script_system_main import integrate_script_system
+from UPST.script_system.script_system_main import integrate_script_system
 
 
 class Application:
@@ -116,14 +116,20 @@ class Application:
         self.synthesizer = synthesizer
 
 
+
+
         self.physics_debug_manager = PhysicsDebugManager(self.physics_manager, self.camera, self.plotter)
         Debug.log("PhysicsDebugManager initialized successfully", "Init")
 
         self.ui_manager.set_physics_debug_manager(self.physics_debug_manager)
 
+
+
         self.gizmos_demo = GizmosDemo()
         set_debug(self.debug_manager)
         set_gizmos(self.gizmos_manager)
+
+        # self.console_gui = ConsoleGUI(ui_manager=self.ui_manager,debug_manager=self.debug_manager)
 
         self.profiler = Profiler(self.ui_manager.manager)
         Debug.log("Profiler initialized successfully", "Init")
@@ -212,9 +218,9 @@ class Application:
         self.force_field_manager.update(world_mouse_pos, self.screen)
         self.profiler.stop("force_field")
 
-        self.profiler.start("ui", "ui")
+        self.profiler.start("gui", "gui")
         self.ui_manager.update(time_delta, self.clock)
-        self.profiler.stop("ui")
+        self.profiler.stop("gui")
 
         if self.script_system:
             self.profiler.start("script_system", "scripting")

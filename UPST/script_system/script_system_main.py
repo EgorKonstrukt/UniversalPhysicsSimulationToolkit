@@ -1,12 +1,11 @@
-from UPST.script_engine import ScriptEngine, ScriptContext
-from UPST.script_object import ScriptObject, ScriptObjectManager
-from UPST.idle_integration import IDLEIntegrationManager
-from UPST.script_ui_manager import ScriptUIManager
-from UPST.script_save_integration import ScriptSaveManager, ScriptSaveIntegration
-from UPST.advanced_script_manager import AdvancedScriptManager
-from UPST.game_systems_integration import GameSystemsIntegration
+from UPST.script_system.script_engine import ScriptEngine
+from UPST.script_system.script_object import ScriptObjectManager
+from UPST.script_system.idle_integration import IDLEIntegrationManager
+from UPST.script_system.script_ui_manager import ScriptUIManager
+from UPST.script_system.script_save_integration import ScriptSaveManager, ScriptSaveIntegration
+from UPST.script_system.advanced_script_manager import AdvancedScriptManager
+from UPST.script_system.game_systems_integration import GameSystemsIntegration
 import pygame
-import time
 
 
 class ScriptSystemManager:

@@ -1,14 +1,11 @@
-from logging import exception
-
 import pygame
 import time
 import traceback
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Dict, Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass
 from collections import defaultdict, deque
 import json
-import os
 
 _debug_instance = None
 
@@ -62,9 +59,9 @@ class DebugManager:
             LogLevel.CRITICAL: (255, 0, 0)
         }
 
-        self.font_small = pygame.font.SysFont("Consolas", 14)
-        self.font_medium = pygame.font.SysFont("Consolas", 16)
-        self.font_large = pygame.font.SysFont("Consolas", 18)
+        self.font_small = pygame.font.SysFont("Consolas", 16)
+        self.font_medium = pygame.font.SysFont("Consolas", 18)
+        self.font_large = pygame.font.SysFont("Consolas", 22)
 
         self.console_height = 200
         self.console_alpha = 200
@@ -129,29 +126,31 @@ class DebugManager:
             return
 
         screen_width = screen.get_width()
-        console_rect = pygame.Rect(0, screen.get_height() - self.console_height,
-                                   screen_width, self.console_height)
+        header_height = 20
+        total_console_height = self.console_height + header_height
+        console_rect = pygame.Rect(0, screen.get_height() - total_console_height,
+                                   screen_width, total_console_height)
         console_surface = pygame.Surface((console_rect.width, console_rect.height), pygame.SRCALPHA)
         console_surface.fill((0, 0, 0, self.console_alpha))
-        screen.blit(console_surface, console_rect)
-        y_offset = console_rect.bottom - 15
+
+        header_text = f"Debug Console (Frame: {self.frame_count}) - Press F1 to toggle"
+        header_surface = self.font_large.render(header_text, True, (255, 255, 255))
+        console_surface.blit(header_surface, (5, 0))
+
+        y_offset = console_rect.height - 15
         lines_drawn = 0
         for entry in reversed(list(self.log_entries)):
-            if lines_drawn >= self.max_console_lines:
-                break
-            if y_offset < console_rect.top:
+            if lines_drawn >= self.max_console_lines or y_offset <= header_height:
                 break
             timestamp_str = f"{entry.timestamp:.2f}s"
             text = f"[{timestamp_str}] [{entry.category}] {entry.message}"
             color = self.log_colors.get(entry.level, (255, 255, 255))
             text_surface = self.font_small.render(text, True, color)
-            screen.blit(text_surface, (5, y_offset))
+            console_surface.blit(text_surface, (5, y_offset))
             y_offset -= 12
             lines_drawn += 1
 
-        header_text = f"Debug Console (Frame: {self.frame_count}) - Press F1 to toggle"
-        header_surface = self.font_medium.render(header_text, True, (255, 255, 255))
-        screen.blit(header_surface, (5, console_rect.top + 5))
+        screen.blit(console_surface, console_rect)
 
     def draw_performance_overlay(self, screen: pygame.Surface):
         if not self.show_performance:
@@ -405,14 +404,14 @@ class Debug:
     def draw_line(start: Tuple[float, float], end: Tuple[float, float],
                   color='white', duration=0.0):
         """Отрисовка линии для отладки"""
-        from gizmos_manager import Gizmos
+        from UPST.gizmos.gizmos_manager import Gizmos
         Gizmos.draw_line(start, end, color, duration=duration)
 
     @staticmethod
     def draw_ray(origin: Tuple[float, float], direction: Tuple[float, float],
                  length: float = 1.0, color='red', duration=0.0):
         """Отрисовка луча для отладки"""
-        from gizmos_manager import Gizmos
+        from UPST.gizmos.gizmos_manager import Gizmos
         end = (origin[0] + direction[0] * length, origin[1] + direction[1] * length)
         Gizmos.draw_arrow(origin, end, color, duration=duration)
 
@@ -420,14 +419,14 @@ class Debug:
     def draw_circle(center: Tuple[float, float], radius: float,
                     color='white', duration=0.0):
         """Отрисовка окружности для отладки"""
-        from gizmos_manager import Gizmos
+        from UPST.gizmos.gizmos_manager import Gizmos
         Gizmos.draw_circle(center, radius, color, duration=duration)
 
     @staticmethod
     def draw_rect(center: Tuple[float, float], width: float, height: float,
                   color='white', duration=0.0):
         """Отрисовка прямоугольника для отладки"""
-        from gizmos_manager import Gizmos
+        from UPST.gizmos.gizmos_manager import Gizmos
         Gizmos.draw_rect(center, width, height, color, duration=duration)
 
     @staticmethod

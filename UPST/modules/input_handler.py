@@ -1,8 +1,7 @@
 import pymunk
 import pygame
 from UPST.config import Config
-from pymunk import Vec2d
-from UPST.sound_synthesizer import synthesizer
+from UPST.sound.sound_synthesizer import synthesizer
 
 class InputHandler:
     def __init__(self, game_app, gizmos_manager, debug_manager, undo_redo_manager):
@@ -88,7 +87,7 @@ class InputHandler:
                 field_name = self.app.ui_manager.selected_force_field_button_text
                 self.app.force_field_manager.toggle_field(field_name)
             elif event.key == pygame.K_p:
-                pygame.image.save(self.app.screen, "../screenshot.png")
+                pygame.image.save(self.app.screen, "../../screenshot.png")
                 self.app.ui_manager.console_window.add_output_line_to_log("Screenshot saved!")
                 self.app.sound_manager.play('screenshot')
             elif event.key == pygame.K_DELETE:

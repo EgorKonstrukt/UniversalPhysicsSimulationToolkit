@@ -1,13 +1,12 @@
 from numba import njit
-import numpy as np
 import math
 import time
 import random
 import cmath
 import numpy as np
-from UPST.gizmos_manager import Gizmos
-from UPST.profiler import profile, profile_context, start_profiling, stop_profiling
-from UPST.sound_synthesizer import synthesizer
+from UPST.gizmos.gizmos_manager import Gizmos
+from UPST.modules.profiler import profile
+from UPST.sound.sound_synthesizer import synthesizer
 
 class GizmosDemo:
 
@@ -2798,8 +2797,6 @@ class GizmosDemo:
                                width=20, height=20)
         Gizmos.draw_rect((cx, cy + 250), 400, 60, filled=True, color=(0, 0, 0, 100))
         Gizmos.draw_text((cx, cy + 250), "Lorenz Attractor Demo", font_size=18)
-
-    import numpy as np
 
     @profile("demo_stirling_engine", "demo")
     def demo_stirling_engine(self, position=(0, 0)):

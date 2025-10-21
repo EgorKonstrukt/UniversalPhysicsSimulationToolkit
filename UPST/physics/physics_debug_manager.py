@@ -6,10 +6,10 @@ import queue
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from UPST.config import Config
-from UPST.gizmos_manager import Gizmos
-from UPST.debug_manager import Debug
-from UPST.profiler import profile, profile_context, start_profiling, stop_profiling
-from numba import jit
+from UPST.gizmos.gizmos_manager import Gizmos
+from UPST.debug.debug_manager import Debug
+from UPST.modules.profiler import profile
+
 
 @dataclass
 class PhysicsDebugSettings:

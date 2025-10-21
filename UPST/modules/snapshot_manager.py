@@ -1,6 +1,6 @@
 import pymunk
 import pickle
-from UPST.debug_manager import Debug
+from UPST.debug.debug_manager import Debug
 
 class SnapshotManager:
     def __init__(self, physics_manager, camera):

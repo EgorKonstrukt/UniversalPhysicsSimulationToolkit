@@ -2,7 +2,6 @@ import pygame
 import pygame.gfxdraw
 import math
 import sys
-import os
 
 IS_WINDOWS = sys.platform == "win32"
 if IS_WINDOWS:
@@ -23,8 +22,8 @@ if IS_LINUX:
 
 
 from UPST.config import Config
-from UPST.gizmos_manager import Gizmos
-from UPST.profiler import profile, profile_context, start_profiling, stop_profiling
+from UPST.gizmos.gizmos_manager import Gizmos
+from UPST.modules.profiler import profile
 
 
 class GridManager:

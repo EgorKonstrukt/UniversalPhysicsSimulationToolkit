@@ -1,10 +1,8 @@
 from UPST.config import Config
 import pymunk
-import os
 
-from UPST.debug_manager import Debug
-from UPST.profiler import profile, profile_context, start_profiling, stop_profiling
-from UPST.gizmos_manager import Gizmos
+from UPST.debug.debug_manager import Debug
+from UPST.gizmos.gizmos_manager import Gizmos
 
 
 class PhysicsManager:

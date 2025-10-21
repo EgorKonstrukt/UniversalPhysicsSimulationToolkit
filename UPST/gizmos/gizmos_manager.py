@@ -7,7 +7,7 @@ import pygame
 import pygame.gfxdraw
 
 from UPST.config import Config
-from UPST.profiler import profile
+from UPST.modules.profiler import profile
 
 
 class GizmoType(Enum):
