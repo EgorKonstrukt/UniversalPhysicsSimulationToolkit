@@ -18,8 +18,8 @@ class ObjectSpawner:
 
 
     def get_random_color_from_theme(self):
-        theme = Config.WORLD_THEMES.get(Config.CURRENT_THEME, Config.WORLD_THEMES["Classic"])
-        r_range, g_range, b_range = theme["shape_color_range"]
+        theme = Config.world.themes.get(Config.world.current_theme, Config.world.themes["Classic"])
+        r_range, g_range, b_range = theme.shape_color_range
         r = random.randint(r_range[0], r_range[1])
         g = random.randint(g_range[0], g_range[1])
         b = random.randint(b_range[0], b_range[1])

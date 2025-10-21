@@ -77,7 +77,7 @@ class UIManager:
 
     def create_settings_window(self):
         self.settings_window = pygame_gui.elements.UIWindow(
-            pygame.Rect(200, Config.SCREEN_HEIGHT - 300, 400, 200), manager=self.manager,
+            pygame.Rect(200, Config.app.screen_height - 300, 400, 200), manager=self.manager,
             window_display_title="Settings")
         self.debug_draw_collision_points_checkbox = UIButton(
             relative_rect=pygame.Rect(5, 10, 20, 20),

@@ -99,7 +99,7 @@ class InputHandler:
 
         if event.type == pygame.KEYUP:
             if event.key == pygame.K_f:
-                if (pygame.time.get_ticks() - self.key_f_hold_start_time) < Config.KEY_HOLD_TIME:
+                if (pygame.time.get_ticks() - self.key_f_hold_start_time) < Config.input.hold_time_ms:
                     if self.current_tool in self.spawn_tools and not self.is_mouse_on_ui():
                         self.app.spawner.spawn(self.current_tool,
                                                self.app.camera.screen_to_world(pygame.mouse.get_pos()))
@@ -266,7 +266,7 @@ class InputHandler:
                 self.object_dragging.position = world_mouse_pos
                 self.object_dragging.velocity = (0, 0)
 
-        if self.key_f_pressed and (pygame.time.get_ticks() - self.key_f_hold_start_time) > Config.KEY_HOLD_TIME:
+        if self.key_f_pressed and (pygame.time.get_ticks() - self.key_f_hold_start_time) > Config.input.hold_time_ms:
             if self.current_tool in self.spawn_tools:
                 self.app.spawner.spawn(self.current_tool, world_mouse_pos)
 

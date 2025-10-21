@@ -668,7 +668,7 @@ class GizmosManager:
             self.gizmos.append(gizmo)
 
     def draw_debug_gizmos(self):
-        if not Config.DEBUG_GIZMOS:
+        if not Config.debug.gizmos:
             return
         if hasattr(Gizmos, 'get_stats'):
             stats = Gizmos.get_stats()

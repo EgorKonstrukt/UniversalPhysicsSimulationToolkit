@@ -41,13 +41,13 @@ class Application:
         self.screen = self.setup_screen()
         self.font = pygame.font.SysFont("Consolas", 16)
 
-        pygame.display.set_caption(f"{Config.VERSION}")
+        pygame.display.set_caption(f"{Config.app.version}")
         pygame.display.set_icon(pygame.image.load("laydigital.png"))
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("NewgodooAppID")
 
         self.clock = pygame.time.Clock()
         self.running = True
-        self.world_theme = Config.CURRENT_THEME
+        self.world_theme = Config.world.current_theme
         Debug.log("World Theme initialized successfully", "Init")
 
         self.sound_manager = SoundManager()
@@ -56,7 +56,7 @@ class Application:
         self.physics_manager = PhysicsManager(self, undo_redo_manager=None)
         Debug.log("PhysicsManager initialized successfully", "Init")
 
-        self.camera = Camera(self, Config.SCREEN_WIDTH, Config.SCREEN_HEIGHT, self.screen)
+        self.camera = Camera(self, Config.app.screen_width, Config.app.screen_height, self.screen)
         Debug.log("Camera initialized successfully", "Init")
 
         self.grid_manager = GridManager(self.camera)
@@ -82,7 +82,7 @@ class Application:
 
         self.plotter = Plotter(surface_size=(580, 300))
 
-        self.ui_manager = UIManager(Config.SCREEN_WIDTH, Config.SCREEN_HEIGHT,
+        self.ui_manager = UIManager(Config.app.screen_width, Config.app.screen_height,
                                     self.physics_manager, self.camera,
                                     self.input_handler, self.screen, self.font)
         Debug.log("UIManager initialized successfully", "Init")
@@ -140,6 +140,7 @@ class Application:
 
         self.undo_redo_manager.take_snapshot()
 
+
         try:
             self.script_system = integrate_script_system(self)
             Debug.log("Python Scripting System initialized successfully", "ScriptSystem")
@@ -160,14 +161,14 @@ class Application:
 
     def setup_screen(self):
         flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE
-        if Config.FULLSCREEN:
+        if Config.app.fullscreen:
             flags |= pygame.FULLSCREEN
-        if not Config.USE_SYSTEM_DPI:
+        if not Config.app.use_system_dpi:
             try:
                 ctypes.windll.user32.SetProcessDPIAware()
             except AttributeError:
                 pass
-        return pygame.display.set_mode((Config.SCREEN_WIDTH, Config.SCREEN_HEIGHT), flags)
+        return pygame.display.set_mode((Config.app.screen_width, Config.app.screen_height), flags)
 
     def run(self):
         synthesizer.play_note("A3", duration=0.1, waveform="sine",
@@ -175,7 +176,7 @@ class Application:
                               pan=0.0)
 
         while self.running:
-            time_delta = self.clock.tick(Config.CLOCK_TICKRATE) / 1000.0
+            time_delta = self.clock.tick(Config.app.clock_tickrate) / 1000.0
 
             self.debug_manager.update(time_delta)
             self.gizmos_manager.update(time_delta)
@@ -234,7 +235,7 @@ class Application:
     def draw(self):
         start_time = pygame.time.get_ticks()
 
-        self.screen.fill(Config.WORLD_THEMES[self.world_theme]["background_color"])
+        self.screen.fill(Config.world.themes[self.world_theme].background_color)
 
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw_debug_gizmos()
@@ -317,7 +318,7 @@ class Application:
         Debug.log(f"Grid toggled: {self.grid_manager.toggle_grid()}", "Grid")
 
     def set_world_theme(self, theme_name):
-        if theme_name in Config.WORLD_THEMES:
+        if theme_name in Config.world.themes:
             self.world_theme = theme_name
             self.grid_manager.set_theme_colors(theme_name)
             Debug.log(f"World theme changed to: {theme_name}", "Theme")

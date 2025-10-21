@@ -68,7 +68,7 @@ class PhysicsDebugSettings:
     show_coordinate_system: bool = True
     show_scientific_notation: bool = False
     precision_digits: int = 3
-    info_panel_position: Tuple[int, int] = (10, Config.SCREEN_HEIGHT - 350)
+    info_panel_position: Tuple[int, int] = (10, Config.app.screen_height - 350)
 
 
 class PhysicsDebugManager:
@@ -179,7 +179,7 @@ class PhysicsDebugManager:
                                0.5 * b.moment * (b.angular_velocity ** 2) for b in bodies)
                 gravity_magnitude = math.hypot(*self.physics_manager.space.gravity)
                 total_pe = sum(b.mass * gravity_magnitude *
-                               max(0, (Config.SCREEN_HEIGHT - b.position.y) * 0.001) for b in bodies)
+                               max(0, (Config.app.screen_height - b.position.y) * 0.001) for b in bodies)
 
                 elastic_pe = 0.0
                 for constraint in self.physics_manager.space.constraints:
@@ -198,7 +198,7 @@ class PhysicsDebugManager:
         velocity_length = math.sqrt(body_velocity_x**2 + body_velocity_y**2)
         kinetic_energy = 0.5 * body_mass * (velocity_length ** 2)
         rotational_energy = 0.5 * body_moment * (body_angular_velocity ** 2)
-        potential_energy = body_mass * gravity_magnitude * max(0, (Config.SCREEN_HEIGHT - body_position_y) * 0.001)
+        potential_energy = body_mass * gravity_magnitude * max(0, (Config.app.screen_height - body_position_y) * 0.001)
         total_energy = kinetic_energy + rotational_energy + potential_energy
         linear_momentum = body_mass * velocity_length
         angular_momentum = body_moment * body_angular_velocity
@@ -499,7 +499,7 @@ class PhysicsDebugManager:
         kinetic_energy = 0.5 * body.mass * (body.velocity.length ** 2)
         rotational_energy = 0.5 * body.moment * (body.angular_velocity ** 2)
         gravity_magnitude = math.hypot(*self.physics_manager.space.gravity)
-        height = max(0, (Config.SCREEN_HEIGHT - pos.y) * 0.001)
+        height = max(0, (Config.app.screen_height - pos.y) * 0.001)
         potential_energy = body.mass * gravity_magnitude * height
         total_energy = kinetic_energy + rotational_energy + potential_energy
         max_energy = max(total_energy, 1)
@@ -603,7 +603,7 @@ class PhysicsDebugManager:
             kinetic_energy = 0.5 * body.mass * (body.velocity.length ** 2) + 0.5 * body.moment * (
                         body.angular_velocity ** 2)
             gravity_magnitude = math.hypot(*self.physics_manager.space.gravity)
-            height = max(0, (Config.SCREEN_HEIGHT - pos.y) * 0.001)
+            height = max(0, (Config.app.screen_height - pos.y) * 0.001)
             potential_energy = body.mass * gravity_magnitude * height
             lagrangian = kinetic_energy - potential_energy
             Gizmos.draw_text((pos.x + 60, pos.y - 60),
@@ -632,7 +632,7 @@ class PhysicsDebugManager:
             kinetic_energy = 0.5 * body.mass * (body.velocity.length ** 2) + 0.5 * body.moment * (
                         body.angular_velocity ** 2)
             gravity_magnitude = math.hypot(*self.physics_manager.space.gravity)
-            height = max(0, (Config.SCREEN_HEIGHT - pos.y) * 0.001)
+            height = max(0, (Config.app.screen_height - pos.y) * 0.001)
             potential_energy = body.mass * gravity_magnitude * height
             hamiltonian = kinetic_energy + potential_energy
             Gizmos.draw_text((pos.x + 60, pos.y + 10),
@@ -774,7 +774,7 @@ class PhysicsDebugManager:
         if body not in self.phase_space_data or len(self.phase_space_data[body]) < 2:
             return
         data = self.phase_space_data[body]
-        phase_space_x = Config.SCREEN_WIDTH - 200
+        phase_space_x = Config.app.screen_width - 200
         phase_space_y = 100
         phase_space_size = 150
         Gizmos.draw_line((phase_space_x, phase_space_y), (phase_space_x + phase_space_size, phase_space_y),
@@ -807,7 +807,7 @@ class PhysicsDebugManager:
     def draw_coordinate_system(self):
         if not self.settings.show_coordinate_system:
             return
-        width, height = Config.SCREEN_WIDTH, Config.SCREEN_HEIGHT
+        width, height = Config.app.screen_width, Config.app.screen_height
         Gizmos.draw_line((0, height // 2), (width, height // 2), (100, 100, 100), 1,
                          duration=0.1, world_space=False)
         Gizmos.draw_line((width // 2, 0), (width // 2, height), (100, 100, 100), 1,
@@ -836,7 +836,7 @@ class PhysicsDebugManager:
                                    0.5 * body.moment * (body.angular_velocity ** 2) for body in dynamic_bodies)
         gravity_magnitude = abs(self.physics_manager.space.gravity[1])
         total_potential_energy = sum(body.mass * gravity_magnitude *
-                                     max(0, (Config.SCREEN_HEIGHT - body.position.y) * 0.001) for body in
+                                     max(0, (Config.app.screen_height - body.position.y) * 0.001) for body in
                                      dynamic_bodies)
         total_elastic_energy = 0.0
         for constraint in space.constraints:

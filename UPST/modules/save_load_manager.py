@@ -25,7 +25,7 @@ class SaveLoadManager:
             return
 
         data_to_save = {
-            'version': Config.VERSION,
+            'version': Config.app.version,
             'iterations': self.physics_manager.space.iterations,
             'sim_freq': self.physics_manager.simulation_frequency,
             'camera_translation': self.camera.translation,
@@ -104,8 +104,8 @@ class SaveLoadManager:
 
             self.physics_manager.delete_all()
 
-            self.physics_manager.space.iterations = data.get('iterations', Config.PHYSICS_ITERATIONS)
-            self.physics_manager.simulation_frequency = data.get('sim_freq', Config.PHYSICS_SIMULATION_FREQUENCY)
+            self.physics_manager.space.iterations = data.get('iterations', Config.physics.iterations)
+            self.physics_manager.simulation_frequency = data.get('sim_freq', Config.physics.simulation_frequency)
             self.camera.translation = data.get('camera_translation', pymunk.Transform())
             self.camera.scaling = data.get('camera_scaling', 1.0)
             self.camera.target_scaling = self.camera.scaling

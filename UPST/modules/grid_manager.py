@@ -35,14 +35,14 @@ class GridManager:
         self.grid_color_minor = (40, 40, 40, 255)
         self.grid_color_origin = (120, 120, 120, 255)
 
-        self.base_grid_size = Config.GRID_BASE_SIZE
-        self.major_grid_multiplier = Config.GRID_MAJOR_MULTIPLIER
-        self.min_pixel_spacing = Config.GRID_MIN_PIXEL_SPACING
-        self.max_pixel_spacing = Config.GRID_MAX_PIXEL_SPACING
+        self.base_grid_size = Config.grid.base_size
+        self.major_grid_multiplier = Config.grid.major_multiplier
+        self.min_pixel_spacing = Config.grid.min_pixel_spacing
+        self.max_pixel_spacing = Config.grid.max_pixel_spacing
 
-        self.minor_line_thickness = Config.GRID_MINOR_LINE_THICKNESS
-        self.major_line_thickness = Config.GRID_MAJOR_LINE_THICKNESS
-        self.origin_line_thickness = Config.GRID_ORIGIN_LINE_THICKNESS
+        self.minor_line_thickness = Config.grid.minor_line_thickness
+        self.major_line_thickness = Config.grid.major_line_thickness
+        self.origin_line_thickness = Config.grid.origin_line_thickness
 
         self.ruler_font = pygame.font.SysFont("Consolas", 12)
 
@@ -258,9 +258,9 @@ class GridManager:
             self.grid_color_origin = origin_color
 
     def set_theme_colors(self, theme_name):
-        if theme_name in Config.WORLD_THEMES:
-            theme = Config.WORLD_THEMES[theme_name]
-            bg_color = theme["background_color"]
+        if theme_name in Config.world.themes:
+            theme = Config.world.themes[theme_name]
+            bg_color = theme.background_color
             if sum(bg_color[:3]) > 382:
                 self.grid_color_minor = (60, 60, 60, 255)
                 self.grid_color_major = (100, 100, 100, 255)

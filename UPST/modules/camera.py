@@ -22,16 +22,16 @@ class Camera:
         self.scaling = 1.0
         self.inverse_scaling = 1.0
         self.target_scaling = 1.0
-        self.smoothness = Config.CAMERA_SMOOTHNESS
-        self.shift_speed = Config.CAMERA_SHIFT_SPEED
+        self.smoothness = Config.camera.smoothness
+        self.shift_speed = Config.camera.shift_speed
 
         self.mouse_velocity = Vec2d(0, 0)
-        self.mouse_friction = Config.CAMERA_MOUSE_FRICTION
+        self.mouse_friction = Config.camera.mouse_friction
 
         self.velocity = Vec2d(0, 0)
-        self.friction = Config.CAMERA_FRICTION
-        self.acceleration_factor = Config.CAMERA_ACCELERATION_FACTOR
-        self.zoom_speed = Config.CAMERA_ZOOM_SPEED
+        self.friction = Config.camera.friction
+        self.acceleration_factor = Config.camera.acceleration_factor
+        self.zoom_speed = Config.camera.zoom_speed
 
         self.offset_x = 0.0
         self.offset_y = 0.0

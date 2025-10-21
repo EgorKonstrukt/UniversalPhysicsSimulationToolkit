@@ -1,237 +1,243 @@
 import os
 import pygame
+from dataclasses import dataclass, field, asdict
+from typing import Tuple, Dict, List, Literal, Optional, Any
+import json
 
-class Config:
-    """
-    Configuration and constants for the application.
-    """
-    SCREEN_WIDTH, SCREEN_HEIGHT = 2560, 1400
-    FULLSCREEN = False
-    USE_SYSTEM_DPI = False
-    VERSION = "Universal Physics Simulation Toolkit"
-    CREATE_BASE_WORLD = True
+@dataclass
+class PhysicsConfig:
+    collision_type_default: int = 1
+    simulation_frequency: int = 100  # Hz
+    iterations: int = 512
+    sleep_time_threshold: float = 0.5  # seconds
+    pymunk_threaded: bool = True
+    pymunk_threads: int = 2
 
-    DEBUG_GIZMOS = True
+@dataclass
+class CameraConfig:
+    smoothing: bool = True
+    smoothness: float = 1.0
+    shift_speed: float = 2.0
+    acceleration_factor: float = 2.0
+    friction: float = 0.9
+    zoom_speed: float = 0.01
+    pan_to_cursor_speed: float = 0.1
+    mouse_friction: float = 0.75
+    min_zoom_scale: float = 0.000001
+    max_zoom_scale: float = 1000.0
 
-    ##--------------PHYSICS--------------------
-    PHYSICS_COLLISION_TYPE_DEFAULT = 1
-    PHYSICS_SIMULATION_FREQUENCY = 100
-    PHYSICS_ITERATIONS = 512
-    PHYSICS_SLEEP_TIME_TRESHOLD = 0.5
-    PHYSICS_PYMUNK_THREADED = True
-    PHYSICS_PYMUNK_THREADS = 2
-    ##------------------------------------------
+@dataclass
+class ProfilerConfig:
+    update_delay: float = 0.016  # seconds (~60 FPS)
+    max_samples: int = 200
+    normal_size: Tuple[int, int] = (800, 400)
+    paused: bool = False
 
-    KEY_HOLD_TIME = 1000
+@dataclass
+class SynthesizerConfig:
+    sample_rate: int = 44100
+    buffer_size: int = 4096
+    volume: float = 0.5  # 0.0–1.0
 
-    KEY_SPAWN = pygame.K_f
-    KEY_UNDO = pygame.K_z
-    KEY_ESCAPE = pygame.K_ESCAPE
-    KEY_TOGGLE_PAUSE = pygame.K_SPACE
-    KEY_GUIDE = pygame.K_l
-    KEY_STATIC_LINE = pygame.K_b
-    KEY_FORCE_FIELD = pygame.K_n
-    KEY_SCREENSHOT = pygame.K_p
-    KEY_DELETE = pygame.K_DELETE
+@dataclass
+class GridColorScheme:
+    major: Tuple[int, int, int, int] = (100, 100, 100, 255)
+    minor: Tuple[int, int, int, int] = (60, 60, 60, 255)
+    origin: Tuple[int, int, int, int] = (120, 120, 120, 255)
 
-    CLOCK_TICKRATE = 100
-    BACKGROUND_COLOR = (30, 30, 30)
+@dataclass
+class GridConfig:
+    enabled_by_default: bool = True
+    base_size: int = 100
+    major_multiplier: int = 10
+    min_pixel_spacing: int = 20
+    max_pixel_spacing: int = 200
+    minor_line_thickness: int = 1
+    major_line_thickness: int = 2
+    origin_line_thickness: int = 3
+    default_colors: GridColorScheme = field(default_factory=lambda: GridColorScheme())
+    theme_colors: Dict[str, GridColorScheme] = field(default_factory=lambda: {
+        "light": GridColorScheme((100,100,100,255), (60,60,60,255), (140,140,140,255)),
+        "dark": GridColorScheme((80,80,80,255), (40,40,40,255), (120,120,120,255)),
+        "blue": GridColorScheme((100,120,140,255), (60,80,100,255), (140,160,180,255)),
+        "green": GridColorScheme((80,120,80,255), (40,80,40,255), (120,160,120,255)),
+    })
+    subdivision_levels: List[float] = field(default_factory=lambda: [0.1, 1.0, 10.0, 100.0, 1000.0])
+    alpha_fade_enabled: bool = True
+    min_alpha: int = 30
+    max_alpha: int = 255
+    snap_to_grid_enabled: bool = False
+    snap_tolerance: int = 5  # pixels
+    max_lines: int = 1000
+    skip_offscreen_lines: bool = True
 
-    ##---------------CAMERA---------------------
-    CAMERA_SMOOTHING = True
-    CAMERA_SMOOTHNESS = 1
-    CAMERA_SHIFT_SPEED = 2
-    CAMERA_ACCELERATION_FACTOR = 2
-    CAMERA_FRICTION = 0.9
-    CAMERA_ZOOM_SPEED = 0.01
-    CAMERA_PAN_TO_CURSOR_SPEED = 0.1
-    CAMERA_MOUSE_FRICTION = 0.75
-    ##------------------------------------------
+@dataclass
+class WorldTheme:
+    background_color: Tuple[int, int, int]
+    shape_color_range: Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]]
+    platform_color: Tuple[int, int, int, int]
 
-    ##---------------IN-GAME-PROFILER---------------------
-    PROFILER_UPDATE_DELAY = 0.016 #ms
-    PROFILER_MAX_SAMPLES = 200
-    PROFILER_NORMAL_SIZE = (800, 400)
-    PROFILER_PAUSED = False
-    ##------------------------------------------
+@dataclass
+class WorldConfig:
+    themes: Dict[str, WorldTheme] = field(default_factory=lambda: {
+        "Classic": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255)),
+        "Desert": WorldTheme((80,60,20), ((200,255),(150,200),(50,100)), (210,180,140,255)),
+        "Ice": WorldTheme((120,120,155), ((150,200),(180,230),(230,255)), (100,170,220,255)),
+        "Night": WorldTheme((10,10,30), ((20,80),(20,80),(60,150)), (40,40,60,255)),
+        "Forest": WorldTheme((34,45,28), ((30,100),(100,200),(30,100)), (60,120,60,255)),
+        "Lava": WorldTheme((40,0,0), ((100,255),(0,40),(0,10)), (120,30,0,255)),
+        "Ocean": WorldTheme((0,40,80), ((0,100),(100,200),(150,255)), (0,90,150,255)),
+        "SciFi": WorldTheme((10,10,10), ((50,100),(200,255),(200,255)), (60,255,180,255)),
+        "Candy": WorldTheme((255,230,255), ((200,255),(100,200),(200,255)), (255,180,220,255)),
+        "Void": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255)),
+        "Black&White": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255)),
+    })
+    current_theme: str = "Classic"
 
-    ##---------------SYNTHESIZER---------------------
-    SYNTHESIZER_SAMPLE_RATE = 44100
-    SYNTHESIZER_BUFFER_SIZE = 4096
-    SYNTHESIZER_VOLUME = 0.5
-    ##------------------------------------------
+@dataclass
+class InputConfig:
+    hold_time_ms: int = 1000
+    spawn: int = pygame.K_f
+    undo: int = pygame.K_z
+    escape: int = pygame.K_ESCAPE
+    toggle_pause: int = pygame.K_SPACE
+    guide: int = pygame.K_l
+    static_line: int = pygame.K_b
+    force_field: int = pygame.K_n
+    screenshot: int = pygame.K_p
+    delete: int = pygame.K_DELETE
 
-    DEBUG_DRAW_COLLISION_POINTS = True
-    DEBUG_DRAW_CONSTRAINTS = True
-    DEBUG_DRAW_BODY_OUTLINES = True
-    DEBUG_DRAW_CENTER_OF_MASS = True
+@dataclass
+class DebugConfig:
+    gizmos: bool = True
+    draw_collision_points: bool = True
+    draw_constraints: bool = True
+    draw_body_outlines: bool = True
+    draw_center_of_mass: bool = True
 
-    GRID_ENABLED_BY_DEFAULT = True
-
-    GRID_BASE_SIZE = 100  # Base grid size in world units (1 meter = 100 units)
-    GRID_MAJOR_MULTIPLIER = 10  # Every Nth line is major
-    GRID_MIN_PIXEL_SPACING = 20  # Minimum pixels between grid lines
-    GRID_MAX_PIXEL_SPACING = 200  # Maximum pixels between grid lines
-
-    GRID_MINOR_LINE_THICKNESS = 1
-    GRID_MAJOR_LINE_THICKNESS = 2
-    GRID_ORIGIN_LINE_THICKNESS = 3
-
-    GRID_DEFAULT_COLORS = {
-        'major': (100, 100, 100, 255),  # Major grid lines
-        'minor': (60, 60, 60, 255),  # Minor grid lines
-        'origin': (120, 120, 120, 255),  # Origin lines (x=0, y=0)
-    }
-
-    GRID_THEME_COLORS = {
-        'light': {
-            'major': (100, 100, 100, 255),
-            'minor': (60, 60, 60, 255),
-            'origin': (140, 140, 140, 255),
-        },
-        'dark': {
-            'major': (80, 80, 80, 255),
-            'minor': (40, 40, 40, 255),
-            'origin': (120, 120, 120, 255),
-        },
-        'blue': {
-            'major': (100, 120, 140, 255),
-            'minor': (60, 80, 100, 255),
-            'origin': (140, 160, 180, 255),
-        },
-        'green': {
-            'major': (80, 120, 80, 255),
-            'minor': (40, 80, 40, 255),
-            'origin': (120, 160, 120, 255),
-        }
-    }
-
-    GRID_SUBDIVISION_LEVELS = [
-        0.1,  # Very zoomed in
-        1,  # Normal
-        10,  # Zoomed out
-        100,  # Very zoomed out
-        1000,  # Extremely zoomed out
-    ]
-
-    # Alpha transparency for grid lines at different zoom levels
-    GRID_ALPHA_FADE_ENABLED = True
-    GRID_MIN_ALPHA = 30  # Minimum alpha when fading
-    GRID_MAX_ALPHA = 255  # Maximum alpha
-
-    # Grid snapping settings
-    GRID_SNAP_TO_GRID_ENABLED = False  # Can be toggled by user
-    GRID_SNAP_TOLERANCE = 5  # Pixels tolerance for snapping
-
-    # Performance settings
-    GRID_MAX_LINES = 1000  # Maximum number of grid lines to draw
-    GRID_SKIP_OFFSCREEN_LINES = True  # Skip drawing lines that are off-screen
-
-    @classmethod
-    def get_theme_colors(cls, theme_name):
-        """Get grid colors for a specific theme"""
-        if theme_name in cls.GRID_THEME_COLORS:
-            return cls.GRID_THEME_COLORS[theme_name]
-        else:
-            # Fallback to default colors
-            return cls.GRID_DEFAULT_COLORS
-
-    @classmethod
-    def get_optimal_subdivision(cls, pixel_spacing):
-        """Get optimal subdivision level based on pixel spacing"""
-        if pixel_spacing < cls.GRID_MIN_PIXEL_SPACING:
-            return 10  # Make grid less dense
-        elif pixel_spacing > cls.GRID_MAX_PIXEL_SPACING:
-            return 0.1  # Make grid more dense
-        else:
-            return 1  # Use base subdivision
-
-    CURRENT_THEME = "Classic"
-
-    WORLD_THEMES = {
-        "Classic": {
-            "background_color": (30, 30, 30),
-            "shape_color_range": ((50, 255), (50, 255), (50, 255)),
-            "platform_color": (100, 100, 100, 255),
-        },
-        "Desert": {
-            "background_color": (80, 60, 20),
-            "shape_color_range": ((200, 255), (150, 200), (50, 100)),
-            "platform_color": (210, 180, 140, 255),
-        },
-        "Ice": {
-            "background_color": (120, 120, 155),
-            "shape_color_range": ((150, 200), (180, 230), (230, 255)),
-            "platform_color": (100, 170, 220, 255),
-        },
-        "Night": {
-            "background_color": (10, 10, 30),
-            "shape_color_range": ((20, 80), (20, 80), (60, 150)),
-            "platform_color": (40, 40, 60, 255),
-        },
-        "Forest": {
-            "background_color": (34, 45, 28),
-            "shape_color_range": ((30, 100), (100, 200), (30, 100)),
-            "platform_color": (60, 120, 60, 255),
-        },
-        "Lava": {
-            "background_color": (40, 0, 0),
-            "shape_color_range": ((100, 255), (0, 40), (0, 10)),
-            "platform_color": (120, 30, 0, 255),
-        },
-        "Ocean": {
-            "background_color": (0, 40, 80),
-            "shape_color_range": ((0, 100), (100, 200), (150, 255)),
-            "platform_color": (0, 90, 150, 255),
-        },
-        "SciFi": {
-            "background_color": (10, 10, 10),
-            "shape_color_range": ((50, 100), (200, 255), (200, 255)),
-            "platform_color": (60, 255, 180, 255),
-        },
-        "Candy": {
-            "background_color": (255, 230, 255),
-            "shape_color_range": ((200, 255), (100, 200), (200, 255)),
-            "platform_color": (255, 180, 220, 255),
-        },
-        "Void": {
-            "background_color": (0, 0, 0),
-            "shape_color_range": ((0, 20), (0, 20), (0, 20)),
-            "platform_color": (20, 20, 20, 255),
-        },
-        "Black&White": {
-            "background_color": (255, 255, 255),
-            "shape_color_range": ((0, 0), (0, 0), (0, 0)),
-            "platform_color": (0, 0, 0, 255),
-        },
-    }
-
-    GUIDE_TEXT = (
-        "F: Spawn object"
-        "\nclamped F: Auto spawn objects"
-        "\nB: Make border"
-        "\nN: Enable gravity field"
-        "\nSPACE: Pause physic"
-        "\nArrow keys: camera position"
-        "\nA/Z: Camera zoom"
-        "\nS/X: Camera roll"
-        "\nP: Screenshot"
-        "\nShift: Move faster"
+@dataclass
+class AppConfig:
+    screen_width: int = 2560
+    screen_height: int = 1400
+    fullscreen: bool = False
+    use_system_dpi: bool = False
+    version: str = "Universal Physics Simulation Toolkit"
+    create_base_world: bool = True
+    clock_tickrate: int = 100
+    background_color: Tuple[int, int, int] = (30, 30, 30)
+    guide_text: str = (
+        "F: Spawn object\n"
+        "clamped F: Auto spawn objects\n"
+        "B: Make border\n"
+        "N: Enable gravity field\n"
+        "SPACE: Pause physic\n"
+        "Arrow keys: camera position\n"
+        "A/Z: Camera zoom\n"
+        "S/X: Camera roll\n"
+        "P: Screenshot\n"
+        "Shift: Move faster"
     )
-
-    HELP_CONSOLE_TEXT = (
-        "help: display this"
-        "\nexec: execute the Python commands contained in the string."
-        "\neval: executes the expression string and returns the result."
-        "\npython: open a new interactive python thread"
-        "\nclear: clears the output console"
+    help_console_text: str = (
+        "help: display this\n"
+        "exec: execute the Python commands contained in the string.\n"
+        "eval: executes the expression string and returns the result.\n"
+        "python: open a new interactive python thread\n"
+        "clear: clears the output console"
     )
-
-    FRICTION_DICT = [
+    friction_materials: List[Tuple[str, float]] = field(default_factory=lambda: [
         ("Aluminium", 0.61), ("Steel", 0.53), ("Brass", 0.51),
         ("Cast iron", 1.05), ("Cast iron", 0.85), ("Concrete (wet)", 0.30),
         ("Concrete (dry)", 1.0), ("Concrete", 0.62), ("Copper", 0.68),
         ("Glass", 0.94), ("Metal", 0.5), ("Polyethene", 0.2),
         ("Steel", 0.80), ("Steel", 0.04), ("Teflon (PTFE)", 0.04),
         ("Wood", 0.4),
-    ]
+    ])
+
+class Config:
+    """
+    Centralized, structured, and serializable configuration container.
+    """
+    app = AppConfig()
+    physics = PhysicsConfig()
+    camera = CameraConfig()
+    profiler = ProfilerConfig()
+    synthesizer = SynthesizerConfig()
+    grid = GridConfig()
+    world = WorldConfig()
+    input = InputConfig()
+    debug = DebugConfig()
+
+    @classmethod
+    def load_from_file(cls, path: str = "config.json") -> "Config":
+        if not os.path.exists(path):
+            instance = cls()
+            instance.save_to_file(path)
+            return instance
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return cls.from_dict(data)
+
+    def save_to_file(self, path: str = "config.json") -> None:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=4, ensure_ascii=False)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "app": asdict(self.app),
+            "physics": asdict(self.physics),
+            "camera": asdict(self.camera),
+            "profiler": asdict(self.profiler),
+            "synthesizer": asdict(self.synthesizer),
+            "grid": self._grid_to_dict(),
+            "world": self._world_to_dict(),
+            "input": asdict(self.input),
+            "debug": asdict(self.debug),
+        }
+
+    def _grid_to_dict(self) -> Dict[str, Any]:
+        d = asdict(self.grid)
+        d["default_colors"] = asdict(self.grid.default_colors)
+        d["theme_colors"] = {k: asdict(v) for k, v in self.grid.theme_colors.items()}
+        return d
+
+    def _world_to_dict(self) -> Dict[str, Any]:
+        d = asdict(self.world)
+        d["themes"] = {k: asdict(v) for k, v in self.world.themes.items()}
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Config":
+        def _restore_grid(d: Dict) -> GridConfig:
+            d["default_colors"] = GridColorScheme(**d["default_colors"])
+            d["theme_colors"] = {k: GridColorScheme(**v) for k, v in d["theme_colors"].items()}
+            return GridConfig(**d)
+        def _restore_world(d: Dict) -> WorldConfig:
+            d["themes"] = {k: WorldTheme(**v) for k, v in d["themes"].items()}
+            return WorldConfig(**d)
+        return cls(
+            app=AppConfig(**data["app"]),
+            physics=PhysicsConfig(**data["physics"]),
+            camera=CameraConfig(**data["camera"]),
+            profiler=ProfilerConfig(**data["profiler"]),
+            synthesizer=SynthesizerConfig(**data["synthesizer"]),
+            grid=_restore_grid(data["grid"]),
+            world=_restore_world(data["world"]),
+            input=InputConfig(**data["input"]),
+            debug=DebugConfig(**data["debug"]),
+        )
+
+    @property
+    def background_color(self) -> Tuple[int, int, int]:
+        theme = self.world.themes.get(self.world.current_theme)
+        return theme.background_color if theme else self.app.background_color
+
+    def get_grid_colors(self, theme_name: str) -> GridColorScheme:
+        return self.grid.theme_colors.get(theme_name, self.grid.default_colors)
+
+    def get_optimal_subdivision(self, pixel_spacing: float) -> float:
+        if pixel_spacing < self.grid.min_pixel_spacing:
+            return 10.0
+        elif pixel_spacing > self.grid.max_pixel_spacing:
+            return 0.1
+        else:
+            return 1.0
