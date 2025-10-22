@@ -112,14 +112,14 @@ class PhysicsManager:
         Debug.log_info(f"Physics simulation {'paused' if not self.running_physics else 'unpaused'}.", "Physics")
 
     def add_body_shape(self, body, shape):
-        self.undo_redo_manager.take_snapshot()
         self.space.add(body, shape)
+        self.undo_redo_manager.take_snapshot()
         Debug.log_info(f"Added body and shape to physics space. Body ID: {body.__hash__()}, Shape ID: {shape.__hash__()}.", "Physics")
 
     def add_static_line(self, segment):
-        self.undo_redo_manager.take_snapshot()
         self.static_lines.append(segment)
         self.space.add(segment)
+        self.undo_redo_manager.take_snapshot()
         Debug.log_info(f"Added static line to physics space. Segment ID: {segment.__hash__()}.", "Physics")
 
     def add_constraint(self, constraint):
@@ -129,7 +129,7 @@ class PhysicsManager:
 
     def remove_shape_body(self, shape):
         Debug.log_info(f"Attempting to remove shape and its body if empty. Shape ID: {shape.__hash__()}.", "Physics")
-        self.undo_redo_manager.take_snapshot()
+
         body = shape.body
         self.space.remove(shape)
         Debug.log_info(f"Shape {shape.__hash__()} removed from space.", "Physics")
@@ -156,6 +156,7 @@ class PhysicsManager:
 
     def get_body_at_position(self, position):
         Debug.log_info(f"Querying body at position: {position}.", "Physics")
+        self.undo_redo_manager.take_snapshot()
         query = self.space.point_query_nearest(position, 0, pymunk.ShapeFilter())
         if query and query.shape and query.shape.body:
             Debug.log_info(f"Found body {query.shape.body.__hash__()} at position.", "Physics")

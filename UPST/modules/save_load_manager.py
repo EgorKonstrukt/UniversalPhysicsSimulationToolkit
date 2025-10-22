@@ -21,7 +21,7 @@ class SaveLoadManager:
         file_path = filedialog.asksaveasfilename(defaultextension=".ngsv", filetypes=[("Newgodoo Save File", "*.ngsv")])
         if not file_path:
             Debug.log_warning("Canceled...", "SaveLoadManager")
-            self.sound_manager.play("load_error")
+            # self.sound_manager.play("load_error")
             return
         try:
             data_to_save = {
@@ -125,10 +125,10 @@ class SaveLoadManager:
 
             self.ui_manager.console_window.add_output_line_to_log("Save successful!")
             Debug.log_succes(message="Saving! file name: " + str(file_path), category="SaveLoadManager")
-            self.sound_manager.play("save_done")
+            # self.sound_manager.play("save_done")
         except Exception as e:
             self.ui_manager.console_window.add_output_line_to_log(f"Save error: {e}")
-            self.sound_manager.play("error")
+            # self.sound_manager.play("error")
             Debug.log_exception(message="Error! file name: " + str(file_path), category="SaveLoadManager")
 
     def load_world(self):
@@ -137,7 +137,7 @@ class SaveLoadManager:
         file_path = filedialog.askopenfilename(filetypes=[("Newgodoo Save File", "*.ngsv")])
         if not file_path:
             Debug.log_warning("Canceled..." + str(file_path), "SaveLoadManager")
-            self.sound_manager.play("load_error")
+            # self.sound_manager.play("load_error")
             return
         try:
             with open(file_path, "rb") as f:
@@ -234,9 +234,9 @@ class SaveLoadManager:
 
             self.ui_manager.console_window.add_output_line_to_log("Load successful!")
             Debug.log_succes(message="Loaded! file name: " + str(file_path), category="SaveLoadManager")
-            self.sound_manager.play("save_done")
+            # self.sound_manager.play("save_done")
         except Exception as e:
             self.ui_manager.console_window.add_output_line_to_log(f"Load error: {e}")
-            self.sound_manager.play("error")
+            # self.sound_manager.play("error")
             traceback.print_exc()
             Debug.log_exception(message="Error while loading! file name: " + str(file_path), category="SaveLoadManager")
