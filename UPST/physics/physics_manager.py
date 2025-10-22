@@ -71,7 +71,7 @@ class PhysicsManager:
         if not self.running_physics:
             return
         self._accumulator += max(0.0, float(dt))
-        prev_pos = {b: pymunk.Vec2d(b.position) for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}
+        prev_pos = {b: b.position for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}
         while self._accumulator >= self._fixed_dt:
             self.space.step(self._fixed_dt)
             if self._angular_damping > 0.0:
@@ -100,7 +100,7 @@ class PhysicsManager:
                     vn = v.dot(n) * n
                     vt = v - vn
                     b.velocity = vt - vn * max(0.0, min(1.0, e))
-            prev_pos = {b: pymunk.Vec2d(b.position) for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}
+            prev_pos = {b: b.position for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}
             self._accumulator -= self._fixed_dt
 
     def update(self, rotation):
@@ -220,7 +220,7 @@ class PhysicsManager:
             self.space.gravity = gv
         else:
             self.space.gravity = base_g
-        Debug.log_info(f"Gravity set to {self.space.gravity} (mode={mode})", "Physics")
+        # Debug.log_info(f"Gravity set to {self.space.gravity} (mode={mode})", "Physics")
 
     def raycast(self, a: tuple, b: tuple, radius: float = 0.0, mask: pymunk.ShapeFilter = None):
         if mask is None:
