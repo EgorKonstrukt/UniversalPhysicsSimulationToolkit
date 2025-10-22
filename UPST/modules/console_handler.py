@@ -17,7 +17,7 @@ class ConsoleHandler:
 
     def process_command(self, command):
         if command == 'help':
-            self.ui_manager.console_window.add_output_line_to_log(Config.app.help_console_text)
+            self.ui_manager.console_window.add_output_line_to_log(config.app.help_console_text)
         elif command == 'clear':
             self.ui_manager.console_window.clear_log()
         elif command == 'exit':

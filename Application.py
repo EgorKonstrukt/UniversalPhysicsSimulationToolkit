@@ -45,7 +45,7 @@ class Application:
 
         pygame.display.set_caption(f"{config.app.version}")
         pygame.display.set_icon(pygame.image.load("laydigital.png"))
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("NewgodooAppID")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("UPSTAppID")
 
         self.clock = pygame.time.Clock()
         self.running = True
@@ -61,7 +61,10 @@ class Application:
         self.camera = Camera(self, config.app.screen_width, config.app.screen_height, self.screen)
         Debug.log("Camera initialized successfully", "Init")
 
-        self.grid_manager = GridManager(self.camera)
+        self.force_field_manager = ForceFieldManager(self.physics_manager, self.camera,)
+        Debug.log("ForceFieldManager initialized successfully", "Init")
+
+        self.grid_manager = GridManager(self.camera, force_field_manager=self.force_field_manager)
         Debug.log("GridManager initialized successfully", "Init")
         self.grid_manager.set_theme_colors(self.world_theme)
         self.gizmos_manager = GizmosManager(self.camera, self.screen)
@@ -106,9 +109,6 @@ class Application:
         Debug.log("ToolManager initialized successfully", "Init")
 
         self.tool_manager.create_tool_buttons()
-
-        self.force_field_manager = ForceFieldManager(self.physics_manager, self.camera)
-        Debug.log("ForceFieldManager initialized successfully", "Init")
 
         self.save_load_manager = SaveLoadManager(self.physics_manager, self.camera,
                                                  self.ui_manager, self.sound_manager)

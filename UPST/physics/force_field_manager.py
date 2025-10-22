@@ -4,6 +4,7 @@ import pymunk
 import pygame
 
 from UPST.debug.debug_manager import Debug
+from UPST.gizmos.gizmos_manager import Gizmos
 
 
 class ForceFieldManager:

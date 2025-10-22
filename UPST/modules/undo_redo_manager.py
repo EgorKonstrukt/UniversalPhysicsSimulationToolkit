@@ -68,7 +68,7 @@ class UndoRedoManager:
             return
         for i, snapshot_bytes in enumerate(self.history):
             snapshot = pickle.loads(snapshot_bytes)
-            pos = (Config.app.screen_height-300 , 50+ i * 30)
+            pos = (config.app.screen_height-300 , 50+ i * 30)
             color = "green" if i == self.current_index else "white"
             Gizmos.draw_circle(pos, radius=8, color=color, filled=True, duration=0.1, world_space=False)
             Gizmos.draw_text(

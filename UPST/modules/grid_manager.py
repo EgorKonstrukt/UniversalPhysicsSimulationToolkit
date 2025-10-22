@@ -2,6 +2,7 @@ import pygame
 import pygame.gfxdraw
 import math
 import sys
+import pymunk
 
 IS_WINDOWS = sys.platform == "win32"
 if IS_WINDOWS:
@@ -27,8 +28,9 @@ from UPST.modules.profiler import profile
 
 
 class GridManager:
-    def __init__(self, camera):
+    def __init__(self, camera, force_field_manager=None):
         self.camera = camera
+        self.force_field_manager = force_field_manager
         self.enabled = True
         self.grid_color_major = (80, 80, 80, 255)
         self.grid_color_minor = (40, 40, 40, 255)
@@ -129,8 +131,72 @@ class GridManager:
             submit_line(y, False)
             y += grid_spacing_world
 
+        if self.force_field_manager and self.force_field_manager.physics_manager.running_physics:
+            self._draw_gravity_vectors(screen, grid_spacing_world, grid_spacing_pixels)
+
         self.draw_scale_indicator(screen, grid_spacing_world, grid_spacing_pixels)
         self.draw_rulers()
+
+    def _draw_gravity_vectors(self, screen, grid_spacing_world, grid_spacing_pixels):
+        if not self.force_field_manager or not any(
+            self.force_field_manager.active_fields.get(f, False)
+            for f in ("attraction", "repulsion", "vortex", "wind")
+        ):
+            return
+        if grid_spacing_pixels < 10:
+            return
+        px, py = pygame.mouse.get_pos()
+        world_mouse = self.camera.screen_to_world((px, py))
+        top_left = self.camera.screen_to_world((0, 0))
+        bottom_right = self.camera.screen_to_world((screen.get_width(), screen.get_height()))
+        spacing = grid_spacing_world
+        max_screen_length = 20.0
+        x = math.floor(top_left[0] / spacing) * spacing
+        while x <= bottom_right[0]:
+            y = math.floor(top_left[1] / spacing) * spacing
+            while y <= bottom_right[1]:
+                fx = fy = 0.0
+                dx = world_mouse[0] - x
+                dy = world_mouse[1] - y
+                dist = math.hypot(dx, dy)
+                if dist <= self.force_field_manager.radius:
+                    t = 1.0 - dist / self.force_field_manager.radius
+                    if self.force_field_manager.active_fields.get("attraction"):
+                        fx += dx * t
+                        fy += dy * t
+                    if self.force_field_manager.active_fields.get("repulsion"):
+                        fx -= dx * t
+                        fy -= dy * t
+                    if self.force_field_manager.active_fields.get("vortex"):
+                        fx += -dy * t
+                        fy += dx * t
+                if self.force_field_manager.active_fields.get("wind"):
+                    fx += 1.0
+                if abs(fx) < 1e-4 and abs(fy) < 1e-4:
+                    y += spacing
+                    continue
+                start_world = (x, y)
+                end_world = (x + fx, y + fy)
+                start_screen = self.camera.world_to_screen(start_world)
+                raw_end_screen = self.camera.world_to_screen(end_world)
+                dx_s = raw_end_screen[0] - start_screen[0]
+                dy_s = raw_end_screen[1] - start_screen[1]
+                len_s = math.hypot(dx_s, dy_s)
+                if len_s > max_screen_length and len_s > 1e-6:
+                    ratio = max_screen_length / len_s
+                    dx_s *= ratio
+                    dy_s *= ratio
+                final_end_screen = (start_screen[0] + dx_s, start_screen[1] + dy_s)
+                Gizmos.draw_line(
+                    start=start_screen,
+                    end=final_end_screen,
+                    color=(255, 100, 100),
+                    thickness=1,
+                    duration=0.05,
+                    world_space=False
+                )
+                y += spacing
+            x += spacing
 
     def draw_rulers(self):
         screen_width, screen_height = pygame.display.get_surface().get_size()
