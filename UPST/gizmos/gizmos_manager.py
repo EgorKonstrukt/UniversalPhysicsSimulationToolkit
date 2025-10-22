@@ -96,7 +96,6 @@ def _process_gizmo_chunk(args):
 
 
 def _resolve_text_collisions_parallel(text_entries, screen_size):
-    """Упрощённое разрешение коллизий текста по вертикальным зонам."""
     if not text_entries:
         return []
     zone_width = screen_size[0] // 8
@@ -110,7 +109,6 @@ def _resolve_text_collisions_parallel(text_entries, screen_size):
     for zone in zones:
         if not zone:
             continue
-        # Сортируем по Y
         zone.sort(key=lambda x: x[1][1])
         occupied = []
         for g, screen_pos, _ in zone:
@@ -159,7 +157,7 @@ class GizmosManager:
         self._alpha_surface_frame: Dict[int, int] = {}
         self._frame_id = 0
 
-        self._executor = ThreadPoolExecutor(max_workers=8)
+        self._executor = ThreadPoolExecutor(max_workers=1)
         self._prepared_data = None
 
 
@@ -227,6 +225,12 @@ class GizmosManager:
         if not all_gizmos:
             return
         self._frame_id += 1
+
+        for g in all_gizmos:
+            g._screen_pos = None
+            g._adjusted_screen_pos = None
+            g._is_visible = None
+
         cam_pos = self.camera.screen_to_world((self._half_screen_width, self._half_screen_height))
         cam_scale = self.camera.target_scaling
         screen_size = (self._screen_width, self._screen_height)
@@ -240,49 +244,36 @@ class GizmosManager:
         visible_entries = []
         for future in as_completed(futures):
             visible_entries.extend(future.result())
-        total_gizmos = len(all_gizmos)
-        culled_frustum = total_gizmos - len(visible_entries)
-        culled_distance = 0
+
         text_entries = [e for e in visible_entries if e[0].gizmo_type == GizmoType.TEXT and e[0].collision]
         other_entries = [e for e in visible_entries if not (e[0].gizmo_type == GizmoType.TEXT and e[0].collision)]
         adjusted_texts = _resolve_text_collisions_parallel(text_entries, screen_size) if text_entries else []
-        for g, screen_pos, _ in other_entries:
-            g._screen_pos = screen_pos
-            g._is_visible = True
-        for g, orig_pos, adj_pos in adjusted_texts:
-            g._screen_pos = orig_pos
-            g._adjusted_screen_pos = adj_pos
-            g._is_visible = True
+
+        alpha_used = set()
+        self._render_non_text_gizmos(other_entries, alpha_used)
+        self._render_adjusted_texts(adjusted_texts, alpha_used)
+        self._blit_alpha_surfaces(alpha_used)
+
         self.stats = {
-            'total_gizmos': total_gizmos,
-            'culled_frustum': culled_frustum,
-            'culled_distance': culled_distance,
+            'total_gizmos': len(all_gizmos),
+            'culled_frustum': len(all_gizmos) - len(visible_entries),
+            'culled_distance': 0,
             'culled_occlusion': len(text_entries) - len(adjusted_texts),
             'drawn_gizmos': len(other_entries) + len(adjusted_texts)
         }
-        alpha_used = set()
-        self._render_non_text_gizmos([e[0] for e in other_entries], alpha_used)
-        self._render_adjusted_texts([e[0] for e in adjusted_texts], alpha_used)
-        self._blit_alpha_surfaces(alpha_used)
-
-    def _render_non_text_gizmos(self, others, alpha_used):
-        for g in others:
-            self._draw_gizmo(g, alpha_used)
+    def _render_non_text_gizmos(self, entries, alpha_used):
+        for g, screen_pos, _ in entries:
+            self._draw_gizmo(g, screen_pos, alpha_used)
 
     def _render_adjusted_texts(self, adjusted_texts, alpha_used):
-        for g in adjusted_texts:
-            if not hasattr(g, '_adjusted_screen_pos'):
-                continue
-            pos = g._screen_pos
-            adj = g._adjusted_screen_pos
+        for g, orig_pos, adj_pos in adjusted_texts:
             surf_target = self.screen if g.alpha == 255 else self._get_temp_surface(g.alpha)
             if g.alpha != 255:
                 alpha_used.add(g.alpha)
-            self._draw_line_gfx(surf_target, pos, adj, g.color, 2)
-            size = int(g.font_size * self.camera.target_scaling) if (
-                    g.font_world_space and g.world_space) else g.font_size
+            self._draw_line_gfx(surf_target, orig_pos, adj_pos, g.color, 2)
+            size = int(g.font_size * self.camera.target_scaling) if (g.font_world_space and g.world_space) else g.font_size
             surf = self._get_text_surface(g.text, g.color, g.font_name, size)
-            r = surf.get_rect(center=adj)
+            r = surf.get_rect(center=adj_pos)
             if g.background_color:
                 bg = pygame.Surface((r.width + 4, r.height + 4), pygame.SRCALPHA)
                 bg.fill(g.background_color)
@@ -318,8 +309,7 @@ class GizmosManager:
                 color = tuple(int(min(255, max(0, c))) for c in color)
                 pygame.gfxdraw.line(surface, lx1, ly1, lx2, ly2, color)
 
-    def _draw_gizmo(self, gizmo: GizmoData, alpha_used):
-        pos = gizmo._screen_pos
+    def _draw_gizmo(self, gizmo: GizmoData, pos: Tuple[int, int], alpha_used):
         surface = self.screen if gizmo.alpha == 255 else self._get_temp_surface(gizmo.alpha)
         if gizmo.alpha < 255:
             alpha_used.add(gizmo.alpha)
@@ -397,7 +387,6 @@ class GizmosManager:
             txt_surf = self.get_font(gizmo.font_name, font_size).render(gizmo.text, True, color)
             txt_rect = txt_surf.get_rect(center=rect.center)
             surface.blit(txt_surf, txt_rect)
-            return
 
     def _draw_circle_gfx(self, surface, center, radius, color, filled, thickness):
         x, y = int(center[0]), int(center[1])

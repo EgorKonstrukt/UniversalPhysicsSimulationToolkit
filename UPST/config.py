@@ -118,7 +118,7 @@ class DebugConfig:
     show_physics_debug: bool = True
     show_camera_debug: bool = True
     show_snapshots_debug: bool = True
-    show_console: bool = True
+    show_console: bool = False
 
 @dataclass
 class AppConfig:
