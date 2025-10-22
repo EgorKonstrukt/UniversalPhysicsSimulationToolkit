@@ -565,11 +565,11 @@ class GizmosManager:
         stats = self.get_stats()
         if stats:
             self.draw_text(
-                (500, 30),
+                (config.app.screen_width-500, 50),
                 f"Gizmos: {stats.get('drawn_gizmos', 0)}/{stats.get('total_gizmos', 0)}"
                 f"\nculled: f{stats.get('culled_frustum', 0)} d{stats.get('culled_distance', 0)} o{stats.get('culled_occlusion', 0)}",
                 'white',
-                font_size=16,
+                font_size=20,
                 world_space=False,
                 duration=0.1,
                 font_world_space=False

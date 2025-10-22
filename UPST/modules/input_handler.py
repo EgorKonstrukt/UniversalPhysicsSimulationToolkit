@@ -75,7 +75,7 @@ class InputHandler:
             elif event.key == pygame.K_p:
                 pygame.image.save(self.app.screen, "../../screenshot.png")
                 self.app.ui_manager.console_window.add_output_line_to_log("Screenshot saved!")
-                self.app.sound_manager.play('screenshot')
+                # self.app.sound_manager.play('screenshot')
             elif event.key == pygame.K_DELETE:
                 info = self.app.physics_manager.space.point_query_nearest(
                     self.app.camera.screen_to_world(pygame.mouse.get_pos()), 0, pymunk.ShapeFilter()
@@ -142,12 +142,12 @@ class InputHandler:
         clicked_body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
         if not clicked_body:
             self.first_joint_body = None
-            self.app.sound_manager.play('error')
+            # self.app.sound_manager.play('error')
             return
         if self.first_joint_body is None:
             self.first_joint_body = clicked_body
             self.first_joint_pos = world_mouse_pos
-            self.app.sound_manager.play('click_3')
+            # self.app.sound_manager.play('click_3')
         else:
             if self.first_joint_body != clicked_body:
                 body1 = self.first_joint_body
@@ -175,11 +175,11 @@ class InputHandler:
                     constraint = pymunk.RotaryLimitJoint(body1, body2, -0.5, 0.5)
                 if constraint:
                     self.app.physics_manager.add_constraint(constraint)
-                    self.app.sound_manager.play('click_4')
+                    # self.app.sound_manager.play('click_4')
                 self.first_joint_body = None
             else:
                 self.first_joint_body = None
-                self.app.sound_manager.play('error')
+                # self.app.sound_manager.play('error')
 
     def calculate_preview_shape(self, end_pos):
         start = self.drag_start_pos

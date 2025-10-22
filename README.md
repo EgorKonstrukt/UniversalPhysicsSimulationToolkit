@@ -1,17 +1,17 @@
 ﻿# Project Dependencies
 
-This project leverages a curated stack of high-performance Python libraries for physics simulation, GPU monitoring, numerical computation, and interactive UI.
+This project leverages a curated stack of high-performance Python libraries for physics simulation, numerical computation, and interactive UI.
 
 ## 📦 Required Packages
 
-| Package      | Version   | Purpose                                      |
-|--------------|-----------|----------------------------------------------|
-| `numba`      | `0.62.1`  | JIT compilation for accelerated numerics      |
-| `numpy`      | `2.3.3`   | Core N-dimensional array operations          |
-| `pygame`     | `2.6.1`   | Multimedia framework for rendering & input   |
-| `pygame_gui` | `0.6.14`  | UI toolkit for Pygame-based applications     |
-| `pymunk`     | `7.1.0`   | 2D physics simulation (Chipmunk backend)     |
-| `scipy`      | `1.16.2`  | Scientific algorithms and advanced math      |
+| Package      | Version  | Purpose                                      |
+|--------------|----------|----------------------------------------------|
+| `numba`      | `0.62.1` | JIT compilation for accelerated numerics     |
+| `numpy`      | `2.3.3`  | Core N-dimensional array operations          |
+| `pygame-ce`  | `2.5.6`  | Multimedia framework for rendering & input   |
+| `pygame_gui` | `0.6.14` | UI toolkit for Pygame-based applications     |
+| `pymunk`     | `7.1.0`  | 2D physics simulation (Chipmunk backend)     |
+| `scipy`      | `1.16.2` | Scientific algorithms and advanced math      |
 
 ## Installation
 

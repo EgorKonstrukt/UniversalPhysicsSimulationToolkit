@@ -180,3 +180,4 @@ class ForceFieldManager:
             nx = (random.random() - 0.5) * self.strength
             ny = (random.random() - 0.5) * self.strength
             body.apply_force_at_world_point((nx, ny), body.position)
+
