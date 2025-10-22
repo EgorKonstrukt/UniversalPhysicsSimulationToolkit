@@ -153,8 +153,7 @@ class AppConfig:
         ("Aluminium", 0.61), ("Steel", 0.53), ("Brass", 0.51),
         ("Cast iron", 1.05), ("Cast iron", 0.85), ("Concrete (wet)", 0.30),
         ("Concrete (dry)", 1.0), ("Concrete", 0.62), ("Copper", 0.68),
-        ("Glass", 0.94), ("Metal", 0.5), ("Polyethene", 0.2),
-        ("Steel", 0.80), ("Steel", 0.04), ("Teflon (PTFE)", 0.04),
+        ("Glass", 0.94), ("Metal", 0.5), ("Polyethene", 0.2), ("Teflon (PTFE)", 0.04),
         ("Wood", 0.4),
     ])
 
