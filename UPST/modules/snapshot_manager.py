@@ -1,7 +1,8 @@
-import pymunk
 import pickle
-from UPST.debug.debug_manager import Debug
+import pymunk
 from UPST.config import config
+from UPST.debug.debug_manager import Debug
+
 
 class SnapshotManager:
     def __init__(self, physics_manager, camera):
@@ -10,156 +11,190 @@ class SnapshotManager:
 
     def create_snapshot(self):
         bodies_data = []
-        body_map = {}
-        body_index = 0
-
-        for body in self.physics_manager.space.bodies:
-            if body is self.physics_manager.static_body:
-                continue
-            body_map[body] = body_index
-            body_index += 1
-
+        sim_bodies = [b for b in self.physics_manager.space.bodies if b is not self.physics_manager.static_body]
+        body_map = {b: i for i, b in enumerate(sim_bodies)}
+        for body in sim_bodies:
             shapes_data = []
             for shape in body.shapes:
-                shape_data = {
-                    'type': shape.__class__.__name__,
-                    'friction': shape.friction,
-                    'elasticity': shape.elasticity,
-                    'color': shape.color
+                sd = {
+                    "type": shape.__class__.__name__,
+                    "friction": float(getattr(shape, "friction", 0.5)),
+                    "elasticity": float(getattr(shape, "elasticity", 0.0)),
+                    "color": getattr(shape, "color", (200, 200, 200, 255)),
                 }
                 if isinstance(shape, pymunk.Circle):
-                    shape_data['radius'] = shape.radius
+                    sd["radius"] = float(shape.radius)
+                    sd["offset"] = tuple(getattr(shape, "offset", (0.0, 0.0)))
                 elif isinstance(shape, pymunk.Poly):
-                    shape_data['vertices'] = [v for v in shape.get_vertices()]
-                shapes_data.append(shape_data)
-
-            body_data = {
-                'position': body.position, 'angle': body.angle,
-                'velocity': body.velocity, 'angular_velocity': body.angular_velocity,
-                'mass': body.mass, 'moment': body.moment,
-                'shapes': shapes_data
+                    sd["vertices"] = [tuple(v) for v in shape.get_vertices()]
+                elif isinstance(shape, pymunk.Segment):
+                    sd["a"] = tuple(shape.a)
+                    sd["b"] = tuple(shape.b)
+                    sd["radius"] = float(shape.radius)
+                shapes_data.append(sd)
+            bd = {
+                "position": tuple(body.position),
+                "angle": float(body.angle),
+                "velocity": tuple(body.velocity),
+                "angular_velocity": float(body.angular_velocity),
+                "mass": float(getattr(body, "mass", 1.0)),
+                "moment": float(getattr(body, "moment", 1.0)),
+                "body_type": int(body.body_type),
+                "shapes": shapes_data,
             }
-            bodies_data.append(body_data)
+            bodies_data.append(bd)
 
         constraints_data = []
-        for constraint in self.physics_manager.space.constraints:
-            if constraint.a in body_map and constraint.b in body_map:
-                const_data = {
-                    'type': constraint.__class__.__name__,
-                    'a': body_map[constraint.a],
-                    'b': body_map[constraint.b],
-                    'anchor_a': constraint.anchor_a,
-                    'anchor_b': constraint.anchor_b,
-                }
-                if isinstance(constraint, pymunk.DampedSpring):
-                    const_data['rest_length'] = constraint.rest_length
-                    const_data['stiffness'] = constraint.stiffness
-                    const_data['damping'] = constraint.damping
-                constraints_data.append(const_data)
+        for c in list(self.physics_manager.space.constraints):
+            if c.a not in body_map or c.b not in body_map:
+                continue
+            cd = {"type": c.__class__.__name__, "a": body_map[c.a], "b": body_map[c.b]}
+            if isinstance(c, pymunk.PinJoint):
+                cd.update({"anchor_a": c.anchor_a, "anchor_b": c.anchor_b})
+            elif isinstance(c, pymunk.PivotJoint):
+                cd.update({"anchor": c.anchor_a})
+            elif isinstance(c, pymunk.DampedSpring):
+                cd.update(
+                    {
+                        "anchor_a": c.anchor_a,
+                        "anchor_b": c.anchor_b,
+                        "rest_length": float(c.rest_length),
+                        "stiffness": float(c.stiffness),
+                        "damping": float(c.damping),
+                    }
+                )
+            elif isinstance(c, pymunk.SimpleMotor):
+                cd.update({"rate": float(c.rate)})
+            elif isinstance(c, pymunk.GearJoint):
+                cd.update({"phase": float(c.phase), "ratio": float(c.ratio)})
+            elif isinstance(c, pymunk.SlideJoint):
+                cd.update({"anchor_a": c.anchor_a, "anchor_b": c.anchor_b, "min": float(c.min), "max": float(c.max)})
+            elif isinstance(c, pymunk.RotaryLimitJoint):
+                cd.update({"min": float(c.min), "max": float(c.max)})
+            constraints_data.append(cd)
 
         static_lines_data = []
-        for line in self.physics_manager.static_lines:
-            line_data = {
-                "friction": line.friction,
-                "elasticity": line.elasticity,
-                "color": getattr(line, "color", (200, 200, 200, 255))
-            }
+        for line in list(self.physics_manager.static_lines):
+            ld = {"friction": float(getattr(line, "friction", 0.5)), "elasticity": float(getattr(line, "elasticity", 0.0)), "color": getattr(line, "color", (200, 200, 200, 255))}
             if isinstance(line, pymunk.Poly):
-                line_data["type"] = "Poly"
-                line_data["vertices"] = [tuple(v) for v in line.get_vertices()]
+                ld["type"] = "Poly"
+                ld["vertices"] = [tuple(v) for v in line.get_vertices()]
             elif isinstance(line, pymunk.Segment):
-                line_data["type"] = "Segment"
-                line_data["a"] = tuple(line.a)
-                line_data["b"] = tuple(line.b)
-                line_data["radius"] = line.radius
-            static_lines_data.append(line_data)
+                ld["type"] = "Segment"
+                ld["a"] = tuple(line.a)
+                ld["b"] = tuple(line.b)
+                ld["radius"] = float(line.radius)
+            static_lines_data.append(ld)
+
+        cam_tr = (
+            getattr(getattr(self.camera, "translation", None), "tx", 0.0),
+            getattr(getattr(self.camera, "translation", None), "ty", 0.0),
+        )
 
         snapshot = {
-            'camera_scaling': self.camera.scaling,
-            'camera_rotation': self.camera.rotation,
-            'bodies': bodies_data,
-            'constraints': constraints_data,
-            'static_lines': static_lines_data
+            "camera_scaling": float(getattr(self.camera, "scaling", 1.0)),
+            "camera_translation": cam_tr,
+            "iterations": int(self.physics_manager.space.iterations),
+            "sim_freq": int(self.physics_manager.simulation_frequency),
+            "gravity": tuple(self.physics_manager.space.gravity),
+            "damping_linear": float(self.physics_manager.space.damping),
+            "damping_angular": float(getattr(self.physics_manager, "_angular_damping", 0.0)),
+            "sleep_time_threshold": float(self.physics_manager.space.sleep_time_threshold),
+            "collision_slop": float(self.physics_manager.space.collision_slop),
+            "collision_bias": float(self.physics_manager.space.collision_bias),
+            "bodies": bodies_data,
+            "constraints": constraints_data,
+            "static_lines": static_lines_data,
         }
+        return pickle.dumps(snapshot)
 
-        dumped_snapshot = pickle.dumps(snapshot)
-        Debug.log_warning(message="Size: " + str(len(dumped_snapshot)), category="Snapshot")
-        return dumped_snapshot
-
-    def load_snapshot(self, snapshot_data):
-        data = pickle.loads(snapshot_data)
-
+    def load_snapshot(self, snapshot_bytes):
+        data = pickle.loads(snapshot_bytes)
         self.physics_manager.delete_all()
+        self.physics_manager.set_iterations(int(data.get("iterations", config.physics.iterations)))
+        self.physics_manager.set_simulation_frequency(int(data.get("sim_freq", config.physics.simulation_frequency)))
+        self.physics_manager.space.gravity = tuple(data.get("gravity", (0.0, 900.0)))
+        self.physics_manager.set_damping(float(data.get("damping_linear", 1.0)), float(data.get("damping_angular", 0.0)))
+        self.physics_manager.set_sleep_time_threshold(float(data.get("sleep_time_threshold", config.physics.sleep_time_threshold)))
+        self.physics_manager.set_collision_slop(float(data.get("collision_slop", 0.5)))
+        self.physics_manager.set_collision_bias(float(data.get("collision_bias", pow(1.0 - 0.1, 60.0))))
 
-        self.physics_manager.space.iterations = data.get('physics_iterations', 10)
-        self.physics_manager.simulation_frequency = data.get('simulation_frequency', 60)
-        self.camera.translation = data.get('camera_translation', pymunk.Transform())
-        self.camera.scaling = data.get('camera_scaling', 1.0)
-        self.camera.target_scaling = self.camera.scaling
-        self.camera.rotation = data.get('camera_rotation', 0)
+        cam_tr = data.get("camera_translation", (0.0, 0.0))
+        self.camera.translation = pymunk.Transform(1, 0, 0, 1, float(cam_tr[0]), float(cam_tr[1]))
+        cam_scale = float(data.get("camera_scaling", getattr(self.camera, "scaling", 1.0)))
+        self.camera.scaling = cam_scale
+        if hasattr(self.camera, "target_scaling"):
+            self.camera.target_scaling = cam_scale
 
         loaded_bodies = []
-        for body_data in data['bodies']:
-            body = pymunk.Body(body_data['mass'], body_data['moment'])
-            body.position = pymunk.Vec2d(*body_data['position'])
-            body.angle = body_data['angle']
-            body.velocity = pymunk.Vec2d(*body_data['velocity'])
-            body.angular_velocity = body_data['angular_velocity']
+        for bd in data.get("bodies", []):
+            body_type = int(bd.get("body_type", int(pymunk.Body.DYNAMIC)))
+            bt = pymunk.Body(body_type=body_type)
+            if bt.body_type == pymunk.Body.DYNAMIC:
+                bt.mass = float(bd.get("mass", 1.0))
+                bt.moment = float(bd.get("moment", 1.0))
+            bt.position = pymunk.Vec2d(*bd.get("position", (0.0, 0.0)))
+            bt.angle = float(bd.get("angle", 0.0))
+            bt.velocity = pymunk.Vec2d(*bd.get("velocity", (0.0, 0.0)))
+            bt.angular_velocity = float(bd.get("angular_velocity", 0.0))
 
             shapes = []
-            for shape_data in body_data['shapes']:
-                shape_type = shape_data['type']
-                if shape_type == 'Circle':
-                    shape = pymunk.Circle(body, shape_data['radius'])
-                elif shape_type == 'Poly':
-                    vertices = [pymunk.Vec2d(*v) for v in shape_data['vertices']]
-                    shape = pymunk.Poly(body, vertices)
-                else:
+            for sd in bd.get("shapes", []):
+                st = sd.get("type", "")
+                shp = None
+                if st == "Circle":
+                    shp = pymunk.Circle(bt, float(sd["radius"]), tuple(sd.get("offset", (0.0, 0.0))))
+                elif st == "Poly":
+                    shp = pymunk.Poly(bt, [pymunk.Vec2d(*v) for v in sd["vertices"]])
+                elif st == "Segment":
+                    shp = pymunk.Segment(bt, pymunk.Vec2d(*sd["a"]), pymunk.Vec2d(*sd["b"]), float(sd["radius"]))
+                if shp is None:
                     continue
-                shape.friction = shape_data['friction']
-                shape.elasticity = shape_data['elasticity']
-                shape.color = shape_data.get('color', (200, 200, 200, 255))
-                shapes.append(shape)
+                shp.friction = float(sd.get("friction", 0.5))
+                shp.elasticity = float(sd.get("elasticity", 0.0))
+                shp.color = tuple(sd.get("color", (200, 200, 200, 255)))
+                shapes.append(shp)
 
-            self.physics_manager.space.add(body, *shapes)
-            loaded_bodies.append(body)
-
-        for const_data in data.get('constraints', []):
-            body_a = loaded_bodies[const_data['a']]
-            body_b = loaded_bodies[const_data['b']]
-            const_type = const_data['type']
-
-            constraint = None
-            if const_type == 'DampedSpring':
-                constraint = pymunk.DampedSpring(body_a, body_b,
-                                                 pymunk.Vec2d(*const_data['anchor_a']), pymunk.Vec2d(*const_data['anchor_b']),
-                                                 const_data['rest_length'], const_data['stiffness'],
-                                                 const_data['damping'])
-            elif const_type == 'PinJoint':
-                constraint = pymunk.PinJoint(body_a, body_b, pymunk.Vec2d(*const_data['anchor_a']), pymunk.Vec2d(*const_data['anchor_b']))
-            elif const_type == 'PivotJoint':
-                constraint = pymunk.PivotJoint(body_a, body_b, pymunk.Vec2d(*const_data['anchor_a']), pymunk.Vec2d(*const_data['anchor_b']))
-
-            if constraint:
-                self.physics_manager.add_constraint(constraint)
-
-        for line_data in data.get("static_lines", []):
-            if line_data["type"] == "Poly":
-                vertices = [pymunk.Vec2d(*v) for v in line_data["vertices"]]
-                line = pymunk.Poly(self.physics_manager.static_body, vertices)
-            elif line_data["type"] == "Segment":
-                a = pymunk.Vec2d(*line_data["a"])
-                b = pymunk.Vec2d(*line_data["b"])
-                line = pymunk.Segment(self.physics_manager.static_body, a, b, line_data["radius"])
+            if shapes:
+                self.physics_manager.space.add(bt, *shapes)
             else:
-                continue
+                self.physics_manager.space.add(bt)
+            loaded_bodies.append(bt)
 
-            line.friction = line_data["friction"]
-            line.elasticity = line_data["elasticity"]
-            line.color = line_data.get("color", (200, 200, 200, 255))
+        for cd in data.get("constraints", []):
+            a = loaded_bodies[cd["a"]]
+            b = loaded_bodies[cd["b"]]
+            ctype = cd["type"]
+            c = None
+            if ctype == "PinJoint":
+                c = pymunk.PinJoint(a, b, cd["anchor_a"], cd["anchor_b"])
+            elif ctype == "PivotJoint":
+                c = pymunk.PivotJoint(a, b, cd["anchor"])
+            elif ctype == "DampedSpring":
+                c = pymunk.DampedSpring(a, b, cd["anchor_a"], cd["anchor_b"], float(cd["rest_length"]), float(cd["stiffness"]), float(cd["damping"]))
+            elif ctype == "SimpleMotor":
+                c = pymunk.SimpleMotor(a, b, float(cd["rate"]))
+            elif ctype == "GearJoint":
+                c = pymunk.GearJoint(a, b, float(cd["phase"]), float(cd["ratio"]))
+            elif ctype == "SlideJoint":
+                c = pymunk.SlideJoint(a, b, cd["anchor_a"], cd["anchor_b"], float(cd["min"]), float(cd["max"]))
+            elif ctype == "RotaryLimitJoint":
+                c = pymunk.RotaryLimitJoint(a, b, float(cd["min"]), float(cd["max"]))
+            if c:
+                self.physics_manager.add_constraint(c)
+
+        for ld in data.get("static_lines", []):
+            line = None
+            if ld.get("type") == "Poly":
+                line = pymunk.Poly(self.physics_manager.static_body, [pymunk.Vec2d(*v) for v in ld["vertices"]])
+            elif ld.get("type") == "Segment":
+                line = pymunk.Segment(self.physics_manager.static_body, pymunk.Vec2d(*ld["a"]), pymunk.Vec2d(*ld["b"]), float(ld["radius"]))
+            if line is None:
+                continue
+            line.friction = float(ld.get("friction", 0.5))
+            line.elasticity = float(ld.get("elasticity", 0.0))
+            line.color = tuple(ld.get("color", (200, 200, 200, 255)))
             self.physics_manager.static_lines.append(line)
             self.physics_manager.space.add(line)
 
-        # print("loaded snapshot!" + str(snapshot_data))
-
-
+        Debug.log_succes(message="Snapshot restored.", category="SnapshotManager")
