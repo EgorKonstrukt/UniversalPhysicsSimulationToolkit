@@ -192,7 +192,7 @@ class GizmosManager:
 
     def _get_text_surface(self, text: str, color: Tuple[int, int, int], font_name: str,
                           font_size: int) -> pygame.Surface:
-        key = (text, color, font_name, font_size)
+        key = (text, tuple(color), font_name, font_size)
         if key not in self.text_cache:
             font = self.get_font(font_name, font_size)
             self.text_cache[key] = font.render(text, True, color)

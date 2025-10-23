@@ -7,7 +7,6 @@ from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
 from UPST.modules.profiler import profile
 import math
-from UPST.physics.physics_debug_manager import PhysicsDebugSettings
 from UPST.gui.contex_menu import ContextMenu
 
 
@@ -124,20 +123,20 @@ class UIManager:
 
         y_offset = 10
         self.debug_setting_checkboxes = {}
-        for attr_name in dir(PhysicsDebugSettings):
-            if not attr_name.startswith('__') and isinstance(getattr(PhysicsDebugSettings, attr_name), bool):
-                display_name = attr_name.replace('show_', '').replace('_', ' ').title()
-                checkbox = UIButton(
-                    relative_rect=pygame.Rect(5, y_offset, 20, 20),
-                    text="",
-                    container=self.physics_debug_window,
-                    tool_tip_text=f"Toggle {display_name}",
-                    manager=self.manager
-                )
-                label = UILabel(relative_rect=pygame.Rect(30, y_offset, 250, 20),
-                                text=display_name, container=self.physics_debug_window, manager=self.manager)
-                self.debug_setting_checkboxes[attr_name] = checkbox
-                y_offset += 25
+        # for attr_name in dir(PhysicsDebugSettings):
+        #     if not attr_name.startswith('__') and isinstance(getattr(PhysicsDebugSettings, attr_name), bool):
+        #         display_name = attr_name.replace('show_', '').replace('_', ' ').title()
+        #         checkbox = UIButton(
+        #             relative_rect=pygame.Rect(5, y_offset, 20, 20),
+        #             text="",
+        #             container=self.physics_debug_window,
+        #             tool_tip_text=f"Toggle {display_name}",
+        #             manager=self.manager
+        #         )
+        #         label = UILabel(relative_rect=pygame.Rect(30, y_offset, 250, 20),
+        #                         text=display_name, container=self.physics_debug_window, manager=self.manager)
+        #         self.debug_setting_checkboxes[attr_name] = checkbox
+        #         y_offset += 25
 
         self.toggle_all_debug_button = UIButton(
             relative_rect=pygame.Rect(5, y_offset, 150, 30),

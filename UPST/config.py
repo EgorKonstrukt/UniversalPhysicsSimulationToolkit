@@ -21,6 +21,66 @@ class PhysicsConfig:
     sleep_time_threshold: float = 0.5
 
 @dataclass
+class PhysicsDebugConfig:
+    show_velocity_vectors: bool = True
+    show_acceleration_vectors: bool = True
+    show_forces: bool = True
+    show_center_of_mass: bool = False
+    show_angular_velocity: bool = True
+    show_energy_meters: bool = False
+    show_colliders: bool = False
+    show_sleep_state: bool = False
+    show_object_info: bool = False
+    show_trails: bool = False
+    show_momentum_vectors: bool = False
+    show_angular_momentum: bool = True
+    show_impulse_vectors: bool = False
+    show_contact_forces: bool = False
+    show_friction_forces: bool = True
+    show_normal_forces: bool = True
+    show_stress_visualization: bool = False
+    show_deformation_energy: bool = False
+    show_rotation_axes: bool = True
+    show_velocity_profiles: bool = False
+    show_phase_space: bool = False
+    show_lagrangian_mechanics: bool = False
+    show_hamiltonian_mechanics: bool = False
+    show_conservation_laws: bool = False
+    show_stability_analysis: bool = False
+    show_resonance_analysis: bool = False
+    vector_scale: float = 0.025
+    text_scale: float = 1.0
+    energy_bar_height: float = 20.0
+    trail_length: int = 50
+    phase_space_samples: int = 100
+    show_constraints: bool = True
+    constraint_color: Tuple[int, int, int] = (255, 200, 0)
+    show_constraint_info: bool = True
+    velocity_color: Tuple[int, int, int] = (0, 255, 0)
+    acceleration_color: Tuple[int, int, int] = (255, 0, 0)
+    force_color: Tuple[int, int, int] = (255, 255, 0)
+    com_color: Tuple[int, int, int] = (255, 255, 255)
+    angular_color: Tuple[int, int, int] = (255, 0, 255)
+    kinetic_color: Tuple[int, int, int] = (0, 255, 255)
+    potential_color: Tuple[int, int, int] = (0, 0, 255)
+    momentum_color: Tuple[int, int, int] = (255, 128, 0)
+    angular_momentum_color: Tuple[int, int, int] = (128, 255, 0)
+    impulse_color: Tuple[int, int, int] = (255, 0, 128)
+    contact_color: Tuple[int, int, int] = (255, 255, 255)
+    friction_color: Tuple[int, int, int] = (128, 128, 255)
+    normal_color: Tuple[int, int, int] = (255, 128, 128)
+    stress_color: Tuple[int, int, int] = (255, 200, 200)
+    collider_color: Tuple[int, int, int] = (128, 128, 128)
+    sleep_color: Tuple[int, int, int] = (64, 64, 64)
+    show_vector_labels: bool = True
+    show_energy_values: bool = True
+    show_coordinate_system: bool = True
+    show_scientific_notation: bool = False
+    precision_digits: int = 3
+    info_panel_visible: bool = True
+    info_panel_position: Tuple[int, int] = (10, 100)
+
+@dataclass
 class CameraConfig:
     smoothing: bool = True
     smoothness: float = 1.0
@@ -199,7 +259,9 @@ class Config:
 
     def save_to_file(self, path: Optional[str] = None) -> None:
         effective_path = path or self._default_path
-        os.makedirs(os.path.dirname(effective_path), exist_ok=True)
+        dir_path = os.path.dirname(effective_path)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
         with open(effective_path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=4, ensure_ascii=False)
 
@@ -232,6 +294,7 @@ class Config:
 
 Config.register("app", AppConfig)
 Config.register("physics", PhysicsConfig)
+Config.register("physics_debug", PhysicsDebugConfig)
 Config.register("camera", CameraConfig)
 Config.register("profiler", ProfilerConfig)
 Config.register("synthesizer", SynthesizerConfig)
