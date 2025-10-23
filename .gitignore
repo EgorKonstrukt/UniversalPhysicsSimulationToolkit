@@ -9,3 +9,7 @@
 /__pycache__
 /UPST/__pycache__
 /config.json
+/.venv1/
+/build/
+/dist/
+/Application.exe

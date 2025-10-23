@@ -1,7 +1,7 @@
 import os
 import pygame
 from dataclasses import dataclass, field, asdict
-from typing import Tuple, Dict, List, Literal, Optional, Any
+from typing import Any, Dict, Tuple, List, Type, Optional, get_type_hints
 import json
 
 @dataclass
@@ -130,6 +130,7 @@ class DebugConfig:
 
 @dataclass
 class AppConfig:
+    config_default_path: str = "config.json"
     screen_width: int = 2560
     screen_height: int = 1400
     fullscreen: bool = False
@@ -166,109 +167,124 @@ class AppConfig:
     ])
 
 class Config:
-    _default_path = "config.json"
+    _subconfigs: Dict[str, Type] = {}
 
-    def __init__(self,
-                 app: AppConfig = None,
-                 physics: PhysicsConfig = None,
-                 camera: CameraConfig = None,
-                 profiler: ProfilerConfig = None,
-                 synthesizer: SynthesizerConfig = None,
-                 grid: GridConfig = None,
-                 world: WorldConfig = None,
-                 input: InputConfig = None,
-                 multithreading: MultithreadingConfig = None,
-                 debug: DebugConfig = None):
-        self.app = app or AppConfig()
-        self.physics = physics or PhysicsConfig()
-        self.camera = camera or CameraConfig()
-        self.profiler = profiler or ProfilerConfig()
-        self.synthesizer = synthesizer or SynthesizerConfig()
-        self.grid = grid or GridConfig()
-        self.world = world or WorldConfig()
-        self.input = input or InputConfig()
-        self.debug = debug or DebugConfig()
-        self.multithreading = multithreading or MultithreadingConfig()
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._subconfigs = {}
 
     @classmethod
-    def load_from_file(cls, path: str = None) -> "Config":
-        path = path or cls._default_path
-        if not os.path.exists(path):
+    def register(cls, name: str, config_type: Type):
+        cls._subconfigs[name] = config_type
+
+    def __init__(self, **kwargs):
+        for name, config_type in self._subconfigs.items():
+            instance = kwargs.get(name) or config_type()
+            setattr(self, name, instance)
+        self._app_ref = getattr(self, 'app', None)
+
+    @property
+    def _default_path(self) -> str:
+        return self.app.config_path if hasattr(self, 'app') and hasattr(self.app, 'config_path') else "config.json"
+
+    @classmethod
+    def load_from_file(cls, path: Optional[str] = None) -> "Config":
+        effective_path = path or "config.json"
+        if not os.path.exists(effective_path):
             default_instance = cls()
-            default_instance.save_to_file(path)
-        with open(path, "r", encoding="utf-8") as f:
+            default_instance.save_to_file(effective_path)
+        with open(effective_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return cls.from_dict(data)
 
-    def save_to_file(self, path: str = None) -> None:
-        path = path or self._default_path
-        with open(path, "w", encoding="utf-8") as f:
+    def save_to_file(self, path: Optional[str] = None) -> None:
+        effective_path = path or self._default_path
+        os.makedirs(os.path.dirname(effective_path), exist_ok=True)
+        with open(effective_path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=4, ensure_ascii=False)
 
     def save(self) -> None:
         self.save_to_file()
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "app": asdict(self.app),
-            "physics": asdict(self.physics),
-            "camera": asdict(self.camera),
-            "profiler": asdict(self.profiler),
-            "synthesizer": asdict(self.synthesizer),
-            "grid": self._grid_to_dict(),
-            "world": self._world_to_dict(),
-            "input": asdict(self.input),
-            "debug": asdict(self.debug),
-            "multithreading": asdict(self.multithreading),
-        }
+        result = {}
+        for name in self._subconfigs:
+            obj = getattr(self, name)
+            d = asdict(obj)
+            result[name] = self._custom_to_dict(obj, d)
+        return result
 
-    def _grid_to_dict(self) -> Dict[str, Any]:
-        d = asdict(self.grid)
-        d["default_colors"] = asdict(self.grid.default_colors)
-        d["theme_colors"] = {k: asdict(v) for k, v in self.grid.theme_colors.items()}
-        return d
-
-    def _world_to_dict(self) -> Dict[str, Any]:
-        d = asdict(self.world)
-        d["themes"] = {k: asdict(v) for k, v in self.world.themes.items()}
+    def _custom_to_dict(self, obj: Any, d: Dict) -> Any:
+        if hasattr(obj, '_to_dict_custom'):
+            return obj._to_dict_custom(d)
         return d
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Config":
-        def _restore_grid(d: Dict) -> GridConfig:
-            d["default_colors"] = GridColorScheme(**d["default_colors"])
-            d["theme_colors"] = {k: GridColorScheme(**v) for k, v in d["theme_colors"].items()}
-            return GridConfig(**d)
-        def _restore_world(d: Dict) -> WorldConfig:
-            d["themes"] = {k: WorldTheme(**v) for k, v in d["themes"].items()}
-            return WorldConfig(**d)
-        return cls(
-            app=AppConfig(**data["app"]),
-            physics=PhysicsConfig(**data["physics"]),
-            camera=CameraConfig(**data["camera"]),
-            profiler=ProfilerConfig(**data["profiler"]),
-            synthesizer=SynthesizerConfig(**data["synthesizer"]),
-            grid=_restore_grid(data["grid"]),
-            world=_restore_world(data["world"]),
-            input=InputConfig(**data["input"]),
-            debug=DebugConfig(**data["debug"]),
-            multithreading=MultithreadingConfig(**data["multithreading"]),
-        )
+        kwargs = {}
+        for name, config_type in cls._subconfigs.items():
+            subdata = data.get(name, {})
+            if hasattr(config_type, '_from_dict_custom'):
+                kwargs[name] = config_type._from_dict_custom(subdata)
+            else:
+                kwargs[name] = config_type(**subdata)
+        return cls(**kwargs)
 
-    @property
-    def background_color(self) -> Tuple[int, int, int]:
-        theme = self.world.themes.get(self.world.current_theme)
-        return theme.background_color if theme else self.app.background_color
+Config.register("app", AppConfig)
+Config.register("physics", PhysicsConfig)
+Config.register("camera", CameraConfig)
+Config.register("profiler", ProfilerConfig)
+Config.register("synthesizer", SynthesizerConfig)
+Config.register("grid", GridConfig)
+Config.register("world", WorldConfig)
+Config.register("input", InputConfig)
+Config.register("debug", DebugConfig)
+Config.register("multithreading", MultithreadingConfig)
 
-    def get_grid_colors(self, theme_name: str) -> GridColorScheme:
-        return self.grid.theme_colors.get(theme_name, self.grid.default_colors)
+def grid_to_dict_custom(self, d: Dict) -> Dict:
+    d["default_colors"] = asdict(self.default_colors)
+    d["theme_colors"] = {k: asdict(v) for k, v in self.theme_colors.items()}
+    return d
 
-    def get_optimal_subdivision(self, pixel_spacing: float) -> float:
-        if pixel_spacing < self.grid.min_pixel_spacing:
-            return 10.0
-        elif pixel_spacing > self.grid.max_pixel_spacing:
-            return 0.1
-        else:
-            return 1.0
+def grid_from_dict_custom(cls, d: Dict) -> "GridConfig":
+    d["default_colors"] = GridColorScheme(**d["default_colors"])
+    d["theme_colors"] = {k: GridColorScheme(**v) for k, v in d["theme_colors"].items()}
+    return cls(**d)
 
-config = Config()
+def world_to_dict_custom(self, d: Dict) -> Dict:
+    d["themes"] = {k: asdict(v) for k, v in self.themes.items()}
+    return d
+
+def world_from_dict_custom(cls, d: Dict) -> "WorldConfig":
+    d["themes"] = {k: WorldTheme(**v) for k, v in d["themes"].items()}
+    return cls(**d)
+
+GridConfig._to_dict_custom = grid_to_dict_custom
+GridConfig._from_dict_custom = classmethod(grid_from_dict_custom)
+WorldConfig._to_dict_custom = world_to_dict_custom
+WorldConfig._from_dict_custom = classmethod(world_from_dict_custom)
+
+@property
+def background_color(self) -> Tuple[int, int, int]:
+    theme = self.world.themes.get(self.world.current_theme)
+    return theme.background_color if theme else self.app.background_color
+
+@property
+def app(self): return self._app_ref
+
+def get_grid_colors(self, theme_name: str) -> GridColorScheme:
+    return self.grid.theme_colors.get(theme_name, self.grid.default_colors)
+
+def get_optimal_subdivision(self, pixel_spacing: float) -> float:
+    if pixel_spacing < self.grid.min_pixel_spacing:
+        return 10.0
+    elif pixel_spacing > self.grid.max_pixel_spacing:
+        return 0.1
+    else:
+        return 1.0
+
+Config.background_color = background_color
+Config.get_grid_colors = get_grid_colors
+Config.get_optimal_subdivision = get_optimal_subdivision
+
+config = Config.load_from_file()
