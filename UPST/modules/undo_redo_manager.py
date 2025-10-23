@@ -7,12 +7,11 @@ from UPST.config import config
 debug = get_debug()
 
 class UndoRedoManager:
-    def __init__(self, snapshot_manager, max_snapshots=50):
+    def __init__(self, snapshot_manager):
         self.snapshot_manager = snapshot_manager
         # self.ui_manager = ui_manager
         self.history = []
         self.current_index = -1
-        self.max_snapshots = max_snapshots
 
     # def is_mouse_on_ui(self):
     #     return self.ui_manager.manager.get_focus_set()
@@ -40,7 +39,7 @@ class UndoRedoManager:
         snapshot = self.snapshot_manager.create_snapshot()
         self.history.append(snapshot)
         self.current_index += 1
-        if len(self.history) > self.max_snapshots:
+        if len(self.history) > config.snapshot.max_snapshots:
             self.history.pop(0)
             self.current_index -= 1
         Debug.log("taking snapshot, index: "+str(self.current_index), category="Snapshot")

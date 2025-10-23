@@ -73,8 +73,7 @@ class Application:
                                                 camera=self.camera)
         Debug.log("SnapshotManager initialized successfully", "Init")
 
-        self.undo_redo_manager = UndoRedoManager(snapshot_manager=self.snapshot_manager,
-                                                 max_snapshots=50)
+        self.undo_redo_manager = UndoRedoManager(snapshot_manager=self.snapshot_manager)
         Debug.log("UndoRedoManager initialized successfully", "Init")
 
         self.physics_manager.undo_redo_manager = self.undo_redo_manager

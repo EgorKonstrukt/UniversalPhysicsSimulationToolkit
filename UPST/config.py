@@ -189,6 +189,13 @@ class DebugConfig:
     show_console: bool = False
 
 @dataclass
+class SnapshotConfig:
+    save_object_positions: bool = True
+    save_camera_position: bool = False
+    max_snapshots: int = 50
+
+
+@dataclass
 class AppConfig:
     config_default_path: str = "config.json"
     screen_width: int = 2560
@@ -250,12 +257,24 @@ class Config:
     @classmethod
     def load_from_file(cls, path: Optional[str] = None) -> "Config":
         effective_path = path or "config.json"
-        if not os.path.exists(effective_path):
-            default_instance = cls()
-            default_instance.save_to_file(effective_path)
-        with open(effective_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return cls.from_dict(data)
+        data = {}
+        if os.path.exists(effective_path):
+            try:
+                with open(effective_path, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content:
+                        data = json.loads(content)
+                    else:
+                        print(f"Warning: {effective_path} is empty. Using default config.")
+            except (json.JSONDecodeError, OSError) as e:
+                print(f"Warning: Failed to read {effective_path} ({e}). Using default config.")
+        else:
+            print(f"Info: {effective_path} not found. Creating default config.")
+
+        # Build instance from loaded or default data
+        instance = cls.from_dict(data)
+        instance.save_to_file(effective_path)  # Ensure valid file exists
+        return instance
 
     def save_to_file(self, path: Optional[str] = None) -> None:
         effective_path = path or self._default_path
@@ -303,6 +322,7 @@ Config.register("world", WorldConfig)
 Config.register("input", InputConfig)
 Config.register("debug", DebugConfig)
 Config.register("multithreading", MultithreadingConfig)
+Config.register("snapshot", SnapshotConfig)
 
 def grid_to_dict_custom(self, d: Dict) -> Dict:
     d["default_colors"] = asdict(self.default_colors)
@@ -310,6 +330,8 @@ def grid_to_dict_custom(self, d: Dict) -> Dict:
     return d
 
 def grid_from_dict_custom(cls, d: Dict) -> "GridConfig":
+    d.setdefault("default_colors", {})
+    d.setdefault("theme_colors", {})
     d["default_colors"] = GridColorScheme(**d["default_colors"])
     d["theme_colors"] = {k: GridColorScheme(**v) for k, v in d["theme_colors"].items()}
     return cls(**d)
@@ -319,8 +341,33 @@ def world_to_dict_custom(self, d: Dict) -> Dict:
     return d
 
 def world_from_dict_custom(cls, d: Dict) -> "WorldConfig":
-    d["themes"] = {k: WorldTheme(**v) for k, v in d["themes"].items()}
-    return cls(**d)
+    default_themes = {
+        "Classic": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255)),
+        "Desert": WorldTheme((80,60,20), ((200,255),(150,200),(50,100)), (210,180,140,255)),
+        "Ice": WorldTheme((120,120,155), ((150,200),(180,230),(230,255)), (100,170,220,255)),
+        "Night": WorldTheme((10,10,30), ((20,80),(20,80),(60,150)), (40,40,60,255)),
+        "Forest": WorldTheme((34,45,28), ((30,100),(100,200),(30,100)), (60,120,60,255)),
+        "Lava": WorldTheme((40,0,0), ((100,255),(0,40),(0,10)), (120,30,0,255)),
+        "Ocean": WorldTheme((0,40,80), ((0,100),(100,200),(150,255)), (0,90,150,255)),
+        "SciFi": WorldTheme((10,10,10), ((50,100),(200,255),(200,255)), (60,255,180,255)),
+        "Candy": WorldTheme((255,230,255), ((200,255),(100,200),(200,255)), (255,180,220,255)),
+        "Void": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255)),
+        "Black&White": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255)),
+    }
+    loaded_themes = d.get("themes", {})
+    merged_themes = {}
+    for name, default_theme in default_themes.items():
+        if name in loaded_themes:
+            theme_data = loaded_themes[name]
+            # Recreate tuples from lists (JSON doesn't support tuples)
+            bg = tuple(theme_data.get("background_color", default_theme.background_color))
+            shape = tuple(tuple(pair) for pair in theme_data.get("shape_color_range", default_theme.shape_color_range))
+            plat = tuple(theme_data.get("platform_color", default_theme.platform_color))
+            merged_themes[name] = WorldTheme(bg, shape, plat)
+        else:
+            merged_themes[name] = default_theme
+    current_theme = d.get("current_theme", "Classic")
+    return cls(themes=merged_themes, current_theme=current_theme)
 
 GridConfig._to_dict_custom = grid_to_dict_custom
 GridConfig._from_dict_custom = classmethod(grid_from_dict_custom)
