@@ -11,8 +11,8 @@ class PhysicsManager:
         Debug.log_info("PhysicsManager initialization started.", "Physics")
         self.app = game_app
         self.undo_redo_manager = undo_redo_manager
-        self.space = pymunk.Space(threaded=config.physics.pymunk_threaded)
-        self.space.threads = config.physics.pymunk_threads
+        self.space = pymunk.Space(threaded=config.multithreading.pymunk_threaded)
+        self.space.threads = config.multithreading.pymunk_threads
         self.space.iterations = int(config.physics.iterations)
         self.space.sleep_time_threshold = float(config.physics.sleep_time_threshold)
         self.space.damping = 1.0

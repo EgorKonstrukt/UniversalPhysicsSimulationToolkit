@@ -5,13 +5,20 @@ from typing import Tuple, Dict, List, Literal, Optional, Any
 import json
 
 @dataclass
+class MultithreadingConfig:
+    gizmos_threaded: bool = True
+    gizmos_max_workers: int = 200
+    grid_threaded: bool = True
+    grid_max_workers: int = 200
+    pymunk_threaded: bool = True
+    pymunk_threads: int = 200
+
+@dataclass
 class PhysicsConfig:
     collision_type_default: int = 1
     simulation_frequency: int = 100
     iterations: int = 512
     sleep_time_threshold: float = 0.5
-    pymunk_threaded: bool = True
-    pymunk_threads: int = 2
 
 @dataclass
 class CameraConfig:
@@ -169,6 +176,7 @@ class Config:
                  grid: GridConfig = None,
                  world: WorldConfig = None,
                  input: InputConfig = None,
+                 multithreading: MultithreadingConfig = None,
                  debug: DebugConfig = None):
         self.app = app or AppConfig()
         self.physics = physics or PhysicsConfig()
@@ -179,6 +187,7 @@ class Config:
         self.world = world or WorldConfig()
         self.input = input or InputConfig()
         self.debug = debug or DebugConfig()
+        self.multithreading = multithreading or MultithreadingConfig()
 
     @classmethod
     def load_from_file(cls, path: str = None) -> "Config":
@@ -209,6 +218,7 @@ class Config:
             "world": self._world_to_dict(),
             "input": asdict(self.input),
             "debug": asdict(self.debug),
+            "multithreading": asdict(self.multithreading),
         }
 
     def _grid_to_dict(self) -> Dict[str, Any]:
@@ -241,6 +251,7 @@ class Config:
             world=_restore_world(data["world"]),
             input=InputConfig(**data["input"]),
             debug=DebugConfig(**data["debug"]),
+            multithreading=MultithreadingConfig(**data["multithreading"]),
         )
 
     @property
