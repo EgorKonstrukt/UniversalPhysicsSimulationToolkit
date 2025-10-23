@@ -2,13 +2,15 @@ import pymunk
 import pygame
 from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
+import pygame_gui
 
 class InputHandler:
-    def __init__(self, game_app, gizmos_manager, debug_manager, undo_redo_manager):
+    def __init__(self, game_app, gizmos_manager, debug_manager, undo_redo_manager, ui_manager):
         self.app = game_app
         self.gizmos_manager = gizmos_manager
         self.debug_manager = debug_manager
         self.undo_redo_manager = undo_redo_manager
+        self.ui_manager = ui_manager
         self.key_f_pressed = False
         self.key_f_hold_start_time = 0
         self.key_z_pressed = False

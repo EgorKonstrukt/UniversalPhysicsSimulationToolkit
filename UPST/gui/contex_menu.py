@@ -147,7 +147,7 @@ class ContextMenu:
         ])
 
         if body.shapes:
-            shape = body.shapes[0]
+            shape = next(iter(body.shapes))
             properties.append(f"Shape Type: {type(shape).__name__}")
             properties.append(f"Friction: {shape.friction:.3f}")
             properties.append(f"Elasticity: {shape.elasticity:.3f}")
@@ -178,7 +178,7 @@ class ContextMenu:
         body = self.clicked_object
         if not body.shapes:
             return
-        shape = body.shapes[0]
+        shape = next(iter(body.shapes))
         offset = pymunk.Vec2d(50, 50)
         new_position = body.position + offset
 

@@ -78,18 +78,22 @@ class Application:
         Debug.log("UndoRedoManager initialized successfully", "Init")
 
         self.physics_manager.undo_redo_manager = self.undo_redo_manager
+        self.input_handler = None
+        self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
+                                    self.physics_manager, self.camera,
+                                    None, self.screen, self.font)
         self.input_handler = InputHandler(self,
                                           gizmos_manager=self.gizmos_manager,
                                           debug_manager=self.debug_manager,
-                                          undo_redo_manager=self.undo_redo_manager)
+                                          undo_redo_manager=self.undo_redo_manager,
+                                          ui_manager=self.ui_manager)
+        self.ui_manager.input_handler = self.input_handler
         Debug.log("InputHandler initialized successfully", "Init")
 
 
         self.plotter = Plotter(surface_size=(580, 300))
 
-        self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
-                                    self.physics_manager, self.camera,
-                                    self.input_handler, self.screen, self.font)
+
         Debug.log("UIManager initialized successfully", "Init")
 
         self.ui_manager.set_plotter(self.plotter)

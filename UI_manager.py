@@ -18,11 +18,9 @@ class UIManager:
         self.screen = screen
         self.font = font
         self.input_handler = input_handler
-        self.screen_width = screen_width
-        self.screen_height = screen_height
         self.physics_manager = physics_manager
         self.camera = camera
-        self.selected_force_field_button_text = "attraction"
+        self.selected_force_field_button_text = "attraction1"
         self.circle_color_random = True
         self.rectangle_color_random = True
         self.triangle_color_random = True
@@ -54,24 +52,26 @@ class UIManager:
         self.create_object_settings_windows()
         self.create_utility_buttons()
         self.create_pause_icon()
-        self.context_menu = ContextMenu(self.manager, self) # Instantiate ContextMenu
+        self.context_menu = ContextMenu(self.manager, self)
         self.create_physics_debug_settings_window()
         self.create_plotter_window()
 
     def create_force_field_buttons(self):
         self.force_field_buttons = []
+        self.force_field_icons = []
         paths = ["attraction.png", "repulsion.png", "ring.png", "spiral.png", "laydigital.png"]
         texts = ["attraction", "repulsion", "ring", "spiral", "freeze"]
         for i, (path, text) in enumerate(zip(paths, texts)):
-            pos = (self.screen_width - 135, self.screen_height - 500 + 51 * i)
+            pos = (config.app.screen_width - 135, config.app.screen_height - 500 + 51 * i)
             button = UIButton(relative_rect=pygame.Rect(pos, (110, 50)), text=text, manager=self.manager)
-            UIImage(relative_rect=pygame.Rect(pos[0] - 50, pos[1] + 1, 47, 47),
-                    image_surface=pygame.image.load(f"sprites/gui/force_field/{path}"), manager=self.manager)
+            icon = UIImage(relative_rect=pygame.Rect(pos[0] - 50, pos[1] + 1, 47, 47),
+                           image_surface=pygame.image.load(f"sprites/gui/force_field/{path}"), manager=self.manager)
             self.force_field_buttons.append(button)
+            self.force_field_icons.append(icon)
 
     def create_console(self):
         self.console_window = UIConsoleWindow(
-            pygame.Rect(self.screen_width - 800, self.screen_height - 300, 500, 310),
+            pygame.Rect(config.app.screen_width - 800, config.app.screen_height - 300, 500, 310),
             manager=self.manager)
 
     def create_settings_window(self):
@@ -117,7 +117,7 @@ class UIManager:
 
     def create_physics_debug_settings_window(self):
         self.physics_debug_window = pygame_gui.elements.UIWindow(
-            pygame.Rect(self.screen_width - 450, 10, 400, 600), manager=self.manager,
+            pygame.Rect(config.app.screen_width - 450, 10, 400, 600), manager=self.manager,
             window_display_title="Physics Debug Settings")
         self.physics_debug_window.hide()
 
@@ -200,17 +200,17 @@ class UIManager:
         self.hide_force_field_settings()
 
     def create_utility_buttons(self):
-        self.save_button = UIButton(relative_rect=pygame.Rect(self.screen_width - 135, 10, 125, 40), text="Save World",
+        self.save_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 10, 125, 40), text="Save World",
                                     manager=self.manager)
-        self.load_button = UIButton(relative_rect=pygame.Rect(self.screen_width - 135, 60, 125, 40), text="Load World",
+        self.load_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 60, 125, 40), text="Load World",
                                     manager=self.manager)
-        self.delete_all_button = UIButton(relative_rect=pygame.Rect(200, self.screen_height - 50, 125, 40),
+        self.delete_all_button = UIButton(relative_rect=pygame.Rect(200, config.app.screen_height - 50, 125, 40),
                                           text="Delete All", manager=self.manager)
-        self.toggle_debug_window_button = UIButton(relative_rect=pygame.Rect(self.screen_width - 135, 110, 125, 40), text="Debug Settings", manager=self.manager)
-        self.toggle_plotter_window_button = UIButton(relative_rect=pygame.Rect(self.screen_width - 135, 160, 125, 40), text="Plotter", manager=self.manager)
+        self.toggle_debug_window_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 110, 125, 40), text="Debug Settings", manager=self.manager)
+        self.toggle_plotter_window_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 160, 125, 40), text="Plotter", manager=self.manager)
 
     def create_pause_icon(self):
-        self.pause_icon = UIImage(relative_rect=pygame.Rect(self.screen_width - 450, 10, 50, 50),
+        self.pause_icon = UIImage(relative_rect=pygame.Rect(config.app.screen_width - 450, 10, 50, 50),
                                   image_surface=pygame.image.load("sprites/gui/pause.png").convert_alpha(),
                                   manager=self.manager)
         self.pause_icon.hide()
@@ -309,12 +309,37 @@ class UIManager:
             elif event.user_type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
                 self.handle_slider_move(event, game_app)
             elif event.user_type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
-                self.context_menu.process_event(event) # Pass event to ContextMenu
+                self.context_menu.process_event(event)
                 if event.ui_element == self.plotter_dropdown:
                     self.selected_plot_parameter = event.text
+
         if event.type == pygame_gui.UI_CONSOLE_COMMAND_ENTERED and event.ui_element == self.console_window:
             game_app.console_handler.process_command(event.command)
+        elif event.type == pygame.WINDOWRESIZED:
+            config.app.screen_width = event.x
+            config.app.screen_height = event.y
+            print(config.app.screen_width, config.app.screen_height)
+            self._on_resize()
         self.manager.process_events(event)
+
+    def _on_resize(self):
+        self.manager.set_window_resolution((config.app.screen_width, config.app.screen_height))
+        for i, (button, icon) in enumerate(zip(self.force_field_buttons, self.force_field_icons)):
+            pos = (config.app.screen_width - 135, config.app.screen_height - 500 + 51 * i)
+            button.set_position(pos)
+            icon.set_position((pos[0] - 50, pos[1] + 1))
+
+        self.console_window.set_position((config.app.screen_width - 800, config.app.screen_height - 300))
+        self.settings_window.set_position((200, config.app.screen_height - 300))
+        self.physics_debug_window.set_position((config.app.screen_width - 450, 10))
+        self.plotter_window.set_position((50, 50))
+        self.save_button.set_position((config.app.screen_width - 135, 10))
+        self.load_button.set_position((config.app.screen_width - 135, 60))
+        self.toggle_debug_window_button.set_position((config.app.screen_width - 135, 110))
+        self.toggle_plotter_window_button.set_position((config.app.screen_width - 135, 160))
+        self.delete_all_button.set_position((200, config.app.screen_height - 50))
+
+
 
     def handle_button_press(self, event, game_app):
         if event.ui_element in self.tool_buttons:
@@ -372,6 +397,7 @@ class UIManager:
         elif event.ui_element == self.plotter_clear_button:
             if self.plotter:
                 self.plotter.clear_data()
+
         else:
             for setting_name, checkbox in self.debug_setting_checkboxes.items():
                 if event.ui_element == checkbox:
@@ -384,7 +410,7 @@ class UIManager:
 
     def update_debug_checkboxes(self):
         if self.physics_debug_manager:
-            settings = self.physics_debug_manager.settings
+            settings = config.physics_debug
             for attr_name, checkbox in self.debug_setting_checkboxes.items():
                 current_state = getattr(settings, attr_name, False)
                 image_path = "sprites/gui/checkbox_true.png" if current_state else "sprites/gui/checkbox_false.png"
@@ -547,14 +573,12 @@ class UIManager:
         self.context_menu.show_menu(position, clicked_object)
 
     def open_properties_window(self, obj):
-        # This is a placeholder. Implement a proper properties window here.
         print(f"Opening properties for object: {obj}")
-        # Example: create a new UIWindow with object properties
-        # self.properties_window = pygame_gui.elements.UIWindow(
-        #     pygame.Rect(100, 100, 300, 400), manager=self.manager,
-        #     window_display_title=f"Properties: {obj.body.mass:.2f}kg")
-        # UILabel(relative_rect=pygame.Rect(10, 10, 280, 20), text=f"Mass: {obj.body.mass:.2f}kg", container=self.properties_window, manager=self.manager)
-        # UILabel(relative_rect=pygame.Rect(10, 30, 280, 20), text=f"Velocity: {obj.body.velocity.length:.2f}m/s", container=self.properties_window, manager=self.manager)
+        self.properties_window = pygame_gui.elements.UIWindow(
+            pygame.Rect(100, 100, 300, 400), manager=self.manager,
+            window_display_title=f"Properties: {obj.body.mass:.2f}kg")
+        UILabel(relative_rect=pygame.Rect(10, 10, 280, 20), text=f"Mass: {obj.body.mass:.2f}kg", container=self.properties_window, manager=self.manager)
+        UILabel(relative_rect=pygame.Rect(10, 30, 280, 20), text=f"Velocity: {obj.body.velocity.length:.2f}m/s", container=self.properties_window, manager=self.manager)
 
     def hide_all_object_windows(self):
         self.window_rectangle.hide()
@@ -581,25 +605,8 @@ class UIManager:
             self.pause_icon.hide()
 
     def resize(self, new_width, new_height):
-        self.screen_width = new_width
-        self.screen_height = new_height
+        config.app.screen_width = new_width
+        config.app.screen_height = new_height
 
-        for i, button in enumerate(self.force_field_buttons):
-            pos = (self.screen_width - 135, self.screen_height - 500 + 51 * i)
-            button.set_position(pos)
-            button.get_container().get_container().set_position((pos[0] - 50, pos[1] + 1))
-
-        self.console_window.set_dimensions((500, 310))
-        self.console_window.set_position((self.screen_width - 800, self.screen_height - 300))
-
-        self.settings_window.set_position((200, self.screen_height - 300))
-        self.physics_debug_window.set_position((self.screen_width - 450, 10))
-        self.plotter_window.set_position((50, 50))
-
-        self.save_button.set_position((self.screen_width - 135, 10))
-        self.load_button.set_position((self.screen_width - 135, 60))
-        self.toggle_debug_window_button.set_position((self.screen_width - 135, 110))
-        self.toggle_plotter_window_button.set_position((self.screen_width - 135, 160))
-        self.delete_all_button.set_position((200, self.screen_height - 50))
 
 
