@@ -198,8 +198,8 @@ class SnapshotConfig:
 @dataclass
 class AppConfig:
     config_default_path: str = "config.json"
-    screen_width: int = 2560
-    screen_height: int = 1400
+    screen_width: int = 1920
+    screen_height: int = 1080
     fullscreen: bool = False
     use_system_dpi: bool = False
     version: str = "Universal Physics Simulation Toolkit"

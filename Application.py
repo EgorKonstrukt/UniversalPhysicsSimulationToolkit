@@ -259,13 +259,16 @@ class Application:
             pygame.draw.line(self.screen, (255, 255, 0, 150), body_screen_pos,
                              mouse_pos, 3)
 
+
         self.gizmos_manager.draw()
+
         
         if self.script_system:
             self.script_system.draw(self.screen)
             
         self.ui_manager.draw(self.screen)
         self.draw_cursor_icon()
+
 
         self.debug_manager.draw_all_debug_info(self.screen, self.physics_manager, self.camera)
 
