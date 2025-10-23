@@ -156,44 +156,96 @@ class DebugManager:
     def draw_performance_overlay(self, screen: pygame.Surface):
         if not self.show_performance:
             return
-        fps_history = list(self.performance_history['fps'])
-        frame_time_history = list(self.performance_history['frame_time'])
-        if not fps_history:
+        try:
+            import pygame.gfxdraw
+        except ImportError:
+            pygame.gfxdraw = None
+        fps_hist = list(self.performance_history['fps'])
+        ft_hist = list(self.performance_history['frame_time'])
+        if not fps_hist:
             return
-        current_fps = fps_history[-1] if fps_history else 0
-        avg_fps = sum(fps_history) / len(fps_history) if fps_history else 0
-        min_fps = min(fps_history) if fps_history else 0
-        max_fps = max(fps_history) if fps_history else 0
-        current_frame_time = frame_time_history[-1] if frame_time_history else 0
-        avg_frame_time = sum(frame_time_history) / len(frame_time_history) if frame_time_history else 0
-        overlay_x = 10
-        overlay_y = 10
-        line_height = 18
-        bg_width = 300
-        bg_height = 150
-        bg_surface = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
-        bg_surface.fill((0, 0, 0, 180))
-        screen.blit(bg_surface, (overlay_x, overlay_y))
-        stats_text = [
-            f"FPS: {current_fps:.1f} (Avg: {avg_fps:.1f})",
-            f"Frame Time: {current_frame_time:.2f}ms (Avg: {avg_frame_time:.2f}ms)",
+        cur_fps = fps_hist[-1] if fps_hist else 0
+        avg_fps = sum(fps_hist) / len(fps_hist) if fps_hist else 0
+        min_fps = min(fps_hist) if fps_hist else 0
+        max_fps = max(fps_hist) if fps_hist else 0
+        cur_ft = ft_hist[-1] if ft_hist else 0
+        avg_ft = sum(ft_hist) / len(ft_hist) if ft_hist else 0
+        ox, oy = 10, 10
+        lh = 18
+        w = 340
+        stats_h = 150
+        plot_h = 100
+        gap = 8
+        total_h = stats_h + plot_h * 2 + gap + 20
+        bg = pygame.Surface((w, total_h), pygame.SRCALPHA)
+        bg.fill((0, 0, 0, 180))
+        screen.blit(bg, (ox, oy))
+        stats = [
+            f"FPS: {cur_fps:.1f} (Avg: {avg_fps:.1f})",
+            f"Frame Time: {cur_ft:.2f}ms (Avg: {avg_ft:.2f}ms)",
             f"Min/Max FPS: {min_fps:.1f}/{max_fps:.1f}",
             f"Frame: {self.frame_count}",
             f"Runtime: {time.time() - self.start_time:.1f}s",
             ""
         ]
-        for name, value in self.performance_counters.items():
-            stats_text.append(f"{name}: {value:.2f}")
-        for i, text in enumerate(stats_text):
-            if text:
-                color = (255, 255, 255)
-                if "FPS:" in text and current_fps < 30:
-                    color = (255, 100, 100)
-                elif "FPS:" in text and current_fps > 60:
-                    color = (100, 255, 100)
-
-                text_surface = self.font_small.render(text, True, color)
-                screen.blit(text_surface, (overlay_x + 5, overlay_y + 5 + i * line_height))
+        for k, v in self.performance_counters.items():
+            stats.append(f"{k}: {v:.2f}")
+        for i, t in enumerate(stats):
+            if not t: continue
+            c = (255, 255, 255)
+            if "FPS:" in t:
+                c = (100, 255, 100) if cur_fps > 60 else (255, 100, 100) if cur_fps < 30 else (255, 255, 255)
+            txt = self.font_small.render(t, True, c)
+            screen.blit(txt, (ox + 5, oy + 5 + i * lh))
+        py1 = oy + stats_h + 10
+        py2 = py1 + plot_h + gap
+        pw = w - 10
+        pr1 = pygame.Rect(ox + 5, py1, pw, plot_h)
+        pr2 = pygame.Rect(ox + 5, py2, pw, plot_h)
+        pygame.draw.rect(screen, (60, 60, 60), pr1, 1)
+        pygame.draw.rect(screen, (60, 60, 60), pr2, 1)
+        lbl_fps = self.font_small.render("FPS", True, (100, 255, 100))
+        lbl_ft = self.font_small.render("Frame Time (ms)", True, (255, 150, 100))
+        screen.blit(lbl_fps, (pr1.right - lbl_fps.get_width() - 5, pr1.top + 2))
+        screen.blit(lbl_ft, (pr2.right - lbl_ft.get_width() - 5, pr2.top + 2))
+        if not hasattr(self, '_smooth_max_fps'):
+            self._smooth_max_fps = max_fps or 60.0
+            self._smooth_min_fps = min_fps or 0.0
+            self._smooth_max_ft = max(ft_hist) if ft_hist else 16.0
+        alpha = 0.2
+        self._smooth_max_fps = alpha * max_fps + (1 - alpha) * self._smooth_max_fps
+        self._smooth_min_fps = alpha * min_fps + (1 - alpha) * self._smooth_min_fps
+        current_max_ft = max(ft_hist) if ft_hist else 0
+        self._smooth_max_ft = alpha * current_max_ft + (1 - alpha) * self._smooth_max_ft
+        smooth_fps_range = max(self._smooth_max_fps - self._smooth_min_fps, 1.0)
+        if len(fps_hist) > 1:
+            pts = []
+            for i, v in enumerate(fps_hist):
+                x = pr1.left + int(i * pw / (len(fps_hist) - 1))
+                y = pr1.bottom - int((v - self._smooth_min_fps) / smooth_fps_range * pr1.height)
+                pts.append((x, y))
+            if len(pts) > 1:
+                if pygame.gfxdraw:
+                    pygame.gfxdraw.aapolygon(screen, pts + [(pts[-1][0], pr1.bottom), (pts[0][0], pr1.bottom)],
+                                             (100, 255, 100, 100))
+                    pygame.gfxdraw.filled_polygon(screen, pts + [(pts[-1][0], pr1.bottom), (pts[0][0], pr1.bottom)],
+                                                  (100, 255, 100, 100))
+                else:
+                    pygame.draw.lines(screen, (100, 255, 100), False, pts, 2)
+        if len(ft_hist) > 1:
+            pts = []
+            for i, v in enumerate(ft_hist):
+                x = pr2.left + int(i * pw / (len(ft_hist) - 1))
+                y = pr2.top + int(v / self._smooth_max_ft * pr2.height)
+                pts.append((x, y))
+            if len(pts) > 1:
+                if pygame.gfxdraw:
+                    pygame.gfxdraw.aapolygon(screen, pts + [(pts[-1][0], pr2.bottom), (pts[0][0], pr2.bottom)],
+                                             (255, 150, 100, 100))
+                    pygame.gfxdraw.filled_polygon(screen, pts + [(pts[-1][0], pr2.bottom), (pts[0][0], pr2.bottom)],
+                                                  (255, 150, 100, 100))
+                else:
+                    pygame.draw.lines(screen, (255, 150, 100), False, pts, 1)
 
     def draw_physics_debug(self, screen: pygame.Surface, physics_manager):
         if not self.show_physics_debug:

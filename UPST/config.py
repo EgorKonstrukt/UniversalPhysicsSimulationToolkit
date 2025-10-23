@@ -39,6 +39,7 @@ class ProfilerConfig:
     max_samples: int = 200
     normal_size: Tuple[int, int] = (800, 400)
     paused: bool = False
+    auto_remove_threshold: float = 1.0
 
 @dataclass
 class SynthesizerConfig:

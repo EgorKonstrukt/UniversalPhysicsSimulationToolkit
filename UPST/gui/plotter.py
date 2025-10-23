@@ -91,6 +91,10 @@ class Plotter:
         else:
             return [k for k in all_keys if self.groups.get(k, "ungrouped") == self.current_group_filter]
 
+    def clear_key(self, key):
+        if key in self.data:
+            del self.data[key]
+
     def get_surface(self):
         self.surface.fill((0, 0, 0, 255))
         keys = self._get_filtered_keys()

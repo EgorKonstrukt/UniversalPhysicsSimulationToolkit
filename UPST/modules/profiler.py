@@ -74,6 +74,8 @@ class Profiler:
         self.window = None
         self.tooltip_label = None
 
+        self.last_data_time = {}
+
         self.group_buttons = {}
         self.group_dropdown = None
         self.group_controls_panel = None
@@ -276,9 +278,11 @@ class Profiler:
         elapsed = (time.perf_counter() - start_data["time"]) * 1000
         group = start_data["group"]
 
+        now = time.perf_counter()
         if self.lock.acquire(blocking=False):
             try:
                 self.plotter.add_data(key, elapsed, group)
+                self.last_data_time[key] = now
                 self.needs_update = True
                 if group and group not in self.group_buttons:
                     self._update_group_controls()
@@ -286,6 +290,15 @@ class Profiler:
             finally:
                 self.lock.release()
         del current[key]
+
+    def _remove_stale_keys(self):
+        now = time.perf_counter()
+        stale_keys = [k for k, t in self.last_data_time.items() if now - t > config.profiler.auto_remove_threshold]
+        for key in stale_keys:
+            self.plotter.clear_key(key)
+            self.last_data_time.pop(key, None)
+        if stale_keys:
+            self.needs_update = True
 
     @profile("profiler_update")
     def run(self):
@@ -302,6 +315,7 @@ class Profiler:
     def update_graph(self):
         if not self.image_element:
             return
+        self._remove_stale_keys()
         if self.lock.acquire(blocking=False):
             try:
                 self.image_element.set_image(self.plotter.get_surface())
