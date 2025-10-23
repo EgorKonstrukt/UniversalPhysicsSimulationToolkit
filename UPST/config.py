@@ -24,12 +24,12 @@ class PhysicsConfig:
 class CameraConfig:
     smoothing: bool = True
     smoothness: float = 1.0
-    shift_speed: float = 2.0
+    shift_speed: float = 3.0
     acceleration_factor: float = 2.0
     friction: float = 0.9
     zoom_speed: float = 0.01
     pan_to_cursor_speed: float = 0.1
-    mouse_friction: float = 0.75
+    mouse_friction: float = 0.80
     min_zoom_scale: float = 0.000001
     max_zoom_scale: float = 1000.0
 

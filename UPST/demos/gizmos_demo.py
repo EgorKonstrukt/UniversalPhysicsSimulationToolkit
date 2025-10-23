@@ -10,9 +10,12 @@ from UPST.gizmos.gizmos_manager import Gizmos
 from UPST.modules.profiler import profile
 from UPST.sound.sound_synthesizer import synthesizer
 
+
 class GizmosDemo:
 
-    def __init__(self):
+    def __init__(self, camera):
+
+        self.camera = camera
 
         self.phase: float = 0.0
         self.last_time: float = time.time()
@@ -110,6 +113,16 @@ class GizmosDemo:
                 "title": "Тессеракт",
                 "description": "Фигура четырехмерного пространства, с вращением по всем осям.",
                 "function": self.demo_hypercube
+            },
+            "demo_penteract": {
+                "title": "Пентеракт",
+                "description": "",
+                "function": self.demo_penteract
+            },
+            "demo_4d_torus": {
+                "title": "demo_4d_torus",
+                "description": "",
+                "function": self.demo_4d_torus
             },
             "demo_cube_wireframe": {
                 "title": "Куб",
@@ -261,6 +274,54 @@ class GizmosDemo:
         # self.drawing_points_list.append([])
 
 
+
+    @profile("demo_4d_torus", "demo")
+    def demo_4d_torus(self, position=(0, 0)):
+        cx, cy = position
+        t = self.phase
+        angle_xy = t * 0.4
+        angle_zw = t * 0.5
+        angle_xz = t * 0.3
+        angle_yw = t * 0.6
+
+        def rotate(p, i, j, a):
+            c, s = math.cos(a), math.sin(a)
+            pi, pj = p[i], p[j]
+            p[i] = pi * c - pj * s
+            p[j] = pi * s + pj * c
+
+        points = []
+        for u in range(0, 360, 12):
+            for v in range(0, 360, 12):
+                u_rad = math.radians(u)
+                v_rad = math.radians(v)
+                R, r = 2.0, 0.8
+                x = (R + r * math.cos(v_rad)) * math.cos(u_rad)
+                y = (R + r * math.cos(v_rad)) * math.sin(u_rad)
+                z = r * math.sin(v_rad)
+                w = 0.5 * math.sin(2 * v_rad)  # добавляем 4D-компоненту
+                points.append([x, y, z, w])
+
+        def project_4d_to_2d(p4):
+            p = p4[:]
+            rotate(p, 0, 1, angle_xy)
+            rotate(p, 2, 3, angle_zw)
+            rotate(p, 0, 2, angle_xz)
+            rotate(p, 1, 3, angle_yw)
+            x, y, z, w = p
+            scale = 200 / (3 - w)
+            sx = x * scale + cx
+            sy = y * scale + cy
+            sz = z * scale
+            return sx, sy, sz
+
+        projected = [project_4d_to_2d(p) for p in points]
+
+        for (x, y, z) in projected:
+            depth_factor = max(0.3, 1.0 - abs(z) / 300)
+            intensity = int(200 * depth_factor)
+            color = (intensity, intensity // 2, 255 - intensity // 2)
+            Gizmos.draw_circle((x, y), int(3 * depth_factor), color=color, duration=0.1)
 
     def _is_in_mandelbrot(self, c, max_iter):
         z = 0j
@@ -1114,6 +1175,66 @@ class GizmosDemo:
 
             Gizmos.draw_circle((x, y), radius, color=adjusted_color, duration=0.1)
 
+    @profile("demo_penteract", "demo")
+    def demo_penteract(self, position=(0, 0)):
+        cx, cy = position
+        phase = self.phase
+        angles = [phase * (0.3 + i * 0.1) for i in range(10)]
+
+        vertices = [[x, y, z, w, v] for v in (-1, 1) for w in (-1, 1)
+                    for z in (-1, 1) for y in (-1, 1) for x in (-1, 1)]
+
+        def rotate(p, i, j, angle):
+            c, s = math.cos(angle), math.sin(angle)
+            pi, pj = p[i], p[j]
+            p[i] = pi * c - pj * s
+            p[j] = pi * s + pj * c
+
+        def project_5d_to_2d(point):
+            p = point[:]
+            idx = 0
+            for i in range(5):
+                for j in range(i + 1, 5):
+                    rotate(p, i, j, angles[idx])
+                    idx += 1
+            x, y, z, w, v = p
+            scale = 300 / (5 - v)
+            sx = x * scale + cx
+            sy = y * scale + cy
+            sz = (z + w) * scale * 0.5
+            return (sx, sy, sz)
+
+        projected = [project_5d_to_2d(v) for v in vertices]
+
+        edges = []
+        n = len(vertices)
+        for i in range(n):
+            for j in range(i + 1, n):
+                diff = sum(abs(vertices[i][k] - vertices[j][k]) for k in range(5))
+                if diff == 2:
+                    edges.append((i, j))
+
+        for a, b in edges:
+            x1, y1, z1 = projected[a]
+            x2, y2, z2 = projected[b]
+            depth = (z1 + z2) * 0.5
+            brightness = max(0.3, 1.0 - abs(depth) / 250)
+            v_a, v_b = vertices[a][4], vertices[b][4]
+            if v_a == v_b:
+                base = (255, 100, 100) if v_a == 1 else (100, 100, 255)
+            else:
+                base = (100, 255, 100)
+            color = tuple(int(c * brightness) for c in base)
+            thickness = max(5, int(9 * brightness))
+            Gizmos.draw_line((x1, y1), (x2, y2), color=color, thickness=thickness, duration=0.1)
+
+        for i, (x, y, z) in enumerate(projected):
+            v_coord = vertices[i][4]
+            base_color = (255, 150, 150) if v_coord == 1 else (150, 150, 255)
+            depth_factor = max(0.4, 1.0 - abs(z) / 250)
+            radius = int(14 * depth_factor)
+            color = tuple(int(c * depth_factor) for c in base_color)
+            Gizmos.draw_circle((x, y), radius, color=color, duration=0.1)
     @profile("demo_langton_ant", "demo")
     def demo_langton_ant(self, position=(0, 0)):
         if not hasattr(self, 'grid_size'):
@@ -2198,10 +2319,10 @@ class GizmosDemo:
                 alpha = int(100 * (1 - progress))
                 spiral_color = (100, 100, 150, alpha)
                 Gizmos.draw_circle([x, y], 3.0, color=spiral_color, filled=True, duration=0.1)
+
     @profile("demo_raycast_game", "demo")
     def demo_raycast_game(self, position=(0, 0)):
-        import math
-        import random
+        import math, random
         CELL_SIZE = 40
         if not hasattr(self, '_pr_player_x'):
             self._pr_player_x = 100.0
@@ -2211,6 +2332,7 @@ class GizmosDemo:
             self._pr_num_rays = 120
             self._pr_max_depth = 1100
             self._pr_reflection_depth = 3
+            self._pr_mirror_render_limit = 600  # ← NEW: max distance to render mirror reflections
             self._pr_fog_density = 0.01
             self._pr_fog_color = (30, 30, 30)
             self._pr_grid = [
@@ -2232,155 +2354,108 @@ class GizmosDemo:
             for row in range(self._pr_rows):
                 for col in range(self._pr_cols):
                     if self._pr_grid[row][col] == '#':
-                        x0 = col * CELL_SIZE
-                        y0 = row * CELL_SIZE
-                        x1 = x0 + CELL_SIZE
-                        y1 = y0 + CELL_SIZE
-                        self._pr_map.extend([
-                            ((x0, y0), (x1, y0)),
-                            ((x1, y0), (x1, y1)),
-                            ((x1, y1), (x0, y1)),
-                            ((x0, y1), (x0, y0)),
-                        ])
-            self._pr_mirrors_rect = [
-                ((150, 200), (250, 210))
-            ]
+                        x0, y0 = col * CELL_SIZE, row * CELL_SIZE
+                        x1, y1 = x0 + CELL_SIZE, y0 + CELL_SIZE
+                        self._pr_map.extend(
+                            [((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))])
+            self._pr_mirrors_rect = [((140, 190), (240, 200))]
             for (p1, p2) in self._pr_mirrors_rect:
                 x0, y0 = min(p1[0], p2[0]), min(p1[1], p2[1])
                 x1, y1 = max(p1[0], p2[0]), max(p1[1], p2[1])
-                mirror_walls = [
-                    ((x0, y0), (x1, y0)),
-                    ((x1, y0), (x1, y1)),
-                    ((x1, y1), (x0, y1)),
-                    ((x0, y1), (x0, y0)),
-                ]
-                for wall in mirror_walls:
+                for wall in [((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))]:
                     self._pr_map.append((wall, 'mirror'))
-            self._pr_mirrors_circ = [
-                ((350, 150), 30)
-            ]
-            self._pr_entity_x = 200.0
-            self._pr_entity_y = 300.0
+            self._pr_mirrors_circ = [((350, 150), 30)]
+            self._pr_entity_x, self._pr_entity_y = 200.0, 300.0
             self._pr_entity_angle = 0.0
             self._pr_entity_speed = 5.0
             self._pr_entity_direction_timer = 0
             self._pr_entity_direction_duration = 60
-        cx, cy = position
-        def apply_fog(color, distance):
-            fog_factor = math.exp(-self._pr_fog_density * distance)
-            fog_factor = max(0, min(1, fog_factor))
 
-            final_color = (
-                int(color[0] * fog_factor + self._pr_fog_color[0] * (1 - fog_factor)),
-                int(color[1] * fog_factor + self._pr_fog_color[1] * (1 - fog_factor)),
-                int(color[2] * fog_factor + self._pr_fog_color[2] * (1 - fog_factor))
-            )
-            return final_color
+        cx, cy = position
+
+        def apply_fog(color, distance):
+            fog_factor = max(0, min(1, math.exp(-self._pr_fog_density * distance)))
+            return tuple(int(color[i] * fog_factor + self._pr_fog_color[i] * (1 - fog_factor)) for i in range(3))
+
         def can_move_to(nx, ny):
-            col = int(nx // CELL_SIZE)
-            row = int(ny // CELL_SIZE)
-            if row < 0 or row >= self._pr_rows or col < 0 or col >= self._pr_cols:
-                return False
-            return self._pr_grid[row][col] != '#'
+            col, row = int(nx // CELL_SIZE), int(ny // CELL_SIZE)
+            return 0 <= row < self._pr_rows and 0 <= col < self._pr_cols and self._pr_grid[row][col] != '#'
+
         def update_entity():
             self._pr_entity_direction_timer += 2
             if self._pr_entity_direction_timer >= self._pr_entity_direction_duration:
                 self._pr_entity_angle = random.uniform(0, 2 * math.pi)
                 self._pr_entity_direction_timer = 0
-            next_x = self._pr_entity_x + math.cos(self._pr_entity_angle) * self._pr_entity_speed
-            next_y = self._pr_entity_y + math.sin(self._pr_entity_angle) * self._pr_entity_speed
-            if can_move_to(next_x, next_y):
-                self._pr_entity_x = next_x
-                self._pr_entity_y = next_y
+            nx = self._pr_entity_x + math.cos(self._pr_entity_angle) * self._pr_entity_speed
+            ny = self._pr_entity_y + math.sin(self._pr_entity_angle) * self._pr_entity_speed
+            if can_move_to(nx, ny):
+                self._pr_entity_x, self._pr_entity_y = nx, ny
             else:
                 self._pr_entity_angle = random.uniform(0, 2 * math.pi)
                 self._pr_entity_direction_timer = 0
+
         update_entity()
+
         for row in range(self._pr_rows):
             for col in range(self._pr_cols):
-                cell = self._pr_grid[row][col]
-                color = (200, 200, 200) if cell == '#' else (50, 50, 50)
+                color = (200, 200, 200) if self._pr_grid[row][col] == '#' else (50, 50, 50)
                 Gizmos.draw_rect(
-                    (cx + col * CELL_SIZE * 0.5 + CELL_SIZE * 0.25,
-                     cy + row * CELL_SIZE * 0.5 + CELL_SIZE * 0.25),
-                    CELL_SIZE * 0.5, CELL_SIZE * 0.5,
-                    color=color, filled=True, world_space=True
-                )
+                    (cx + col * CELL_SIZE * 0.5 + CELL_SIZE * 0.25, cy + row * CELL_SIZE * 0.5 + CELL_SIZE * 0.25),
+                    CELL_SIZE * 0.5, CELL_SIZE * 0.5, color=color, filled=True, world_space=True)
+
         for (x0, y0), (x1, y1) in self._pr_mirrors_rect:
-            Gizmos.draw_rect(
-                (cx + (x0 + x1) / 4, cy + (y0 + y1) / 4),
-                abs(x1 - x0) / 2, abs(y1 - y0) / 2,
-                color=(180, 180, 220), filled=True, world_space=True
-            )
+            Gizmos.draw_rect((cx + (x0 + x1) / 4, cy + (y0 + y1) / 4), abs(x1 - x0) / 2, abs(y1 - y0) / 2,
+                             color=(180, 180, 220), filled=True, world_space=True)
+
         for (mx, my), mr in self._pr_mirrors_circ:
-            Gizmos.draw_circle(
-                (cx + mx * 0.5, cy + my * 0.5),
-                mr * 0.5, color=(180, 180, 220), filled=True, world_space=True
-            )
-        Gizmos.draw_circle(
-            (cx + self._pr_player_x * 0.5, cy + self._pr_player_y * 0.5),
-            5, color=(255, 255, 0), filled=True, world_space=True
-        )
-        Gizmos.draw_circle(
-            (cx + self._pr_entity_x * 0.5, cy + self._pr_entity_y * 0.5),
-            8, color=(255, 0, 0), filled=True, world_space=True
-        )
+            Gizmos.draw_circle((cx + mx * 0.5, cy + my * 0.5), mr * 0.5, color=(180, 180, 220), filled=True,
+                               world_space=True)
+
+        Gizmos.draw_circle((cx + self._pr_player_x * 0.5, cy + self._pr_player_y * 0.5), 5, color=(255, 255, 0),
+                           filled=True, world_space=True)
+        Gizmos.draw_circle((cx + self._pr_entity_x * 0.5, cy + self._pr_entity_y * 0.5), 8, color=(255, 0, 0),
+                           filled=True, world_space=True)
+
         screen_x_offset = cx - 1000
-        grad_steps = 50
-        top_color = (30, 30, 100)
-        mid_color = (60, 60, 140)
-        floor_top = (60, 40, 30)
-        floor_bot = (120, 80, 60)
+        grad_steps, top_color, mid_color = 50, (30, 30, 100), (60, 60, 140)
+        floor_top, floor_bot = (60, 40, 30), (120, 80, 60)
+
         for i in range(grad_steps):
             t = i / grad_steps
-            base_color = (
-                int(top_color[0] * (1 - t) + mid_color[0] * t),
-                int(top_color[1] * (1 - t) + mid_color[1] * t),
-                int(top_color[2] * (1 - t) + mid_color[2] * t)
-            )
-            fog_distance = 200 + (i * 300 / grad_steps)
-            fogged_color = apply_fog(base_color, fog_distance)
-
-            y = cy - 200 + (i * (400 / 2) / grad_steps)
-            Gizmos.draw_rect((screen_x_offset + 400, y), 800, (400 / 2) / grad_steps, color=fogged_color, filled=True,
+            base_color = tuple(int(top_color[j] * (1 - t) + mid_color[j] * t) for j in range(3))
+            fogged_color = apply_fog(base_color, 200 + i * 300 / grad_steps)
+            y = cy - 200 + i * 200 / grad_steps
+            Gizmos.draw_rect((screen_x_offset + 400, y), 800, 200 / grad_steps, color=fogged_color, filled=True,
                              world_space=True)
+
         for i in range(grad_steps):
             t = i / grad_steps
-            base_color = (
-                int(floor_top[0] * (1 - t) + floor_bot[0] * t),
-                int(floor_top[1] * (1 - t) + floor_bot[1] * t),
-                int(floor_top[2] * (1 - t) + floor_bot[2] * t)
-            )
-            fog_distance = 200 + (i * 300 / grad_steps)
-            fogged_color = apply_fog(base_color, fog_distance)
-
-            y = cy + (i * (400 / 2) / grad_steps)
-            Gizmos.draw_rect((screen_x_offset + 400, y), 800, (400 / 2) / grad_steps, color=fogged_color, filled=True,
+            base_color = tuple(int(floor_top[j] * (1 - t) + floor_bot[j] * t) for j in range(3))
+            fogged_color = apply_fog(base_color, 200 + i * 300 / grad_steps)
+            y = cy + i * 200 / grad_steps
+            Gizmos.draw_rect((screen_x_offset + 400, y), 800, 200 / grad_steps, color=fogged_color, filled=True,
                              world_space=True)
+
         start_angle = self._pr_player_angle - self._pr_fov / 2
+
         def cast_ray(x0, y0, angle, depth_left, distance_accumulated=0):
             sin_a, cos_a = math.sin(angle), math.cos(angle)
-            nearest_depth = self._pr_max_depth
-            nearest_hit = None
-            nearest_type = None
-            nearest_normal = None
+            nearest_depth, nearest_hit, nearest_type, nearest_normal = self._pr_max_depth, None, None, None
+
             for obj in self._pr_map:
+                obj_type = 'wall'
                 if isinstance(obj, tuple) and len(obj) == 2 and isinstance(obj[1], str):
                     (p1, p2), obj_type = obj
                 else:
                     p1, p2 = obj
-                    obj_type = 'wall'
-                x1, y1 = p1
+                x1, y1 = p1;
                 x2, y2 = p2
                 denom = cos_a * (y1 - y2) - sin_a * (x1 - x2)
-                if abs(denom) < 1e-10:
-                    continue
+                if abs(denom) < 1e-10: continue
                 t = (cos_a * (y1 - y0) - sin_a * (x1 - x0)) / denom
                 u = -((x1 - x2) * (y1 - y0) - (y1 - y2) * (x1 - x0)) / denom
                 if 0 <= t <= 1 and 0.01 < u < nearest_depth:
-                    nearest_depth = u
-                    nearest_hit = (x0 + cos_a * u, y0 + sin_a * u)
-                    nearest_type = obj_type
+                    nearest_depth, nearest_hit, nearest_type = u, (x0 + cos_a * u, y0 + sin_a * u), obj_type
                     dx, dy = x2 - x1, y2 - y1
                     length = math.hypot(dx, dy)
                     if length != 0:
@@ -2388,63 +2463,49 @@ class GizmosDemo:
                         if normal[0] * cos_a + normal[1] * sin_a > 0:
                             normal = (-normal[0], -normal[1])
                         nearest_normal = normal
+
             for (mx, my), mr in self._pr_mirrors_circ:
                 dx, dy = x0 - mx, y0 - my
-                b = 2 * (cos_a * dx + sin_a * dy)
-                c = dx ** 2 + dy ** 2 - mr ** 2
-                delta = b ** 2 - 4 * c
+                b, c = 2 * (cos_a * dx + sin_a * dy), dx * dx + dy * dy - mr * mr
+                delta = b * b - 4 * c
                 if delta >= 0:
                     u1 = (-b - math.sqrt(delta)) / 2
                     if 0.01 < u1 < nearest_depth:
-                        nearest_depth = u1
-                        nearest_hit = (x0 + cos_a * u1, y0 + sin_a * u1)
-                        nearest_type = 'mirror'
-                        normal_x = (nearest_hit[0] - mx) / mr
-                        normal_y = (nearest_hit[1] - my) / mr
-                        normal_len = math.hypot(normal_x, normal_y)
-                        if normal_len != 0:
-                            nearest_normal = (normal_x / normal_len, normal_y / normal_len)
-            entity_dx = self._pr_entity_x - x0
-            entity_dy = self._pr_entity_y - y0
+                        nearest_depth, nearest_hit, nearest_type = u1, (x0 + cos_a * u1, y0 + sin_a * u1), 'mirror'
+                        nx, ny = (nearest_hit[0] - mx) / mr, (nearest_hit[1] - my) / mr
+                        l = math.hypot(nx, ny)
+                        if l != 0: nearest_normal = (nx / l, ny / l)
+
+            entity_dx, entity_dy = self._pr_entity_x - x0, self._pr_entity_y - y0
             entity_dot = entity_dx * cos_a + entity_dy * sin_a
             if entity_dot > 0:
                 entity_perp_dist = abs(entity_dx * (-sin_a) + entity_dy * cos_a)
                 if entity_perp_dist < 8:
                     entity_distance = entity_dot
                     if 0.01 < entity_distance < nearest_depth:
-                        nearest_depth = entity_distance
-                        nearest_hit = (x0 + cos_a * entity_distance, y0 + sin_a * entity_distance)
-                        nearest_type = 'entity'
-                        nearest_normal = None
+                        nearest_depth, nearest_hit, nearest_type = entity_distance, (x0 + cos_a * entity_distance,
+                                                                                     y0 + sin_a * entity_distance), 'entity'
+
             if nearest_hit:
                 hit_x, hit_y = nearest_hit
-                Gizmos.draw_line(
-                    (cx + x0 * 0.5, cy + y0 * 0.5),
-                    (cx + hit_x * 0.5, cy + hit_y * 0.5),
-                    color=(255, 0, 0), thickness=1, world_space=True
-                )
                 total_depth = distance_accumulated + nearest_depth
+                if total_depth > self._pr_mirror_render_limit and depth_left < self._pr_reflection_depth:
+                    return  # ← EARLY EXIT: don't render distant reflections
+                Gizmos.draw_line((cx + x0 * 0.5, cy + y0 * 0.5), (cx + hit_x * 0.5, cy + hit_y * 0.5),
+                                 color=(255, 0, 0), thickness=1, world_space=True)
                 corrected_depth = total_depth * math.cos(angle - self._pr_player_angle)
-                proj_height = min(400, 20000 / (corrected_depth + 0.0001))
+                proj_height = min(400, 20000 / (corrected_depth + 1e-4))
                 base_brightness = max(50, 255 - int(total_depth * 0.2))
                 col_w = 800 / self._pr_num_rays + 1
                 col_x = screen_x_offset + i * col_w
                 if nearest_type == 'entity':
-                    base_color = (255, 0, 0)
-                    final_color = apply_fog(base_color, total_depth)
-                    Gizmos.draw_rect(
-                        (col_x + col_w / 2, cy),
-                        col_w, proj_height,
-                        color=final_color, filled=True, world_space=True
-                    )
+                    final_color = apply_fog((255, 0, 0), total_depth)
+                    Gizmos.draw_rect((col_x + col_w / 2, cy), col_w, proj_height, color=final_color, filled=True,
+                                     world_space=True)
                 elif nearest_type != 'mirror':
-                    base_color = (base_brightness, base_brightness, base_brightness)
-                    final_color = apply_fog(base_color, total_depth)
-                    Gizmos.draw_rect(
-                        (col_x + col_w / 2, cy),
-                        col_w, proj_height,
-                        color=final_color, filled=True, world_space=True
-                    )
+                    final_color = apply_fog((base_brightness,) * 3, total_depth)
+                    Gizmos.draw_rect((col_x + col_w / 2, cy), col_w, proj_height, color=final_color, filled=True,
+                                     world_space=True)
                 if nearest_type == 'mirror' and nearest_normal and depth_left > 0:
                     dot = cos_a * nearest_normal[0] + sin_a * nearest_normal[1]
                     reflect_x = cos_a - 2 * dot * nearest_normal[0]
@@ -2457,66 +2518,68 @@ class GizmosDemo:
             else:
                 total_depth = distance_accumulated + self._pr_max_depth
                 corrected_depth = total_depth * math.cos(angle - self._pr_player_angle)
-                proj_height = min(400, 20000 / (corrected_depth + 0.0001))
+                proj_height = min(400, 20000 / (corrected_depth + 1e-4))
                 base_brightness = max(30, 255 - int(total_depth * 0.2))
                 col_w = 400 / self._pr_num_rays + 2
                 col_x = screen_x_offset + i * col_w
                 if depth_left == self._pr_reflection_depth:
-                    base_color = (base_brightness // 3, base_brightness // 3, base_brightness // 3)
-                    final_color = apply_fog(base_color, total_depth)
-                    Gizmos.draw_rect(
-                        (col_x + col_w / 2, cy),
-                        col_w, proj_height,
-                        color=final_color, filled=True, world_space=True
-                    )
+                    final_color = apply_fog((base_brightness // 3,) * 3, total_depth)
+                    Gizmos.draw_rect((col_x + col_w / 2, cy), col_w, proj_height, color=final_color, filled=True,
+                                     world_space=True)
+
         for i in range(self._pr_num_rays):
             ray_angle = start_angle + i * self._pr_fov / self._pr_num_rays
             cast_ray(self._pr_player_x, self._pr_player_y, ray_angle, self._pr_reflection_depth)
+
         def move_forward():
-            nx = self._pr_player_x + math.cos(self._pr_player_angle) * 5
-            ny = self._pr_player_y + math.sin(self._pr_player_angle) * 5
+            nx, ny = self._pr_player_x + math.cos(self._pr_player_angle) * 5, self._pr_player_y + math.sin(
+                self._pr_player_angle) * 5
             if can_move_to(nx, ny):
                 synthesizer.play_frequency(200, duration=0.04, waveform='sine', volume=0.2)
                 self._pr_player_x, self._pr_player_y = nx, ny
             else:
                 synthesizer.play_frequency(330, duration=0.04, waveform='sine', volume=0.1)
+
         def move_back():
-            nx = self._pr_player_x - math.cos(self._pr_player_angle) * 5
-            ny = self._pr_player_y - math.sin(self._pr_player_angle) * 5
+            nx, ny = self._pr_player_x - math.cos(self._pr_player_angle) * 5, self._pr_player_y - math.sin(
+                self._pr_player_angle) * 5
             if can_move_to(nx, ny):
                 synthesizer.play_frequency(200, duration=0.04, waveform='sine', volume=0.2)
                 self._pr_player_x, self._pr_player_y = nx, ny
             else:
                 synthesizer.play_frequency(330, duration=0.04, waveform='sine', volume=0.1)
+
         def turn_left():
             self._pr_player_angle -= 0.11
             synthesizer.play_frequency(230, duration=0.015, waveform='sine', volume=0.1)
+
         def turn_right():
             self._pr_player_angle += 0.11
             synthesizer.play_frequency(230, duration=0.015, waveform='sine', volume=0.1)
+
         def increase_fog():
             self._pr_fog_density = min(0.01, self._pr_fog_density + 0.0005)
+
         def decrease_fog():
             self._pr_fog_density = max(0.0005, self._pr_fog_density - 0.0005)
-        Gizmos.draw_button((cx + 350, cy - 250), "S", on_click=move_back, width=40, height=40, font_size=20,
-                           world_space=True)
-        Gizmos.draw_button((cx + 350, cy - 300), "W", on_click=move_forward, width=40, height=40, font_size=20,
-                           world_space=True)
-        Gizmos.draw_button((cx + 400, cy - 275), "D", on_click=turn_right, width=40, height=40, font_size=20,
-                           world_space=True)
-        Gizmos.draw_button((cx + 300, cy - 275), "A", on_click=turn_left, width=40, height=40, font_size=20,
-                           world_space=True)
-        Gizmos.draw_button((cx + 450, cy - 250), "F+", on_click=increase_fog, width=40, height=40, font_size=16,
-                           world_space=True)
-        Gizmos.draw_button((cx + 450, cy - 300), "F-", on_click=decrease_fog, width=40, height=40, font_size=16,
-                           world_space=True)
-        Gizmos.draw_text((cx - 400, cy - 400), f"Pos: ({int(self._pr_player_x)}, {int(self._pr_player_y)})",
-                         font_size=16, world_space=True)
-        Gizmos.draw_text((cx - 400, cy - 370), f"Angle: {self._pr_player_angle:.2f}", font_size=16, world_space=True)
-        Gizmos.draw_text((cx - 400, cy - 340), f"Rays: {self._pr_num_rays}", font_size=16, world_space=True)
-        Gizmos.draw_text((cx - 400, cy - 310), f"Fog: {self._pr_fog_density:.4f}", font_size=16, world_space=True)
-        Gizmos.draw_text((cx - 400, cy - 280), f"Entity: ({int(self._pr_entity_x)}, {int(self._pr_entity_y)})",
-                         font_size=16, world_space=True)
+
+        btns = [("W", move_forward, (350, -300)), ("S", move_back, (350, -250)),
+                ("A", turn_left, (300, -275)), ("D", turn_right, (400, -275)),
+                ("F+", increase_fog, (450, -250)), ("F-", decrease_fog, (450, -300))]
+        for label, cb, (dx, dy) in btns:
+            Gizmos.draw_button((cx + dx, cy + dy), label, on_click=cb, width=40, height=40,
+                               font_size=20 if label in "WASD" else 16, world_space=True)
+
+        texts = [
+            f"Pos: ({int(self._pr_player_x)}, {int(self._pr_player_y)})",
+            f"Angle: {self._pr_player_angle:.2f}",
+            f"Rays: {self._pr_num_rays}",
+            f"Fog: {self._pr_fog_density:.4f}",
+            f"Entity: ({int(self._pr_entity_x)}, {int(self._pr_entity_y)})"
+        ]
+        for i, txt in enumerate(texts):
+            Gizmos.draw_text((cx - 400, cy - 400 + i * 30), txt, font_size=16, world_space=True)
+
         Gizmos.draw_rect((screen_x_offset + 400, cy), 800, 400, color=(50, 50, 50), filled=False, thickness=2,
                          world_space=True)
     @profile("demo_quantum_field", "demo")

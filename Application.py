@@ -129,7 +129,7 @@ class Application:
 
 
 
-        self.gizmos_demo = GizmosDemo()
+        self.gizmos_demo = GizmosDemo(self.camera)
         set_debug(self.debug_manager)
         set_gizmos(self.gizmos_manager)
 
@@ -274,6 +274,7 @@ class Application:
 
         draw_time = pygame.time.get_ticks() - start_time
         Debug.set_performance_counter("Draw Time", draw_time)
+
 
     def draw_script_system_info(self):
         if not self.script_system:

@@ -51,19 +51,6 @@ class Camera:
         if self.tracking_enabled and self.tracking_target is not None:
             self._update_tracking()
 
-        # zoom_in = keys[pygame.K_a]
-        # zoom_out = keys[pygame.K_z]
-        # if zoom_in or zoom_out:
-        #     zoom_factor = 1.0
-        #     if zoom_in:
-        #         zoom_factor *= 1.1
-        #     if zoom_out:
-        #         zoom_factor *= 0.9
-        #     self._zoom_at_cursor(zoom_factor)
-
-        # rotate_left = int(keys[pygame.K_s])
-        # rotate_right = int(keys[pygame.K_x])
-        # self.rotation += 0.01 * rotate_left - 0.01 * rotate_right
         left = int(keys[pygame.K_LEFT])
         right = int(keys[pygame.K_RIGHT])
         up = int(keys[pygame.K_UP])
@@ -77,9 +64,11 @@ class Camera:
         self.velocity += direction * acceleration
         self.velocity *= self.friction
         self.translation = self.translation.translated(self.velocity.x, self.velocity.y)
+
         if not self.panning and self.mouse_velocity.length > 0.01:
             self.translation = self.translation.translated(self.mouse_velocity.x, self.mouse_velocity.y)
             self.mouse_velocity *= self.mouse_friction
+
         self.scaling += (self.target_scaling - self.scaling) * self.smoothness
 
     def _update_tracking(self):
