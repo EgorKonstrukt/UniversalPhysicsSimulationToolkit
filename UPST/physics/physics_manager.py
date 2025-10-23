@@ -123,15 +123,15 @@ class PhysicsManager:
         Debug.log_info(f"Added static line to physics space. Segment ID: {segment.__hash__()}.", "Physics")
 
     def add_constraint(self, constraint):
-        self.undo_redo_manager.take_snapshot()
         self.space.add(constraint)
+        self.undo_redo_manager.take_snapshot()
         Debug.log_info(f"Added constraint to physics space. Constraint ID: {constraint.__hash__()}.", "Physics")
 
     def remove_shape_body(self, shape):
         Debug.log_info(f"Attempting to remove shape and its body if empty. Shape ID: {shape.__hash__()}.", "Physics")
-
         body = shape.body
         self.space.remove(shape)
+        self.undo_redo_manager.take_snapshot()
         Debug.log_info(f"Shape {shape.__hash__()} removed from space.", "Physics")
         if body and not body.shapes:
             self.space.remove(body)

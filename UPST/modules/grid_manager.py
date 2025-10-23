@@ -3,6 +3,8 @@ import pygame.gfxdraw
 import math
 import sys
 import pymunk
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
 IS_WINDOWS = sys.platform == "win32"
 if IS_WINDOWS:
@@ -20,7 +22,6 @@ if IS_LINUX:
         _display = display.Display()
     except ImportError:
         IS_LINUX = False
-
 
 from UPST.config import config
 from UPST.gizmos.gizmos_manager import Gizmos
@@ -45,6 +46,7 @@ class GridManager:
         self.ruler_font = pygame.font.SysFont("Consolas", 12)
         self._was_grabbed = False
         self._snapping_active = False
+        self._executor = ThreadPoolExecutor(max_workers=1)
 
     def toggle_grid(self):
         self.enabled = not self.enabled
@@ -89,6 +91,24 @@ class GridManager:
                     pygame.event.set_grab(True)
                 self._snapping_active = False
 
+    def _compute_line_params(self, coord, is_vertical, top_left_world, bottom_right_world, grid_spacing_world):
+        if abs(coord) < 0.001:
+            color = self.grid_color_origin
+            thickness = self.origin_line_thickness
+        elif abs(coord / grid_spacing_world) % self.major_grid_multiplier < 0.001:
+            color = self.grid_color_major
+            thickness = self.major_line_thickness
+        else:
+            color = self.grid_color_minor
+            thickness = self.minor_line_thickness
+        if is_vertical:
+            start = (coord, top_left_world[1])
+            end = (coord, bottom_right_world[1])
+        else:
+            start = (top_left_world[0], coord)
+            end = (bottom_right_world[0], coord)
+        return (start, end, color, thickness, True)
+
     @profile("grid", "app")
     def draw(self, screen):
         self._handle_snapping()
@@ -104,32 +124,20 @@ class GridManager:
         min_y = math.floor(top_left_world[1] / grid_spacing_world) * grid_spacing_world
         max_y = math.ceil(bottom_right_world[1] / grid_spacing_world) * grid_spacing_world
 
-        def submit_line(coord, is_vertical):
-            if abs(coord) < 0.001:
-                color = self.grid_color_origin
-                thickness = self.origin_line_thickness
-            elif abs(coord / grid_spacing_world) % self.major_grid_multiplier < 0.001:
-                color = self.grid_color_major
-                thickness = self.major_line_thickness
-            else:
-                color = self.grid_color_minor
-                thickness = self.minor_line_thickness
-            if is_vertical:
-                start = (coord, top_left_world[1])
-                end = (coord, bottom_right_world[1])
-            else:
-                start = (top_left_world[0], coord)
-                end = (bottom_right_world[0], coord)
-            Gizmos.draw_line(start=start, end=end, color=color, thickness=thickness, duration=0.05, world_space=True)
-
+        tasks = []
         x = min_x
         while x <= max_x:
-            submit_line(x, True)
+            tasks.append(partial(self._compute_line_params, x, True, top_left_world, bottom_right_world, grid_spacing_world))
             x += grid_spacing_world
         y = min_y
         while y <= max_y:
-            submit_line(y, False)
+            tasks.append(partial(self._compute_line_params, y, False, top_left_world, bottom_right_world, grid_spacing_world))
             y += grid_spacing_world
+
+        futures = [self._executor.submit(task) for task in tasks]
+        for future in futures:
+            start, end, color, thickness, world_space = future.result()
+            Gizmos.draw_line(start=start, end=end, color=color, thickness=thickness, duration=0.05, world_space=world_space)
 
         if self.force_field_manager and self.force_field_manager.physics_manager.running_physics:
             self._draw_gravity_vectors(screen, grid_spacing_world, grid_spacing_pixels)

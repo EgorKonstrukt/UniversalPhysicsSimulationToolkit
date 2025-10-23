@@ -49,9 +49,9 @@ class GridColorScheme:
 class GridConfig:
     enabled_by_default: bool = True
     base_size: int = 100
-    major_multiplier: int = 10
-    min_pixel_spacing: int = 20
-    max_pixel_spacing: int = 200
+    major_multiplier: int = 20
+    min_pixel_spacing: int = 40
+    max_pixel_spacing: int = 400
     minor_line_thickness: int = 1
     major_line_thickness: int = 2
     origin_line_thickness: int = 3

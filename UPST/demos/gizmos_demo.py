@@ -2538,11 +2538,11 @@ class GizmosDemo:
             self._lqf_init = True
 
             # Параметры решётки и модели
-            self._Nx = 96  # число узлов по X
-            self._Ny = 72  # число узлов по Y
+            self._Nx = 30  # число узлов по X
+            self._Ny = 30  # число узлов по Y
             self._a = 1.0  # шаг решётки (единица длины)
-            self._m2 = 0.5  # m^2 (массовый параметр)
-            self._lam = 0.1  # λ (сила φ^4)
+            self._m2 = 10.5  # m^2 (массовый параметр)
+            self._lam = 10.1  # λ (сила φ^4)
             self._dt = 0.1  # шаг по времени (должен удовлетворять условию Куранта)
 
             # Состояние поля: φ и его канонический импульс π = ∂_t φ на полушаге
@@ -2616,7 +2616,7 @@ class GizmosDemo:
         # 1) Тепловая карта φ: цвет по значению φ (с обрезкой)
         # 2) Редкие стрелки градиента ∇φ (направление потока)
         # 3) Текстовые метрики: t, Energy, dt, Nx×Ny, m^2, λ
-        grid_px = 9.0  # размер клетки в пикселях для рендера
+        grid_px = 19.0  # размер клетки в пикселях для рендера
         halfx = (Nx * grid_px) / 2
         halfy = (Ny * grid_px) / 2
 
@@ -2656,11 +2656,11 @@ class GizmosDemo:
 
         # HUD
         Gizmos.draw_text((cx - halfx + 8, cy - halfy - 20),
-                         f"t = {self._t:.2f}, E ≈ {total_E:.3f}", font_size=12,
+                         f"t = {self._t:.2f}, E ≈ {total_E:.3f}", font_size=16,
                          color=(255, 255, 255), world_space=True)
         Gizmos.draw_text((cx - halfx + 8, cy - halfy - 4),
                          f"Nx×Ny={Nx}×{Ny}, dt={dt:.3f}, m^2={m2}, λ={lam}",
-                         font_size=12, color=(200, 200, 200), world_space=True)
+                         font_size=16, color=(200, 200, 200), world_space=True)
 
     @profile("demo_fluid_dynamics", "demo")
     def demo_fluid_dynamics(self, position=(0, 0)):
