@@ -1,6 +1,9 @@
 import asyncio,traceback
 from typing import Dict,Any,Optional,Callable
 from .protocol import read_message,write_message,now_ms,PROTO_VERSION,sig
+from UPST.modules.profiler import profile
+
+
 class Client:
     def __init__(self,host:str="127.0.0.1",port:int=7777,token:str|None=None,compress:bool=True):
         self.host=host
@@ -32,6 +35,7 @@ class Client:
     async def send(self,msg:dict):
         if self.writer:
             await write_message(self.writer,msg,compress=self.compress)
+
     async def loop(self):
         try:
             while not self._stop:

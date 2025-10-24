@@ -1,6 +1,9 @@
 import asyncio,traceback
 from typing import Dict,Any,Callable,Optional,Tuple,List
 from .protocol import read_message,write_message,now_ms,PROTO_VERSION,sig
+from UPST.modules.profiler import profile
+
+
 class Host:
     def __init__(self,port:int=7777,token:str|None=None,max_clients:int=64,compress:bool=True):
         self.port=port
@@ -19,6 +22,7 @@ class Host:
         self._last_broadcast=0
         self.timeout_ms=15000
         self.ping_interval_ms=3000
+
     async def start(self):
         self.server=await asyncio.start_server(self._accept,"0.0.0.0",self.port)
     async def stop(self):
@@ -60,6 +64,8 @@ class Host:
         if self.on_client:
             self.on_client(cid,peer)
         asyncio.create_task(self._client_loop(cid))
+
+    @profile("net_client_loop", "Network")
     async def _client_loop(self,cid:int):
         try:
             reader,writer,meta=self.clients[cid]

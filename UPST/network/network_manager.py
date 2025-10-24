@@ -7,6 +7,7 @@ except ImportError:
 from .host import Host
 from .client import Client
 from .protocol import now_ms
+from UPST.modules.profiler import profile
 Color=Tuple[int,int,int,int]
 Vec2=Tuple[float,float]
 class NetworkManager:
@@ -27,6 +28,7 @@ class NetworkManager:
         self._state_provider:Optional[Callable[[],List[dict]]]=None
         self._main_q:queue.SimpleQueue=queue.SimpleQueue()
         self._handlers:Dict[str,Callable[[dict],None]]={}
+    @profile("UPSTNetworkLoop", "Network")
     def _ensure_loop(self):
         if self._loop and self._loop.is_running():
             return
