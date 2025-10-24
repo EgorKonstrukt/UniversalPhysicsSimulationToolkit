@@ -7,11 +7,11 @@ import json
 @dataclass
 class MultithreadingConfig:
     gizmos_threaded: bool = True
-    gizmos_max_workers: int = 200
+    gizmos_max_workers: int = 1
     grid_threaded: bool = True
-    grid_max_workers: int = 200
+    grid_max_workers: int = 1
     pymunk_threaded: bool = True
-    pymunk_threads: int = 200
+    pymunk_threads: int = 1
 
 @dataclass
 class PhysicsConfig:
@@ -271,9 +271,8 @@ class Config:
         else:
             print(f"Info: {effective_path} not found. Creating default config.")
 
-        # Build instance from loaded or default data
         instance = cls.from_dict(data)
-        instance.save_to_file(effective_path)  # Ensure valid file exists
+        instance.save_to_file(effective_path)
         return instance
 
     def save_to_file(self, path: Optional[str] = None) -> None:

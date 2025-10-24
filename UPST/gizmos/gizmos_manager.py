@@ -149,8 +149,8 @@ class GizmosManager:
         self.colors = {'white': (255, 255, 255), 'black': (0, 0, 0), 'red': (255, 0, 0), 'green': (0, 255, 0),
                        'blue': (0, 0, 255), 'yellow': (255, 255, 0), 'cyan': (0, 255, 255), 'magenta': (255, 0, 255),
                        'gray': (128, 128, 128), 'orange': (255, 165, 0), 'purple': (128, 0, 128)}
-        self._screen_width = screen.get_width()
-        self._screen_height = screen.get_height()
+        self._screen_width = config.app.screen_width
+        self._screen_height = config.app.screen_height
         self._half_screen_width = self._screen_width // 2
         self._half_screen_height = self._screen_height // 2
         self._alpha_surfaces: Dict[int, pygame.Surface] = {}
@@ -162,6 +162,11 @@ class GizmosManager:
 
 
     def handle_event(self, event: pygame.event.Event):
+        if event.type == pygame.WINDOWRESIZED:
+            self._screen_width = event.x
+            self._screen_height = event.y
+            self._half_screen_width = self._screen_width // 2
+            self._half_screen_height = self._screen_height // 2
         if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
             return
         mx, my = event.pos
@@ -180,6 +185,7 @@ class GizmosManager:
             if r.collidepoint(mx, my):
                 g.on_click()
                 break
+
 
     def get_font(self, font_name: str, font_size: int) -> pygame.font.Font:
         key = (font_name, font_size)
