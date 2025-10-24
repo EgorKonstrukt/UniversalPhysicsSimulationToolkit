@@ -8,11 +8,11 @@ from UPST.sound.sound_synthesizer import synthesizer
 from UPST.modules.profiler import profile
 import math
 from UPST.gui.contex_menu import ContextMenu
-
+from UPST.network.network_menu import NetworkMenu
 
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera,
-                 input_handler, screen, font,tool_manager=None):
+                 input_handler, screen, font,tool_manager=None, network_manager=None):
         self.manager = pygame_gui.UIManager((screen_width, screen_height), 'theme.json')
         self.tool_manager = tool_manager
         self.screen = screen
@@ -20,6 +20,7 @@ class UIManager:
         self.input_handler = input_handler
         self.physics_manager = physics_manager
         self.camera = camera
+        self.network_manager = network_manager
         self.selected_force_field_button_text = "attraction1"
         self.circle_color_random = True
         self.rectangle_color_random = True
@@ -37,6 +38,10 @@ class UIManager:
             {'name': 'consolas', 'size': 18, 'style': 'regular'},
             {'name': 'consolas', 'size': 20, 'style': 'bold'}
         ])
+
+        self.network_menu = NetworkMenu(ui_manager=self.manager,
+                                        network_manager=self.network_manager,
+                                        title="Network")
 
     def set_physics_debug_manager(self, physics_debug_manager):
         self.physics_debug_manager = physics_debug_manager
@@ -321,6 +326,7 @@ class UIManager:
             print(config.app.screen_width, config.app.screen_height)
             self._on_resize()
         self.manager.process_events(event)
+        self.network_menu.process_event(event)
 
     def _on_resize(self):
         self.manager.set_window_resolution((config.app.screen_width, config.app.screen_height))
