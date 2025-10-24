@@ -81,10 +81,13 @@ class Application:
 
         self.physics_manager.undo_redo_manager = self.undo_redo_manager
         self.input_handler = None
+
         self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
                                     self.physics_manager, self.camera,
                                     None, self.screen, self.font,
-                                    network_manager=None)
+                                    network_manager = None)
+
+
         self.input_handler = InputHandler(self,
                                           gizmos_manager=self.gizmos_manager,
                                           debug_manager=self.debug_manager,
@@ -123,7 +126,14 @@ class Application:
 
         self.console_handler = ConsoleHandler(self.ui_manager, self.physics_manager)
         Debug.log("ConsoleHandler initialized successfully", "Init")
-
+        self.network_manager = NetworkManager(physics_manager=self.physics_manager,
+                                              ui_manager=self.ui_manager,
+                                              spawner=self.spawner,
+                                              gizmos=self.gizmos_manager,
+                                              console=self.console_handler,
+                                              )
+        self.ui_manager.network_manager = self.network_manager
+        self.ui_manager.init_network_menu()
         self.synthesizer = synthesizer
 
 
@@ -149,12 +159,7 @@ class Application:
 
         self.undo_redo_manager.take_snapshot()
 
-        self.network_manager = NetworkManager(physics_manager=self.physics_manager,
-                                              ui_manager=self.ui_manager,
-                                              spawner=self.spawner,
-                                              gizmos=self.gizmos_manager,
-                                              console=self.console_handler,
-                                              )
+
 
 
 

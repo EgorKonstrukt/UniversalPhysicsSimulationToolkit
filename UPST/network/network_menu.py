@@ -5,6 +5,8 @@ from UPST.config import config
 
 class NetworkMenu:
     def __init__(self, ui_manager, network_manager, title="Network"):
+        if network_manager is None:
+            raise ValueError("network_manager must not be None")
         self.ui_manager = ui_manager
         self.network_manager = network_manager
         self.panel = UIWindow(
@@ -32,30 +34,31 @@ class NetworkMenu:
 
     def process_event(self, event):
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            nm = self.network_manager
             if event.ui_element == self.btn_host:
                 try:
                     port = int(self.entry_port.get_text() or "7777")
                     if getattr(self.chk_token, 'is_checked', False):
-                        self.network_manager.token = self.entry_token.get_text() or None
-                    self.network_manager.start_host(port)
+                        nm.token = self.entry_token.get_text() or None
+                    nm.start_host(port)
                 except Exception as e:
-                    self.network_manager.log(str(e))
+                    nm.log(str(e))
             elif event.ui_element == self.btn_conn:
                 try:
                     host = self.entry_host.get_text() or "127.0.0.1"
                     port = int(self.entry_port.get_text() or "7777")
                     if getattr(self.chk_token, 'is_checked', False):
-                        self.network_manager.token = self.entry_token.get_text() or None
-                    self.network_manager.connect(host, port)
+                        nm.token = self.entry_token.get_text() or None
+                    nm.connect(host, port)
                 except Exception as e:
-                    self.network_manager.log(str(e))
+                    nm.log(str(e))
             elif event.ui_element == self.btn_stop:
-                if self.network_manager.role == "host":
-                    self.network_manager.stop_host()
-                elif self.network_manager.role == "client":
-                    self.network_manager.disconnect()
+                if nm.role == "host":
+                    nm.stop_host()
+                elif nm.role == "client":
+                    nm.disconnect()
             elif event.ui_element == self.btn_chat:
                 txt = self.entry_chat.get_text()
                 if txt:
-                    self.network_manager.send_chat(txt)
+                    nm.send_chat(txt)
                     self.entry_chat.set_text("")

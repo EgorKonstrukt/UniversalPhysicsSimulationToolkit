@@ -20,7 +20,7 @@ class UIManager:
         self.input_handler = input_handler
         self.physics_manager = physics_manager
         self.camera = camera
-        self.network_manager = network_manager
+        self.network_menu = None
         self.selected_force_field_button_text = "attraction1"
         self.circle_color_random = True
         self.rectangle_color_random = True
@@ -39,10 +39,12 @@ class UIManager:
             {'name': 'consolas', 'size': 20, 'style': 'bold'}
         ])
 
-        self.network_menu = NetworkMenu(ui_manager=self.manager,
-                                        network_manager=self.network_manager,
-                                        title="Network")
 
+    def init_network_menu(self):
+        if self.network_manager is not None and self.network_menu is None:
+            self.network_menu = NetworkMenu(ui_manager=self.manager,
+                                            network_manager=self.network_manager,
+                                            title="Network")
     def set_physics_debug_manager(self, physics_debug_manager):
         self.physics_debug_manager = physics_debug_manager
 
