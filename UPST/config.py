@@ -236,6 +236,20 @@ class AppConfig:
 class Config:
     _subconfigs: Dict[str, Type] = {}
 
+    # === Типовые аннотации для автокомплита ===
+    app: "AppConfig"
+    physics: "PhysicsConfig"
+    physics_debug: "PhysicsDebugConfig"
+    camera: "CameraConfig"
+    profiler: "ProfilerConfig"
+    synthesizer: "SynthesizerConfig"
+    grid: "GridConfig"
+    world: "WorldConfig"
+    input: "InputConfig"
+    debug: "DebugConfig"
+    multithreading: "MultithreadingConfig"
+    snapshot: "SnapshotConfig"
+
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._subconfigs = {}
@@ -270,7 +284,6 @@ class Config:
                 print(f"Warning: Failed to read {effective_path} ({e}). Using default config.")
         else:
             print(f"Info: {effective_path} not found. Creating default config.")
-
         instance = cls.from_dict(data)
         instance.save_to_file(effective_path)
         return instance

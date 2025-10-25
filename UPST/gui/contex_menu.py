@@ -20,9 +20,11 @@ class ContextMenu:
 
     def create_menu(self):
         self.context_menu = UIPanel(
-            relative_rect=pygame.Rect(0, 0, 250, 400),
+            relative_rect=pygame.Rect(0, 0, 260, 420),
             manager=self.manager,
-            visible=False
+            visible=False,
+            margins={'left': 5, 'right': 5, 'top': 5, 'bottom': 5},
+            object_id=pygame_gui.core.ObjectID(object_id='#context_menu_panel', class_id='@context_menu')
         )
         menu_items = [
             'Delete Object',
@@ -42,79 +44,69 @@ class ContextMenu:
             'Make Dynamic',
             'Select for Debug'
         ]
-
         self.context_menu_list = UISelectionList(
             relative_rect=pygame.Rect(0, 0, 250, 400),
             item_list=menu_items,
             container=self.context_menu,
-            manager=self.manager
+            manager=self.manager,
+            allow_double_clicks=False,
+            object_id=pygame_gui.core.ObjectID(object_id='#context_menu_list', class_id='@context_menu')
         )
 
     def show_menu(self, position, clicked_object):
         self.clicked_object = clicked_object
-        self.context_menu.set_position(position)
+        x, y = position
+        max_x, max_y = pygame.display.get_surface().get_size()
+        rect = self.context_menu.rect
+        x = min(x, max_x - rect.width)
+        y = min(y, max_y - rect.height)
+        self.context_menu.set_position((x, y))
         self.context_menu.show()
 
     def hide(self):
         self.context_menu.hide()
 
     def process_event(self, event):
-        if event.type == pygame.USEREVENT:
-            if event.user_type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
-                if event.ui_element == self.context_menu_list:
-                    self.handle_selection(event.text)
-                    self.context_menu.hide()
+        if event.type == pygame.USEREVENT and event.user_type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
+            if event.ui_element == self.context_menu_list:
+                self.handle_selection(event.text)
+                self.context_menu.hide()
 
     def handle_selection(self, selection):
-        if not self.clicked_object:
-            return
-        if selection == 'Properties':
-            self.open_properties_window()
-        elif selection == 'Delete Object':
-            self.delete_object()
-        elif selection == 'Duplicate':
-            self.duplicate_object()
-        elif selection == 'Freeze/Unfreeze':
-            self.toggle_freeze_object()
-        elif selection == 'Set Velocity':
-            self.set_velocity_dialog()
-        elif selection == 'Set Angular Velocity':
-            self.set_angular_velocity_dialog()
-        elif selection == 'Set Mass':
-            self.set_mass_dialog()
-        elif selection == 'Set Friction':
-            self.set_friction_dialog()
-        elif selection == 'Set Elasticity':
-            self.set_elasticity_dialog()
-        elif selection == 'Add Force':
-            self.add_force_dialog()
-        elif selection == 'Add Torque':
-            self.add_torque_dialog()
-        elif selection == 'Reset Position':
-            self.reset_position()
-        elif selection == 'Reset Rotation':
-            self.reset_rotation()
-        elif selection == 'Make Static':
-            self.make_static()
-        elif selection == 'Make Dynamic':
-            self.make_dynamic()
-        elif selection == 'Select for Debug':
-            self.select_for_debug()
+        if not self.clicked_object: return
+        handlers = {
+            'Properties': self.open_properties_window,
+            'Delete Object': self.delete_object,
+            'Duplicate': self.duplicate_object,
+            'Freeze/Unfreeze': self.toggle_freeze_object,
+            'Set Velocity': self.set_velocity_dialog,
+            'Set Angular Velocity': self.set_angular_velocity_dialog,
+            'Set Mass': self.set_mass_dialog,
+            'Set Friction': self.set_friction_dialog,
+            'Set Elasticity': self.set_elasticity_dialog,
+            'Add Force': self.add_force_dialog,
+            'Add Torque': self.add_torque_dialog,
+            'Reset Position': self.reset_position,
+            'Reset Rotation': self.reset_rotation,
+            'Make Static': self.make_static,
+            'Make Dynamic': self.make_dynamic,
+            'Select for Debug': self.select_for_debug
+        }
+        handler = handlers.get(selection)
+        if handler: handler()
 
     def open_properties_window(self):
         if self.properties_window:
             self.properties_window.kill()
-
         self.properties_window = pygame_gui.elements.UIWindow(
-            pygame.Rect(100, 100, 400, 500), manager=self.manager,
-            window_display_title=f"Object Properties")
-
-        y_offset = 10
-        line_height = 25
-
+            pygame.Rect(100, 100, 420, 520),
+            manager=self.manager,
+            window_display_title="Object Properties",
+            object_id=pygame_gui.core.ObjectID(class_id='@properties_window')
+        )
+        y_offset, line_height = 10, 24
         body = self.clicked_object
-
-        properties = [
+        props = [
             f"Mass: {body.mass:.3f} kg",
             f"Moment of Inertia: {body.moment:.3f} kg⋅m²",
             f"Position: ({body.position.x:.2f}, {body.position.y:.2f}) m",
@@ -125,144 +117,101 @@ class ContextMenu:
             f"Force: ({body.force.x:.2f}, {body.force.y:.2f}) N",
             f"Torque: {body.torque:.3f} N⋅m",
             f"Body Type: {body.body_type}",
-            f"Is Sleeping: {body.is_sleeping}",
+            f"Is Sleeping: {body.is_sleeping}"
         ]
-
-        kinetic_energy = 0.5 * body.mass * (body.velocity.length ** 2)
-        rotational_energy = 0.5 * body.moment * (body.angular_velocity ** 2)
-        total_energy = kinetic_energy + rotational_energy
-
-        properties.extend([
-            f"Kinetic Energy: {kinetic_energy:.3f} J",
-            f"Rotational Energy: {rotational_energy:.3f} J",
-            f"Total Energy: {total_energy:.3f} J",
+        ke = 0.5 * body.mass * body.velocity.length ** 2
+        re = 0.5 * body.moment * body.angular_velocity ** 2
+        props.extend([
+            f"Kinetic Energy: {ke:.3f} J",
+            f"Rotational Energy: {re:.3f} J",
+            f"Total Energy: {ke + re:.3f} J",
+            f"Linear Momentum: {body.mass * body.velocity.length:.3f} kg⋅m/s",
+            f"Angular Momentum: {body.moment * body.angular_velocity:.3f} kg⋅m²/s"
         ])
-
-        momentum = body.mass * body.velocity.length
-        angular_momentum = body.moment * body.angular_velocity
-
-        properties.extend([
-            f"Linear Momentum: {momentum:.3f} kg⋅m/s",
-            f"Angular Momentum: {angular_momentum:.3f} kg⋅m²/s",
-        ])
-
         if body.shapes:
-            shape = next(iter(body.shapes))
-            properties.append(f"Shape Type: {type(shape).__name__}")
-            properties.append(f"Friction: {shape.friction:.3f}")
-            properties.append(f"Elasticity: {shape.elasticity:.3f}")
-
-            if isinstance(shape, pymunk.Circle):
-                properties.append(f"Radius: {shape.radius:.2f} m")
-                area = math.pi * shape.radius ** 2
-                properties.append(f"Area: {area:.3f} m²")
-            elif isinstance(shape, pymunk.Poly):
-                vertices = shape.get_vertices()
-                area = abs(sum((vertices[i].x * vertices[(i + 1) % len(vertices)].y -
-                                vertices[(i + 1) % len(vertices)].x * vertices[i].y)
-                               for i in range(len(vertices)))) / 2
-                properties.append(f"Area: {area:.3f} m²")
-                properties.append(f"Vertices: {len(vertices)}")
-
-        for i, prop in enumerate(properties):
-            UILabel(relative_rect=pygame.Rect(10, y_offset + i * line_height, 380, 20),
-                    text=prop, container=self.properties_window, manager=self.manager)
-
+            s = next(iter(body.shapes))
+            props += [f"Shape Type: {type(s).__name__}", f"Friction: {s.friction:.3f}", f"Elasticity: {s.elasticity:.3f}"]
+            if isinstance(s, pymunk.Circle):
+                r = s.radius
+                props += [f"Radius: {r:.2f} m", f"Area: {math.pi * r ** 2:.3f} m²"]
+            elif isinstance(s, pymunk.Poly):
+                v = s.get_vertices()
+                a = abs(sum(v[i].x * v[(i + 1) % len(v)].y - v[(i + 1) % len(v)].x * v[i].y for i in range(len(v)))) / 2
+                props += [f"Area: {a:.3f} m²", f"Vertices: {len(v)}"]
+        for i, p in enumerate(props):
+            UILabel(
+                relative_rect=pygame.Rect(10, y_offset + i * line_height, 400, 20),
+                text=p,
+                manager=self.manager,
+                container=self.properties_window
+            )
     def delete_object(self):
         if self.clicked_object:
             self.ui_manager.physics_manager.remove_body(self.clicked_object)
 
     def duplicate_object(self):
-        if not self.clicked_object:
-            return
-        body = self.clicked_object
-        if not body.shapes:
-            return
-        shape = next(iter(body.shapes))
-        offset = pymunk.Vec2d(50, 50)
-        new_position = body.position + offset
-
-        if isinstance(shape, pymunk.Circle):
-            new_body = pymunk.Body(body.mass, body.moment)
-            new_shape = pymunk.Circle(new_body, shape.radius, shape.offset)
-        elif isinstance(shape, pymunk.Poly):
-            vertices = shape.get_vertices()
-            new_body = pymunk.Body(body.mass, body.moment)
-            new_shape = pymunk.Poly(new_body, vertices)
-        else:
-            return
-
-        new_shape.friction = shape.friction
-        new_shape.elasticity = shape.elasticity
-        new_body.position = new_position
-        new_body.velocity = body.velocity
-        new_body.angular_velocity = body.angular_velocity
-
-        self.ui_manager.physics_manager.space.add(new_body, new_shape)
+        if not self.clicked_object or not self.clicked_object.shapes: return
+        b = self.clicked_object
+        s = next(iter(b.shapes))
+        off = pymunk.Vec2d(50, 50)
+        np = b.position + off
+        if isinstance(s, pymunk.Circle):
+            nb = pymunk.Body(b.mass, b.moment)
+            ns = pymunk.Circle(nb, s.radius, s.offset)
+        elif isinstance(s, pymunk.Poly):
+            nb = pymunk.Body(b.mass, b.moment)
+            ns = pymunk.Poly(nb, s.get_vertices())
+        else: return
+        ns.friction, ns.elasticity = s.friction, s.elasticity
+        nb.position, nb.velocity, nb.angular_velocity = np, b.velocity, b.angular_velocity
+        self.ui_manager.physics_manager.space.add(nb, ns)
 
     def toggle_freeze_object(self):
-        if not self.clicked_object:
-            return
-
-        body = self.clicked_object
-        if body.velocity.length < 0.1 and abs(body.angular_velocity) < 0.1:
-            body.velocity = (100, 0)
-            body.angular_velocity = 1.0
+        if not self.clicked_object: return
+        b = self.clicked_object
+        if b.velocity.length < 0.1 and abs(b.angular_velocity) < 0.1:
+            b.velocity, b.angular_velocity = (100, 0), 1.0
         else:
-            body.velocity = (0, 0)
-            body.angular_velocity = 0
+            b.velocity, b.angular_velocity = (0, 0), 0
 
     def set_velocity_dialog(self):
-        # This is a simplified implementation. In a full implementation,
-        # you would create input dialogs for these values.
-        if self.clicked_object:
-            self.clicked_object.velocity = (100, 0)
+        if self.clicked_object: self.clicked_object.velocity = (100, 0)
 
     def set_angular_velocity_dialog(self):
-        if self.clicked_object:
-            self.clicked_object.angular_velocity = 2.0
+        if self.clicked_object: self.clicked_object.angular_velocity = 2.0
 
     def set_mass_dialog(self):
-        if self.clicked_object:
-            self.clicked_object.mass = 10.0
+        if self.clicked_object: self.clicked_object.mass = 10.0
 
     def set_friction_dialog(self):
         if self.clicked_object and self.clicked_object.shapes:
-            for shape in self.clicked_object.shapes:
-                shape.friction = 0.8
+            for s in self.clicked_object.shapes: s.friction = 0.8
 
     def set_elasticity_dialog(self):
         if self.clicked_object and self.clicked_object.shapes:
-            for shape in self.clicked_object.shapes:
-                shape.elasticity = 0.9
+            for s in self.clicked_object.shapes: s.elasticity = 0.9
 
     def add_force_dialog(self):
         if self.clicked_object:
             self.clicked_object.apply_force_at_world_point((1000, 0), self.clicked_object.position)
 
     def add_torque_dialog(self):
-        if self.clicked_object:
-            self.clicked_object.torque += 1000
+        if self.clicked_object: self.clicked_object.torque += 1000
 
     def reset_position(self):
         if self.clicked_object:
-            self.clicked_object.position = (0, 0)
-            self.clicked_object.velocity = (0, 0)
+            self.clicked_object.position, self.clicked_object.velocity = (0, 0), (0, 0)
 
     def reset_rotation(self):
         if self.clicked_object:
-            self.clicked_object.angle = 0
-            self.clicked_object.angular_velocity = 0
+            self.clicked_object.angle, self.clicked_object.angular_velocity = 0, 0
 
     def make_static(self):
-        if self.clicked_object:
-            self.clicked_object.body_type = pymunk.Body.STATIC
+        if self.clicked_object: self.clicked_object.body_type = pymunk.Body.STATIC
 
     def make_dynamic(self):
-        if self.clicked_object:
-            self.clicked_object.body_type = pymunk.Body.DYNAMIC
+        if self.clicked_object: self.clicked_object.body_type = pymunk.Body.DYNAMIC
 
     def select_for_debug(self):
         if self.clicked_object and self.ui_manager.physics_debug_manager:
             self.ui_manager.physics_debug_manager.selected_body = self.clicked_object
-            print(f"Selected body for debug: {self.clicked_object}")

@@ -441,10 +441,10 @@ class UIManager:
                 'Force Y',
                 'Torque'
             ]
-            self.plotter_dropdown.set_options(plot_parameters)
+            self.plotter_dropdown.add_options(plot_parameters)
             self.plotter_dropdown.set_text('Select Parameter')
         else:
-            self.plotter_dropdown.set_options(['No object selected'])
+            self.plotter_dropdown.add_options(['No object selected'])
             self.plotter_dropdown.set_text('No object selected')
 
     def toggle_color_mode(self, shape_type, game_app):

@@ -4,7 +4,6 @@ from pygame_gui.elements import UILabel, UIButton, UIImage, \
     UIPanel
 from UPST.sound.sound_synthesizer import synthesizer
 
-
 class ToolManager:
     def __init__(self, physics_manager, ui_manager, input_handler, sound_manager, spawner):
         self.physics_manager = physics_manager
