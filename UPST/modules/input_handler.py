@@ -55,8 +55,8 @@ class InputHandler:
             if event.key == pygame.K_ESCAPE:
                 if self.first_joint_body:
                     self.first_joint_body = None
-                else:
-                    self.app.ui_manager.settings_window.toggle_visibility()
+                # else:
+                #     self.app.ui_manager.settings_window.toggle_visibility()
             elif event.key == pygame.K_f:
                 self.key_f_pressed = True
                 self.key_f_hold_start_time = pygame.time.get_ticks()
