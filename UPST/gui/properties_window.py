@@ -24,7 +24,6 @@ class PropertiesWindow:
         self.create_window()
 
     def create_window(self):
-        # если окно уже есть — убиваем (при recreate)
         if self.window and self.window.alive():
             self.window.kill()
 
@@ -32,7 +31,7 @@ class PropertiesWindow:
         self.window = UIWindow(
             rect,
             manager=self.manager,
-            window_display_title="🧩 Object Properties",
+            window_display_title="Object Properties",
             object_id=pygame_gui.core.ObjectID(class_id='@properties_window'),
             resizable=True
         )
@@ -54,9 +53,9 @@ class PropertiesWindow:
                             object_id="#copy_btn")
         btn_paste = UIButton(pygame.Rect(140, y, 120, 30), "Paste", manager=self.manager, container=self.window,
                              object_id="#paste_btn")
-        btn_apply = UIButton(pygame.Rect(270, y, 140, 30), "✅ Apply Changes", manager=self.manager,
+        btn_apply = UIButton(pygame.Rect(270, y, 140, 30), "Apply Changes", manager=self.manager,
                              container=self.window, object_id="#apply_btn")
-        btn_reset = UIButton(pygame.Rect(420, y, 100, 30), "🔄 Reset", manager=self.manager,
+        btn_reset = UIButton(pygame.Rect(420, y, 100, 30), "Reset", manager=self.manager,
                              container=self.window, object_id="#reset_btn")
         self.elements['copy_btn'] = btn_copy
         self.elements['paste_btn'] = btn_paste
@@ -151,7 +150,7 @@ class PropertiesWindow:
             self.elements['shapes_panels'].append(panel)
             y = new_y + 8
 
-        lbl_help = UILabel(pygame.Rect(10, y, 520, 40),
+        lbl_help = UILabel(pygame.Rect(10, y, 520, 30),
                            "Подсказка: введите числа, нажмите Apply. Auto Update обновляет значения из симуляции.",
                            self.manager, container=self.window)
         self.elements['help'] = lbl_help
@@ -197,7 +196,7 @@ class PropertiesWindow:
         UILabel(pygame.Rect(6, cy, 100, 22), "Collision Type", self.manager, container=panel)
         coll_entry = UITextEntryLine(pygame.Rect(110, cy, 80, 24), self.manager, container=panel)
         coll_entry.set_text(str(getattr(shape, 'collision_type', 0)))
-        sensor_btn = UIButton(pygame.Rect(200, cy, 120, 24),
+        sensor_btn = UIButton(pygame.Rect(350, y - 28, 100, 30),
                               "Sensor: YES" if getattr(shape, 'sensor', False) else "Sensor: NO",
                               manager=self.manager, container=panel)
         self.elements[f"shape_{idx}_collision_entry"] = coll_entry

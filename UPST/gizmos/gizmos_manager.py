@@ -6,8 +6,9 @@ from typing import List, Tuple, Optional, Dict, Callable, Any
 import pygame
 import pygame.gfxdraw
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from UPST.config import config
-from UPST.modules.profiler import profile
+from UPST.modules.profiler import profile, start_profiling, stop_profiling
 
 
 class GizmoType(Enum):
@@ -289,7 +290,6 @@ class GizmosManager:
     def _blit_alpha_surfaces(self, alpha_used):
         for a in alpha_used:
             self.screen.blit(self._alpha_surfaces[a], (0, 0))
-
     def _draw_line_gfx(self, surface, start, end, color, thickness):
         x1, y1 = map(int, start)
         x2, y2 = map(int, end)
@@ -322,27 +322,37 @@ class GizmosManager:
         color = gizmo.color
         scale = self.camera.target_scaling if gizmo.world_space else 1.0
 
+
         if gizmo.gizmo_type == GizmoType.POINT:
+            start_profiling("POINT", "gizmos")
             r = int(gizmo.size * scale)
             if r > 0:
                 pygame.gfxdraw.filled_circle(surface, int(pos[0]), int(pos[1]), r, color)
+            stop_profiling("POINT")
 
         elif gizmo.gizmo_type == GizmoType.LINE and gizmo.end_position:
+            start_profiling("LINE", "gizmos")
             end_screen = self.camera.world_to_screen(gizmo.end_position) if gizmo.world_space else gizmo.end_position
             self._draw_line_gfx(surface, pos, end_screen, color, gizmo.thickness)
+            stop_profiling("LINE")
 
         elif gizmo.gizmo_type == GizmoType.CIRCLE:
+            start_profiling("CIRCLE", "gizmos")
             r = int(gizmo.size * scale)
             self._draw_circle_gfx(surface, pos, r, color, gizmo.filled, gizmo.thickness)
+            stop_profiling("CIRCLE")
 
         elif gizmo.gizmo_type == GizmoType.RECT:
+            start_profiling("RECT", "gizmos")
             w = int(gizmo.width * scale)
             h = int(gizmo.height * scale)
             rect = pygame.Rect(0, 0, w, h)
             rect.center = pos
             self._draw_rect_gfx(surface, rect, color, gizmo.filled, gizmo.thickness)
+            stop_profiling("RECT")
 
         elif gizmo.gizmo_type == GizmoType.ARROW and gizmo.end_position:
+            start_profiling("ARROW", "gizmos")
             end_screen = self.camera.world_to_screen(gizmo.end_position) if gizmo.world_space else gizmo.end_position
             self._draw_line_gfx(surface, pos, end_screen, color, gizmo.thickness)
             dx = end_screen[0] - pos[0]
@@ -357,14 +367,18 @@ class GizmosManager:
                          end_screen[1] - arrow_size * (ny * 0.8 + nx * 0.6))
                 self._draw_line_gfx(surface, end_screen, left, color, gizmo.thickness)
                 self._draw_line_gfx(surface, end_screen, right, color, gizmo.thickness)
+            stop_profiling("ARROW")
 
         elif gizmo.gizmo_type == GizmoType.CROSS:
+            start_profiling("CROSS", "gizmos")
             s = gizmo.size * scale
             h = s * 0.5
             self._draw_line_gfx(surface, (pos[0] - h, pos[1]), (pos[0] + h, pos[1]), color, gizmo.thickness)
             self._draw_line_gfx(surface, (pos[0], pos[1] - h), (pos[0], pos[1] + h), color, gizmo.thickness)
+            stop_profiling("CROSS")
 
         elif gizmo.gizmo_type == GizmoType.TEXT:
+            start_profiling("TEXT", "gizmos")
             font_size = int(gizmo.font_size * (scale if gizmo.font_world_space else 1.0))
             txt_surf = self._get_text_surface(gizmo.text, color, gizmo.font_name, font_size)
             surf_rect = txt_surf.get_rect(center=pos)
@@ -373,8 +387,10 @@ class GizmosManager:
                 bg.fill(gizmo.background_color)
                 surface.blit(bg, (surf_rect.left - 2, surf_rect.top - 2))
             surface.blit(txt_surf, surf_rect)
+            stop_profiling("TEXT")
 
         elif gizmo.gizmo_type == GizmoType.BUTTON:
+            start_profiling("BUTTON", "gizmos")
             w = int(gizmo.width * scale)
             h = int(gizmo.height * scale)
             rect = pygame.Rect(0, 0, w, h)
@@ -393,6 +409,7 @@ class GizmosManager:
             txt_surf = self.get_font(gizmo.font_name, font_size).render(gizmo.text, True, color)
             txt_rect = txt_surf.get_rect(center=rect.center)
             surface.blit(txt_surf, txt_rect)
+            stop_profiling("BUTTON")
 
     def _draw_circle_gfx(self, surface, center, radius, color, filled, thickness):
         x, y = int(center[0]), int(center[1])
@@ -408,7 +425,6 @@ class GizmosManager:
                 for i in range(thickness):
                     if r - i > 0:
                         pygame.gfxdraw.circle(surface, x, y, r - i, color)
-
     def _draw_rect_gfx(self, surface, rect, color, filled, thickness):
         x, y, w, h = int(rect.x), int(rect.y), int(rect.width), int(rect.height)
         if w <= 0 or h <= 0:
