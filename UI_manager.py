@@ -2,7 +2,7 @@ import pygame
 import pygame_gui
 from pygame_gui.elements import UIDropDownMenu, UIHorizontalSlider, UILabel, UIButton, UITextEntryLine, UIImage, \
     UIPanel
-from pygame_gui.windows import UIConsoleWindow
+from pygame_gui.windows import UIConsoleWindow, UIColourPickerDialog
 from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
 from UPST.modules.profiler import profile
@@ -12,7 +12,7 @@ from UPST.network.network_menu import NetworkMenu
 
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera,
-                 input_handler, screen, font,tool_manager=None, network_manager=None):
+                 input_handler, screen, font, tool_manager=None, network_manager=None):
         self.manager = pygame_gui.UIManager((screen_width, screen_height), 'theme.json')
         self.tool_manager = tool_manager
         self.screen = screen
@@ -22,14 +22,20 @@ class UIManager:
         self.camera = camera
         self.network_menu = None
         self.selected_force_field_button_text = "attraction1"
-        self.circle_color_random = True
         self.rectangle_color_random = True
+        self.circle_color_random = True
         self.triangle_color_random = True
         self.poly_color_random = True
+        self.shape_colors = {
+            'rectangle': pygame.Color(128, 128, 128),
+            'circle': pygame.Color(128, 128, 128),
+            'triangle': pygame.Color(128, 128, 128),
+            'polyhedron': pygame.Color(128, 128, 128)
+        }
         self.tool_buttons = []
         self.tool_icons = {}
-        self.physics_debug_manager = None # Will be set by Application
-        self.plotter = None # Will be set by Application
+        self.physics_debug_manager = None
+        self.plotter = None
         self.create_all_elements()
         self.hide_all_object_windows()
         self.manager.add_font_paths(font_name="consolas", regular_path="fonts/Consolas.ttf")
@@ -38,6 +44,23 @@ class UIManager:
             {'name': 'consolas', 'size': 18, 'style': 'regular'},
             {'name': 'consolas', 'size': 20, 'style': 'bold'}
         ])
+        self.active_color_picker = None
+        self.color_picker_for_shape = None
+
+    def _create_color_controls(self, parent_window, obj_prefix):
+        panel = UIPanel(relative_rect=pygame.Rect(5, 100, 200, 60), manager=self.manager, container=parent_window)
+        pick_btn = UIButton(relative_rect=pygame.Rect(5, 5, 100, 25), text="Pick Color", manager=self.manager,
+                            container=panel)
+        rand_cb = UIButton(relative_rect=pygame.Rect(5, 32, 20, 20), text="", manager=self.manager, container=panel,
+                           tool_tip_text="Random color")
+        rand_label = UILabel(relative_rect=pygame.Rect(28, 32, 100, 20), text="Random", container=panel,
+                             manager=self.manager)
+        checkbox_img = UIImage(relative_rect=pygame.Rect(5, 32, 20, 20),
+                               image_surface=pygame.image.load("sprites/gui/checkbox_true.png"), container=panel,
+                               manager=self.manager)
+        setattr(self, f"{obj_prefix}_color_button", pick_btn)
+        setattr(self, f"{obj_prefix}_color_random_checkbox", rand_cb)
+        setattr(self, f"{obj_prefix}_color_random_image", checkbox_img)
 
 
     def init_network_menu(self):
@@ -82,6 +105,7 @@ class UIManager:
             manager=self.manager)
 
     def create_settings_window(self):
+
         self.settings_window = pygame_gui.elements.UIWindow(
             pygame.Rect(200, config.app.screen_height - 300, 400, 200), manager=self.manager,
             window_display_title="Settings")
@@ -276,7 +300,7 @@ class UIManager:
         self.rect_inputs['size_y_entry'] = UITextEntryLine(initial_text="30",
                                                            relative_rect=pygame.Rect(30, 30, 100, 20),
                                                            container=self.window_rectangle, manager=self.manager)
-        self._create_color_panel(self.window_rectangle, "rectangle")
+        self._create_color_controls(self.window_rectangle, "rectangle")
 
         self.window_circle = self._create_object_window("Circle Settings", "sprites/gui/spawn/circle.png")
         self.circle_inputs = self._create_common_object_inputs(self.window_circle)
@@ -285,7 +309,7 @@ class UIManager:
         self.circle_inputs['radius_entry'] = UITextEntryLine(initial_text="30",
                                                              relative_rect=pygame.Rect(30, 10, 100, 20),
                                                              container=self.window_circle, manager=self.manager)
-        self._create_color_panel(self.window_circle, "circle")
+        self._create_color_controls(self.window_circle, "circle")
 
         self.window_triangle = self._create_object_window("Triangle Settings", "sprites/gui/spawn/triangle.png")
         self.triangle_inputs = self._create_common_object_inputs(self.window_triangle)
@@ -294,10 +318,9 @@ class UIManager:
         self.triangle_inputs['size_entry'] = UITextEntryLine(initial_text="30",
                                                              relative_rect=pygame.Rect(60, 10, 100, 20),
                                                              container=self.window_triangle, manager=self.manager)
-        self._create_color_panel(self.window_triangle, "triangle")
+        self._create_color_controls(self.window_triangle, "triangle")
 
-        self.window_polyhedron = self._create_object_window("Polyhedron Settings",
-                                                            "sprites/gui/spawn/polyhedron.png")
+        self.window_polyhedron = self._create_object_window("Polyhedron Settings", "sprites/gui/spawn/polyhedron.png")
         self.poly_inputs = self._create_common_object_inputs(self.window_polyhedron)
         self.poly_inputs['size_label'] = UILabel(relative_rect=pygame.Rect(10, 10, 50, 20), text="Size:",
                                                  container=self.window_polyhedron, manager=self.manager)
@@ -307,7 +330,28 @@ class UIManager:
                                                   container=self.window_polyhedron, manager=self.manager)
         self.poly_inputs['faces_entry'] = UITextEntryLine(initial_text="6", relative_rect=pygame.Rect(60, 30, 100, 20),
                                                           container=self.window_polyhedron, manager=self.manager)
-        self._create_color_panel(self.window_polyhedron, "polyhedron")
+        self._create_color_controls(self.window_polyhedron, "polyhedron")
+
+    def toggle_color_mode(self, shape_type):
+        attr = f"{shape_type}_color_random"
+        current = getattr(self, attr)
+        new = not current
+        setattr(self, attr, new)
+        img_path = "sprites/gui/checkbox_true.png" if new else "sprites/gui/checkbox_false.png"
+        img_element = getattr(self, f"{shape_type}_color_random_image")
+        img_element.set_image(pygame.image.load(img_path))
+
+    def open_color_picker(self, shape_type):
+        if self.active_color_picker:
+            self.active_color_picker.kill()
+        initial = self.shape_colors.get(shape_type, pygame.Color(128, 128, 128))
+        self.active_color_picker = UIColourPickerDialog(
+            rect=pygame.Rect(0, 0, 420, 420),
+            manager=self.manager,
+            initial_colour=initial,
+            window_title=f"Pick Color for {shape_type.title()}"
+        )
+        self.color_picker_for_shape = shape_type
 
     def process_event(self, event, game_app):
         if event.type == pygame.USEREVENT:
@@ -315,20 +359,25 @@ class UIManager:
                 self.handle_button_press(event, game_app)
             elif event.user_type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
                 self.handle_slider_move(event, game_app)
+            elif event.user_type == pygame_gui.UI_COLOUR_PICKER_COLOUR_PICKED:
+                if self.active_color_picker and event.ui_element == self.active_color_picker:
+                    if self.color_picker_for_shape:
+                        self.shape_colors[self.color_picker_for_shape] = pygame.Color(event.colour)
+                    self.active_color_picker = None
+                    self.color_picker_for_shape = None
             elif event.user_type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
                 self.context_menu.process_event(event)
                 if event.ui_element == self.plotter_dropdown:
                     self.selected_plot_parameter = event.text
-
         if event.type == pygame_gui.UI_CONSOLE_COMMAND_ENTERED and event.ui_element == self.console_window:
             game_app.console_handler.process_command(event.command)
         elif event.type == pygame.WINDOWRESIZED:
             config.app.screen_width = event.x
             config.app.screen_height = event.y
-            print(config.app.screen_width, config.app.screen_height)
             self._on_resize()
         self.manager.process_events(event)
-        self.network_menu.process_event(event)
+        if self.network_menu:
+            self.network_menu.process_event(event)
         self.context_menu.process_event(event)
 
     def _on_resize(self):
@@ -348,48 +397,48 @@ class UIManager:
         self.toggle_plotter_window_button.set_position((config.app.screen_width - 135, 160))
         self.delete_all_button.set_position((200, config.app.screen_height - 50))
 
-
-
     def handle_button_press(self, event, game_app):
         if event.ui_element in self.tool_buttons:
             synthesizer.play_frequency(1030, duration=0.03, waveform='sine')
-
             self.handle_tool_button_select(event.ui_element, game_app)
         elif event.ui_element in self.force_field_buttons:
             self.selected_force_field_button_text = event.ui_element.text
             self.show_force_field_settings()
         elif event.ui_element == self.save_button:
             synthesizer.play_frequency(100, duration=0.2, waveform='sine')
-
             game_app.save_load_manager.save_world()
         elif event.ui_element == self.load_button:
             synthesizer.play_frequency(100, duration=0.2, waveform='sine')
-
             game_app.save_load_manager.load_world()
         elif event.ui_element == self.delete_all_button:
             synthesizer.play_frequency(1530, duration=0.05, waveform='sine')
-
             self.physics_manager.delete_all()
-        elif event.ui_element == self.rectangle_color_mode_button:
-            self.toggle_color_mode('rectangle', game_app)
-        elif event.ui_element == self.circle_color_mode_button:
-            self.toggle_color_mode('circle', game_app)
-        elif event.ui_element == self.triangle_color_mode_button:
-            self.toggle_color_mode('triangle', game_app)
-        elif event.ui_element == self.polyhedron_color_mode_button:
-            self.toggle_color_mode('polyhedron', game_app)
+        elif event.ui_element == getattr(self, 'rectangle_color_button', None):
+            if not self.rectangle_color_random:
+                self.open_color_picker('rectangle')
+        elif event.ui_element == getattr(self, 'rectangle_color_random_checkbox', None):
+            self.toggle_color_mode('rectangle')
+        elif event.ui_element == getattr(self, 'circle_color_button', None):
+            if not self.circle_color_random:
+                self.open_color_picker('circle')
+        elif event.ui_element == getattr(self, 'triangle_color_button', None):
+            if not self.triangle_color_random:
+                self.open_color_picker('triangle')
+        elif event.ui_element == getattr(self, 'polyhedron_color_button', None):
+            if not self.poly_color_random:
+                self.open_color_picker('polyhedron')
+        elif event.ui_element == getattr(self, 'rectangle_color_random_checkbox', None):
+            self.toggle_color_mode('rectangle')
+        elif event.ui_element == getattr(self, 'circle_color_random_checkbox', None):
+            self.toggle_color_mode('circle')
+        elif event.ui_element == getattr(self, 'triangle_color_random_checkbox', None):
+            self.toggle_color_mode('triangle')
+        elif event.ui_element == getattr(self, 'polyhedron_color_random_checkbox', None):
+            self.toggle_color_mode('polyhedron')
         elif event.ui_element == self.toggle_debug_window_button:
-            if self.physics_debug_window:
-                self.physics_debug_window.show()
-            else:
-                self.physics_debug_window.hide()
-                self.update_debug_checkboxes()
+            self.physics_debug_window.show() if not self.physics_debug_window.is_visible else self.physics_debug_window.hide()
         elif event.ui_element == self.toggle_plotter_window_button:
-            if self.plotter_window:
-                self.plotter_window.show()
-            else:
-                self.plotter_window.hide()
-                self.update_plotter_dropdown()
+            self.plotter_window.show() if not self.plotter_window.is_visible else self.plotter_window.hide()
         elif event.ui_element == self.toggle_all_debug_button:
             if self.physics_debug_manager:
                 self.physics_debug_manager.toggle_all_debug()
@@ -399,14 +448,12 @@ class UIManager:
                 self.physics_debug_manager.clear_trails()
         elif event.ui_element == self.plotter_add_button:
             if self.plotter and self.physics_debug_manager.selected_body and hasattr(self, 'selected_plot_parameter'):
-                # Add the selected parameter for the selected body to the plotter
-                # This needs to be handled by the physics_debug_manager to collect data
                 print(f"Adding plot for {self.selected_plot_parameter} of {self.physics_debug_manager.selected_body}")
-                self.physics_debug_manager.add_plot_parameter(self.physics_debug_manager.selected_body, self.selected_plot_parameter)
+                self.physics_debug_manager.add_plot_parameter(self.physics_debug_manager.selected_body,
+                                                              self.selected_plot_parameter)
         elif event.ui_element == self.plotter_clear_button:
             if self.plotter:
                 self.plotter.clear_data()
-
         else:
             for setting_name, checkbox in self.debug_setting_checkboxes.items():
                 if event.ui_element == checkbox:
@@ -448,15 +495,14 @@ class UIManager:
             self.plotter_dropdown.add_options(['No object selected'])
             self.plotter_dropdown.set_text('No object selected')
 
-    def toggle_color_mode(self, shape_type, game_app):
-        # game_app.sound_manager.play('click_3')
-        is_random_attr = f"{shape_type}_color_random"
-        checkbox_image_attr = f"{shape_type}_color_mode_checkbox_image"
-        current_state = getattr(self, is_random_attr)
-        new_state = not current_state
-        setattr(self, is_random_attr, new_state)
-        image_path = "sprites/gui/checkbox_true.png" if new_state else "sprites/gui/checkbox_false.png"
-        getattr(self, checkbox_image_attr).set_image(pygame.image.load(image_path))
+    def toggle_color_mode(self, shape_type):
+        attr = f"{shape_type}_color_random"
+        current = getattr(self, attr)
+        new = not current
+        setattr(self, attr, new)
+        img_path = "sprites/gui/checkbox_true.png" if new else "sprites/gui/checkbox_false.png"
+        img_element = getattr(self, f"{shape_type}_color_random_image")
+        img_element.set_image(pygame.image.load(img_path))
 
     def handle_slider_move(self, event, game_app):
         if event.ui_element == self.strength_slider:

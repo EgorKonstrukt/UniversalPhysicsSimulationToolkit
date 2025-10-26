@@ -2,6 +2,7 @@ import traceback
 import math
 import pymunk
 import random
+import pygame
 from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
 
@@ -48,7 +49,7 @@ class ObjectSpawner:
             return
 
         if radius <= 0:
-            return  # Prevent invalid circle
+            return
 
         inputs = self.ui_manager.circle_inputs
         mass = radius * math.pi / 10
@@ -63,9 +64,11 @@ class ObjectSpawner:
         if self.ui_manager.circle_color_random:
             shape.color = self.get_random_color_from_theme()
         else:
-            r, g, b = [s.get_current_value() for s in self.ui_manager.circle_color_sliders]
-            shape.color = (r, g, b, 255)
-
+            color = self.ui_manager.shape_colors['circle']
+            if isinstance(color, pygame.Color):
+                shape.color = color
+            else:
+                shape.color = pygame.Color(*color[:3])
         self.physics_manager.add_body_shape(body, shape)
 
     def spawn_rectangle_dragged(self, start_pos, end_pos):
@@ -98,8 +101,11 @@ class ObjectSpawner:
         if self.ui_manager.rectangle_color_random:
             shape.color = self.get_random_color_from_theme()
         else:
-            r, g, b = [s.get_current_value() for s in self.ui_manager.rectangle_color_sliders]
-            shape.color = (r, g, b, 255)
+            color = self.ui_manager.shape_colors['rectangle']
+            if isinstance(color, pygame.Color):
+                shape.color = color
+            else:
+                shape.color = pygame.Color(*color[:3])
 
         self.physics_manager.add_body_shape(body, shape)
 
@@ -134,8 +140,11 @@ class ObjectSpawner:
         if self.ui_manager.triangle_color_random:
             shape.color = self.get_random_color_from_theme()
         else:
-            r, g, b = [s.get_current_value() for s in self.ui_manager.triangle_color_sliders]
-            shape.color = (r, g, b, 255)
+            color = self.ui_manager.shape_colors['triangle']
+            if isinstance(color, pygame.Color):
+                shape.color = color
+            else:
+                shape.color = pygame.Color(*color[:3])
 
         self.physics_manager.add_body_shape(body, shape)
 
@@ -177,8 +186,11 @@ class ObjectSpawner:
         if self.ui_manager.poly_color_random:
             shape.color = self.get_random_color_from_theme()
         else:
-            r, g, b = [s.get_current_value() for s in self.ui_manager.poly_color_sliders]
-            shape.color = (r, g, b, 255)
+            color = self.ui_manager.shape_colors['polyhedron']
+            if isinstance(color, pygame.Color):
+                shape.color = color
+            else:
+                shape.color = pygame.Color(*color[:3])
 
         self.physics_manager.add_body_shape(body, shape)
 
@@ -211,8 +223,11 @@ class ObjectSpawner:
         if self.ui_manager.circle_color_random:
             shape.color = self.get_random_color_from_theme()
         else:
-            r, g, b = [s.get_current_value() for s in self.ui_manager.circle_color_sliders]
-            shape.color = (r, g, b, 255)
+            color = self.ui_manager.shape_colors['circle']
+            if isinstance(color, pygame.Color):
+                shape.color = color
+            else:
+                shape.color = pygame.Color(*color[:3])
 
         self.physics_manager.add_body_shape(body, shape)
 
@@ -231,8 +246,11 @@ class ObjectSpawner:
         if self.ui_manager.rectangle_color_random:
             shape.color = self.get_random_color_from_theme()
         else:
-            r, g, b = [s.get_current_value() for s in self.ui_manager.rectangle_color_sliders]
-            shape.color = (r, g, b, 255)
+            color = self.ui_manager.shape_colors['rectangle']
+            if isinstance(color, pygame.Color):
+                shape.color = color
+            else:
+                shape.color = pygame.Color(*color[:3])
 
         self.physics_manager.add_body_shape(body, shape)
 
@@ -250,7 +268,14 @@ class ObjectSpawner:
         shape = pymunk.Poly(body, points)
         shape.friction = float(inputs['friction_entry'].get_text())
         shape.elasticity = float(inputs['elasticity_entry'].get_text())
-        shape.color = self.get_random_color_from_theme()
+        if self.ui_manager.triangle_color_random:
+            shape.color = self.get_random_color_from_theme()
+        else:
+            color = self.ui_manager.shape_colors['triangle']
+            if isinstance(color, pygame.Color):
+                shape.color = color
+            else:
+                shape.color = pygame.Color(*color[:3])
         self.physics_manager.add_body_shape(body, shape)
 
     def spawn_polyhedron(self, position):
@@ -275,7 +300,14 @@ class ObjectSpawner:
         shape = pymunk.Poly(body, points)
         shape.friction = float(inputs['friction_entry'].get_text())
         shape.elasticity = float(inputs['elasticity_entry'].get_text())
-        shape.color = self.get_random_color_from_theme()
+        if self.ui_manager.polyhedron_color_random:
+            shape.color = self.get_random_color_from_theme()
+        else:
+            color = self.ui_manager.shape_colors['polyhedron']
+            if isinstance(color, pygame.Color):
+                shape.color = color
+            else:
+                shape.color = pygame.Color(*color[:3])
         self.physics_manager.add_body_shape(body, shape)
 
     def spawn_spam(self, position):
