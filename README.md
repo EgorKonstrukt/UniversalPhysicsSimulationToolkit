@@ -1,4 +1,8 @@
-﻿# Project Dependencies
+ # Universal Physics Simulation Toolkit
+ <img width="600" height="600" alt="logo" src="https://github.com/user-attachments/assets/6606ba1d-72a8-43bc-86b2-a26056b4a0b8" />
+
+ 
+ # Project Dependencies
 
 This project leverages a curated stack of high-performance Python libraries for physics simulation, numerical computation, and interactive UI.
 
