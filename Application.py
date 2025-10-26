@@ -25,6 +25,8 @@ from UPST.modules.undo_redo_manager import UndoRedoManager
 from UPST.sound.sound_manager import SoundManager
 from UPST.gui.console_gui import ConsoleGUI
 
+from UPST.demos.demo_all_gizmos import *
+
 from UPST.network.network_manager import NetworkManager
 
 
@@ -227,6 +229,8 @@ class Application:
 
     @profile("MAIN_LOOP")
     def update(self, time_delta):
+
+        demo_all_gizmos()
         Debug.set_performance_counter("Update Time", time_delta * 1000)
 
         self.profiler.start("camera", "app")
