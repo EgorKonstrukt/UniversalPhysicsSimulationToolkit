@@ -6,6 +6,7 @@ import pygame
 import pymunk
 import math
 from UPST.config import config
+from UPST.gui.properties_window import PropertiesWindow
 
 
 class ContextMenu:
@@ -71,6 +72,8 @@ class ContextMenu:
             if event.ui_element == self.context_menu_list:
                 self.handle_selection(event.text)
                 self.context_menu.hide()
+        if self.properties_window:
+            self.properties_window.process_event(event)
 
     def handle_selection(self, selection):
         if not self.clicked_object: return
@@ -98,76 +101,12 @@ class ContextMenu:
     def open_properties_window(self):
         if self.properties_window:
             self.properties_window.kill()
-        self.properties_window = pygame_gui.elements.UIWindow(
-            pygame.Rect(100, 100, 420, 520),
+        self.properties_window = PropertiesWindow(
             manager=self.manager,
-            window_display_title="Object Properties",
-            object_id=pygame_gui.core.ObjectID(class_id='@properties_window')
+            body=self.clicked_object,
+            on_close_callback=lambda: setattr(self, 'properties_window', None)
         )
-        self.property_labels = []
-        body = self.clicked_object
-        props = self._generate_property_strings(body)
-        line_height = 24
-        max_height = 520 - 60
-        max_lines = max_height // line_height
-        if len(props) > max_lines:
-            props = props[:max_lines]
-        for i, text in enumerate(props):
-            label = UILabel(
-                relative_rect=pygame.Rect(10, 10 + i * line_height, 400, 20),
-                text=text,
-                manager=self.manager,
-                container=self.properties_window
-            )
-            self.property_labels.append(label)
 
-    def _generate_property_strings(self, body):
-        props = [
-            f"Mass: {body.mass:.3f} kg",
-            f"Moment of Inertia: {body.moment:.3f} kg⋅m²",
-            f"Position: ({body.position.x:.2f}, {body.position.y:.2f}) m",
-            f"Velocity: ({body.velocity.x:.2f}, {body.velocity.y:.2f}) m/s",
-            f"Speed: {body.velocity.length:.2f} cm/s",
-            f"Angular Velocity: {body.angular_velocity:.3f} rad/s",
-            f"Angle: {math.degrees(body.angle):.1f}°",
-            f"Force: ({body.force.x:.2f}, {body.force.y:.2f}) N",
-            f"Torque: {body.torque:.3f} N⋅m",
-            f"Body Type: {body.body_type}",
-            f"Is Sleeping: {body.is_sleeping}"
-        ]
-        ke = 0.5 * body.mass * body.velocity.length ** 2
-        re = 0.5 * body.moment * body.angular_velocity ** 2
-        props.extend([
-            f"Kinetic Energy: {ke:.3f} J",
-            f"Rotational Energy: {re:.3f} J",
-            f"Total Energy: {ke + re:.3f} J",
-            f"Linear Momentum: {body.mass * body.velocity.length:.3f} kg⋅m/s",
-            f"Angular Momentum: {body.moment * body.angular_velocity:.3f} kg⋅m²/s"
-        ])
-        if body.shapes:
-            s = next(iter(body.shapes))
-            props += [f"Shape Type: {type(s).__name__}", f"Friction: {s.friction:.3f}",
-                      f"Elasticity: {s.elasticity:.3f}"]
-            if isinstance(s, pymunk.Circle):
-                r = s.radius
-                props += [f"Radius: {r:.2f} m", f"Area: {math.pi * r ** 2:.3f} m²"]
-            elif isinstance(s, pymunk.Poly):
-                v = s.get_vertices()
-                a = abs(sum(v[i].x * v[(i + 1) % len(v)].y - v[(i + 1) % len(v)].x * v[i].y for i in range(len(v)))) / 2
-                props += [f"Area: {a:.3f} m²", f"Vertices: {len(v)}"]
-        return props
-
-    def update_properties_display(self):
-        if not self.properties_window or not self.properties_window.alive() or not self.clicked_object:
-            return
-        props = self._generate_property_strings(self.clicked_object)
-        max_lines = len(self.property_labels)
-        if len(props) > max_lines:
-            props = props[:max_lines]
-        for i, text in enumerate(props):
-            self.property_labels[i].set_text(text)
-        for i in range(len(props), max_lines):
-            self.property_labels[i].set_text("")
     def delete_object(self):
         if self.clicked_object:
             self.ui_manager.physics_manager.remove_body(self.clicked_object)

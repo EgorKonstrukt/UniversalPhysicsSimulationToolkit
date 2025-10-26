@@ -483,7 +483,6 @@ class UIManager:
     @profile("ui_update")
     def update(self, time_delta, clock):
         self.manager.update(time_delta)
-        self.context_menu.update_properties_display()
         if self.plotter:
             self.plotter_surface_element.set_image(self.plotter.get_surface())
 
