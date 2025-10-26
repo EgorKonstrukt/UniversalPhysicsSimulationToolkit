@@ -1,5 +1,26 @@
- # Universal Physics Simulation Toolkit
- <img width="200" height="200" alt="logo" src="https://github.com/user-attachments/assets/6606ba1d-72a8-43bc-86b2-a26056b4a0b8" />
+# Universal Physics Simulation Toolkit
+
+<div align="center">
+  <img width="200" height="200" alt="Toolkit Logo" src="https://github.com/user-attachments/assets/6606ba1d-72a8-43bc-86b2-a26056b4a0b8" />
+  <p><em>Simulate. Visualize. Understand.</em></p>
+</div>
+
+---
+
+A **2D physics sandbox** built with `Pygame` and `Pymunk`, inspired by Algodoo. Designed for rapid prototyping of physical systems, educational demonstrations, and visualizing mathematical/physical data through intuitive gizmos.
+
+---
+
+## Features
+
+- **Real-time Physics**: Rigid body dynamics, collisions, constraints, and forces powered by Pymunk.
+- **Interactive Gizmos**: Visualize velocity, angular momentum, force vectors, and center of mass in real-time.
+- **Network Mode**: Host/Connect functionality for collaborative simulations (experimental).
+- **Extensible**: Easily add new object types, behaviors, or visualization modes via OOP design.
+
+---
+
+
 
  
  # Project Dependencies
