@@ -104,14 +104,30 @@ class ContextMenu:
             window_display_title="Object Properties",
             object_id=pygame_gui.core.ObjectID(class_id='@properties_window')
         )
-        y_offset, line_height = 10, 24
+        self.property_labels = []
         body = self.clicked_object
+        props = self._generate_property_strings(body)
+        line_height = 24
+        max_height = 520 - 60
+        max_lines = max_height // line_height
+        if len(props) > max_lines:
+            props = props[:max_lines]
+        for i, text in enumerate(props):
+            label = UILabel(
+                relative_rect=pygame.Rect(10, 10 + i * line_height, 400, 20),
+                text=text,
+                manager=self.manager,
+                container=self.properties_window
+            )
+            self.property_labels.append(label)
+
+    def _generate_property_strings(self, body):
         props = [
             f"Mass: {body.mass:.3f} kg",
             f"Moment of Inertia: {body.moment:.3f} kg⋅m²",
             f"Position: ({body.position.x:.2f}, {body.position.y:.2f}) m",
             f"Velocity: ({body.velocity.x:.2f}, {body.velocity.y:.2f}) m/s",
-            f"Speed: {body.velocity.length:.2f} m/s",
+            f"Speed: {body.velocity.length:.2f} cm/s",
             f"Angular Velocity: {body.angular_velocity:.3f} rad/s",
             f"Angle: {math.degrees(body.angle):.1f}°",
             f"Force: ({body.force.x:.2f}, {body.force.y:.2f}) N",
@@ -130,7 +146,8 @@ class ContextMenu:
         ])
         if body.shapes:
             s = next(iter(body.shapes))
-            props += [f"Shape Type: {type(s).__name__}", f"Friction: {s.friction:.3f}", f"Elasticity: {s.elasticity:.3f}"]
+            props += [f"Shape Type: {type(s).__name__}", f"Friction: {s.friction:.3f}",
+                      f"Elasticity: {s.elasticity:.3f}"]
             if isinstance(s, pymunk.Circle):
                 r = s.radius
                 props += [f"Radius: {r:.2f} m", f"Area: {math.pi * r ** 2:.3f} m²"]
@@ -138,13 +155,19 @@ class ContextMenu:
                 v = s.get_vertices()
                 a = abs(sum(v[i].x * v[(i + 1) % len(v)].y - v[(i + 1) % len(v)].x * v[i].y for i in range(len(v)))) / 2
                 props += [f"Area: {a:.3f} m²", f"Vertices: {len(v)}"]
-        for i, p in enumerate(props):
-            UILabel(
-                relative_rect=pygame.Rect(10, y_offset + i * line_height, 400, 20),
-                text=p,
-                manager=self.manager,
-                container=self.properties_window
-            )
+        return props
+
+    def update_properties_display(self):
+        if not self.properties_window or not self.properties_window.alive() or not self.clicked_object:
+            return
+        props = self._generate_property_strings(self.clicked_object)
+        max_lines = len(self.property_labels)
+        if len(props) > max_lines:
+            props = props[:max_lines]
+        for i, text in enumerate(props):
+            self.property_labels[i].set_text(text)
+        for i in range(len(props), max_lines):
+            self.property_labels[i].set_text("")
     def delete_object(self):
         if self.clicked_object:
             self.ui_manager.physics_manager.remove_body(self.clicked_object)
