@@ -87,8 +87,8 @@ class CameraConfig:
     shift_speed: float = 3.0
     acceleration_factor: float = 2.0
     friction: float = 0.9
-    zoom_speed: float = 0.01
-    pan_to_cursor_speed: float = 0.1
+    zoom_speed: float = 0.02
+    pan_to_cursor_speed: float = 0.2
     mouse_friction: float = 0.80
     min_zoom_scale: float = 0.000001
     max_zoom_scale: float = 1000.0
