@@ -68,12 +68,13 @@ class ContextMenu:
         self.context_menu.hide()
 
     def process_event(self, event):
+        if self.properties_window:
+            self.properties_window.process_event(event)
         if event.type == pygame.USEREVENT and event.user_type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
             if event.ui_element == self.context_menu_list:
                 self.handle_selection(event.text)
                 self.context_menu.hide()
-        if self.properties_window:
-            self.properties_window.process_event(event)
+
 
     def handle_selection(self, selection):
         if not self.clicked_object: return
@@ -106,6 +107,9 @@ class ContextMenu:
             body=self.clicked_object,
             on_close_callback=lambda: setattr(self, 'properties_window', None)
         )
+    def update(self, time_delta, clock):
+        if self.properties_window:
+            self.properties_window.update(time_delta)
 
     def delete_object(self):
         if self.clicked_object:

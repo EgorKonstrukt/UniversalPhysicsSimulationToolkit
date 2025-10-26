@@ -329,6 +329,7 @@ class UIManager:
             self._on_resize()
         self.manager.process_events(event)
         self.network_menu.process_event(event)
+        self.context_menu.process_event(event)
 
     def _on_resize(self):
         self.manager.set_window_resolution((config.app.screen_width, config.app.screen_height))
@@ -448,7 +449,7 @@ class UIManager:
             self.plotter_dropdown.set_text('No object selected')
 
     def toggle_color_mode(self, shape_type, game_app):
-        game_app.sound_manager.play('click_3')
+        # game_app.sound_manager.play('click_3')
         is_random_attr = f"{shape_type}_color_random"
         checkbox_image_attr = f"{shape_type}_color_mode_checkbox_image"
         current_state = getattr(self, is_random_attr)
@@ -482,7 +483,9 @@ class UIManager:
 
     @profile("ui_update")
     def update(self, time_delta, clock):
+
         self.manager.update(time_delta)
+        self.context_menu.update(time_delta, clock)
         if self.plotter:
             self.plotter_surface_element.set_image(self.plotter.get_surface())
 
