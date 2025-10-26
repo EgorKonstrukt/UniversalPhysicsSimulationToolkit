@@ -1,5 +1,5 @@
  # Universal Physics Simulation Toolkit
- <img width="600" height="600" alt="logo" src="https://github.com/user-attachments/assets/6606ba1d-72a8-43bc-86b2-a26056b4a0b8" />
+ <img width="200" height="200" alt="logo" src="https://github.com/user-attachments/assets/6606ba1d-72a8-43bc-86b2-a26056b4a0b8" />
 
  
  # Project Dependencies
