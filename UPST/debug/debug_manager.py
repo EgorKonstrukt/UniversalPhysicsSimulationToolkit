@@ -84,7 +84,6 @@ class DebugManager:
 
     def log(self, level: LogLevel, message: str, category: str = "General",
             include_stack: bool = False):
-        """Логирование сообщения"""
         if not self.enabled or not self.categories[category]:
             return
 
@@ -106,7 +105,17 @@ class DebugManager:
         if self.auto_save_logs and level >= LogLevel.ERROR:
             self._save_log_entry(entry)
 
-        print(f"[{level.name}] {category}: {message}")
+        ansi_colors = {
+            LogLevel.DEBUG: "\033[38;5;245m",      # Gray
+            LogLevel.INFO: "\033[38;5;207m",       # Pink
+            LogLevel.SUCCESS: "\033[38;5;46m",     # Green
+            LogLevel.WARNING: "\033[38;5;226m",    # Yellow
+            LogLevel.ERROR: "\033[38;5;203m",      # Light red
+            LogLevel.CRITICAL: "\033[38;5;196m"    # Bright red
+        }
+        reset = "\033[0m"
+        color = ansi_colors.get(level, "")
+        print(f"{color}[{level.name}] {category}: {message}{reset}")
 
     def _save_log_entry(self, entry: LogEntry):
         """Сохранение записи лога в файл"""
