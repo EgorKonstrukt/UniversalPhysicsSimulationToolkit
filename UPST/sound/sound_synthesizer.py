@@ -19,8 +19,15 @@ class SoundSynthesizer:
                  buffer_size=config.synthesizer.buffer_size):
         if getattr(self, '_initialized', False):
             return
-        pygame.mixer.pre_init(sample_rate, -16, 2, buffer_size)
-        pygame.mixer.init()
+        if pygame.mixer.get_init() is not None:
+            current_freq, current_bits, current_channels = pygame.mixer.get_init()
+            if current_channels != 2 or current_freq != sample_rate:
+                pygame.mixer.quit()
+                pygame.mixer.pre_init(sample_rate, -16, 2, buffer_size)
+                pygame.mixer.init()
+        else:
+            pygame.mixer.pre_init(sample_rate, -16, 2, buffer_size)
+            pygame.mixer.init()
         self.sample_rate = sample_rate
         self.buffer_size = buffer_size
         self.volume = config.synthesizer.volume
@@ -176,16 +183,24 @@ class SoundSynthesizer:
 
     def _fade(self, data):
         length = len(data)
+        if length == 0:
+            return data
         f = int(self.sample_rate * 0.005)
         if f * 2 > length:
             f = length // 2
         env = np.ones(length)
-        env[:f] = np.linspace(0, 1, f)
-        env[-f:] = np.linspace(1, 0, f)
+        if f > 0:
+            env[:f] = np.linspace(0, 1, f)
+            env[-f:] = np.linspace(1, 0, f)
         return data * env[:, None]
 
     def play_frequency(self, freq, duration=1.0, waveform='sine', adsr=(0.01, 0.1, 0.7, 0.1), volume=None, detune=0.0,
                        apply_effects=True, pan=0.0):
+        if duration <= 0:
+            return None
+        n_samples = int(self.sample_rate * duration)
+        if n_samples == 0:
+            return None
         wave = self._generate_wave(freq, duration, waveform, detune)
         wave = self._apply_adsr(wave, *adsr)
         if apply_effects:
@@ -200,110 +215,56 @@ class SoundSynthesizer:
         stereo = np.column_stack((samples, samples)).astype(np.float64)
         stereo = self._apply_panning(stereo, pan)
         stereo = self._fade(stereo)
-        out = self._safe_int16_conversion(stereo)
+        out = np.asarray(stereo, dtype=np.float64)
+        if out.ndim == 1:
+            out = np.column_stack((out, out))
+        elif out.ndim != 2 or out.shape[1] != 2:
+            out = np.column_stack((out[:, 0], out[:, 0]))
+        out = self._safe_int16_conversion(out)
+        out = np.ascontiguousarray(out, dtype=np.int16)
+        if out.shape[1] != 2:
+            out = np.column_stack((out[:, 0], out[:, 0]))
         sound = pygame.sndarray.make_sound(out)
-
         self._visualize_wave_on_screen(wave, duration, freq=freq, waveform=waveform, volume=vol, pan=pan)
-
         return sound.play()
 
     def _visualize_wave_on_screen(self, wave, duration, freq=None, waveform='sine', volume=None, pan=0.0):
         if not Gizmos:
             return
-
-        screen_width = config.app.screen_width
-        screen_height = config.app.screen_height
         surf = pygame.display.get_surface()
-        if surf:
-            screen_width, screen_height = surf.get_size()
-
+        screen_width = surf.get_size()[0] if surf else config.app.screen_width
+        screen_height = surf.get_size()[1] if surf else config.app.screen_height
         margin_top = 40
         wave_height = 100
         wave_width = min(screen_width - 100, 600)
         x_offset = (screen_width - wave_width) // 2
         y_center = margin_top + wave_height // 2
-
         num_points = min(len(wave), 300)
         if num_points < 2:
             return
-
         indices = np.linspace(0, len(wave) - 1, num_points, dtype=int)
         reduced_wave = wave[indices]
         x_step = wave_width / (num_points - 1)
-
         for i in range(num_points - 1):
             x1 = x_offset + i * x_step
             x2 = x_offset + (i + 1) * x_step
             y1 = y_center - reduced_wave[i] * (wave_height * 0.45)
             y2 = y_center - reduced_wave[i + 1] * (wave_height * 0.45)
-            Gizmos.draw_line(
-                (x1, y1),
-                (x2, y2),
-                color='cyan',
-                thickness=2,
-                duration=duration,
-                world_space=False
-            )
-
+            Gizmos.draw_line((x1, y1), (x2, y2), color='cyan', thickness=2, duration=duration, world_space=False)
         info_y = margin_top + wave_height + 10
         label_color = 'white'
         bg_color = (0, 0, 0, 180)
-
         if freq is not None:
-            Gizmos.draw_text(
-                (x_offset, info_y),
-                f"Freq: {freq:.2f} Hz",
-                color=label_color,
-                background_color=bg_color,
-                duration=duration,
-                world_space=False,
-                font_size=16
-            )
+            Gizmos.draw_text((x_offset, info_y), f"Freq: {freq:.2f} Hz", color=label_color, background_color=bg_color, duration=duration, world_space=False, font_size=16)
             info_y += 22
-
-        Gizmos.draw_text(
-            (x_offset, info_y),
-            f"Waveform: {waveform}",
-            color=label_color,
-            background_color=bg_color,
-            duration=duration,
-            world_space=False,
-            font_size=16
-        )
+        Gizmos.draw_text((x_offset, info_y), f"Waveform: {waveform}", color=label_color, background_color=bg_color, duration=duration, world_space=False, font_size=16)
         info_y += 22
-
         vol_display = self.volume if volume is None else volume
-        Gizmos.draw_text(
-            (x_offset, info_y),
-            f"Volume: {vol_display:.2f}",
-            color=label_color,
-            background_color=bg_color,
-            duration=duration,
-            world_space=False,
-            font_size=16
-        )
+        Gizmos.draw_text((x_offset, info_y), f"Volume: {vol_display:.2f}", color=label_color, background_color=bg_color, duration=duration, world_space=False, font_size=16)
         info_y += 22
-
-        Gizmos.draw_text(
-            (x_offset, info_y),
-            f"Pan: {pan:.2f}",
-            color=label_color,
-            background_color=bg_color,
-            duration=duration,
-            world_space=False,
-            font_size=16
-        )
+        Gizmos.draw_text((x_offset, info_y), f"Pan: {pan:.2f}", color=label_color, background_color=bg_color, duration=duration, world_space=False, font_size=16)
         info_y += 22
-
-        Gizmos.draw_text(
-            (x_offset, info_y),
-            f"Duration: {duration:.2f}s",
-            color=label_color,
-            background_color=bg_color,
-            duration=duration,
-            world_space=False,
-            font_size=16
-        )
+        Gizmos.draw_text((x_offset, info_y), f"Duration: {duration:.2f}s", color=label_color, background_color=bg_color, duration=duration, world_space=False, font_size=16)
 
     def play_drum(self, drum_type, volume=None, pan=0.0):
         wave = self._generate_drum_sample(drum_type)
@@ -316,6 +277,9 @@ class SoundSynthesizer:
         stereo = self._apply_panning(stereo, pan)
         stereo = self._fade(stereo)
         out = self._safe_int16_conversion(stereo)
+        if out.ndim != 2 or out.shape[1] != 2:
+            raise ValueError(f"Expected stereo array of shape (N,2), got {out.shape}")
+        out = np.ascontiguousarray(out, dtype=np.int16)
         sound = pygame.sndarray.make_sound(out)
         return sound.play()
 
@@ -365,9 +329,7 @@ class SoundSynthesizer:
     def play_sequence(self, notes, durations, waveform='sine', adsr=(0.01, 0.1, 0.7, 0.1), volumes=None, pan=0.0):
         def _seq():
             for i, (n, d) in enumerate(zip(notes, durations)):
-                vol = None
-                if volumes is not None and i < len(volumes):
-                    vol = volumes[i]
+                vol = volumes[i] if volumes is not None and i < len(volumes) else None
                 ch = self.play_note(n, duration=d, waveform=waveform, adsr=adsr, volume=vol, pan=pan)
                 time.sleep(d)
         threading.Thread(target=_seq, daemon=True).start()

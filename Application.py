@@ -49,7 +49,7 @@ class Application:
         self.font = pygame.font.SysFont("Consolas", 16)
 
         pygame.display.set_caption(f"{config.app.version}")
-        pygame.display.set_icon(pygame.image.load("laydigital.png"))
+        pygame.display.set_icon(pygame.image.load("logo.ico"))
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("UPSTAppID")
 
         self.clock = pygame.time.Clock()

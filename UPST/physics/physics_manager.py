@@ -67,6 +67,7 @@ class PhysicsManager:
         )
         Debug.log_info("Welcome and guide texts drawn using Gizmos.", "Physics")
 
+
     def step(self, dt: float):
         if not self.running_physics:
             return

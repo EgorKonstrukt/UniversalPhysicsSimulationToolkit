@@ -31,6 +31,7 @@ class SoundManager:
     #     self.sounds['spawn'].set_volume(0.2)
     #     self.sounds['hover'].set_volume(0.01)
     #
-    # def play(self, sound_name):
-    #     if sound_name in self.sounds:
-    #         self.sounds[sound_name].play()
+    def play(self, sound_name):
+        pass
+        # if sound_name in self.sounds:
+        #     self.sounds[sound_name].play()
