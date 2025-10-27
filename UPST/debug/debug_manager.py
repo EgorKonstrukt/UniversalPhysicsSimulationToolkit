@@ -163,7 +163,7 @@ class DebugManager:
         screen.blit(console_surface, console_rect)
 
     def draw_performance_overlay(self, screen: pygame.Surface):
-        if not self.show_performance:
+        if not config.debug.show_performance:
             return
         try:
             import pygame.gfxdraw
@@ -257,7 +257,7 @@ class DebugManager:
                     pygame.draw.lines(screen, (255, 150, 100), False, pts, 1)
 
     def draw_physics_debug(self, screen: pygame.Surface, physics_manager):
-        if not self.show_physics_debug:
+        if not config.debug.show_physics_debug:
             return
         space = physics_manager.space
         body_count = len(space.bodies)
@@ -281,7 +281,7 @@ class DebugManager:
             screen.blit(text_surface, (x + 5, y + 5 + i * 16))
 
     def draw_camera_debug(self, screen: pygame.Surface, camera):
-        if not self.show_camera_debug:
+        if not config.debug.show_camera_debug:
             return
         x = screen.get_width() - 250
         y = 120
@@ -334,19 +334,19 @@ class DebugManager:
         self.log(LogLevel.INFO, f"Console {'enabled' if config.debug.show_console else 'disabled'}", "Debug")
 
     def toggle_performance(self):
-        self.show_performance = not self.show_performance
+        config.debug.show_performance = not config.debug.show_performance
         self.log(LogLevel.INFO, f"Performance overlay {'enabled' if self.show_performance else 'disabled'}", "Debug")
 
     def toggle_physics_debug(self):
-        self.show_physics_debug = not self.show_physics_debug
+        config.debug.show_physics_debug = not config.debug.show_physics_debug
         self.log(LogLevel.INFO, f"Physics debug {'enabled' if self.show_physics_debug else 'disabled'}", "Debug")
 
     def toggle_camera_debug(self):
-        self.show_camera_debug = not self.show_camera_debug
+        config.debug.show_camera_debug = not config.debug.show_camera_debug
         self.log(LogLevel.INFO, f"Camera debug {'enabled' if self.show_camera_debug else 'disabled'}", "Debug")
 
     def toggle_snapshots_debug(self):
-        self.show_snapshots_debug = not self.show_snapshots_debug
+        config.debug.show_snapshots_debug = not config.debug.show_snapshots_debug
         self.log(LogLevel.INFO,
                  f"Snapshots debug {'enabled' if self.show_snapshots_debug else 'disabled'}",
                  "Snapshot")
