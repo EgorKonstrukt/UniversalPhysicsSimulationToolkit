@@ -161,6 +161,9 @@ class Application:
 
         self.undo_redo_manager.take_snapshot()
 
+        print(pygame.display.Info())
+        print(pygame.display.get_wm_info())
+
 
 
 

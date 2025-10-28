@@ -13,7 +13,9 @@ from UPST.network.network_menu import NetworkMenu
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera,
                  input_handler, screen, font, tool_manager=None, network_manager=None):
-        self.manager = pygame_gui.UIManager((screen_width, screen_height), 'theme.json')
+        self.manager = pygame_gui.UIManager((screen_width, screen_height),
+                                            'theme.json',
+                                            )
         self.tool_manager = tool_manager
         self.screen = screen
         self.font = font

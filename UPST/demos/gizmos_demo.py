@@ -2728,7 +2728,7 @@ class GizmosDemo:
                 dphiy = (self._phi[i][idx(j + 1, Ny)] - self._phi[i][idx(j - 1, Ny)]) / (2 * a)
                 px = cx - halfx + (i + 0.5) * grid_px
                 py = cy - halfy + (j + 0.5) * grid_px
-                scale = 2.0
+                scale = 2000.0
                 Gizmos.draw_line((px, py), (px + scale * dphix, py + scale * dphiy),
                                  color=(255, 255, 0), thickness=1, world_space=True)
 

@@ -37,8 +37,6 @@ class ObjectSpawner:
             self.ui_manager.console_window.add_output_line_to_log(
                 f"Error: Drag spawn method for '{shape_type}' not found")
 
-
-
     def spawn_circle_dragged(self, start_pos, end_pos):
         try:
             start = pymunk.Vec2d(*start_pos)
