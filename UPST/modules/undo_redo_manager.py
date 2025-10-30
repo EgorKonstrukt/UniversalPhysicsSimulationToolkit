@@ -1,36 +1,36 @@
-import pygame
+from typing import Optional
 from UPST.debug.debug_manager import Debug, get_debug
 from UPST.gizmos.gizmos_manager import Gizmos
 import pickle
 from UPST.config import config
+import pygame
 
 debug = get_debug()
+
+_undo_redo_instance: Optional['UndoRedoManager'] = None
+
+def get_undo_redo() -> Optional['UndoRedoManager']:
+    return _undo_redo_instance
+
+def set_undo_redo(undo_redo_manager: 'UndoRedoManager'):
+    global _undo_redo_instance
+    _undo_redo_instance = undo_redo_manager
 
 class UndoRedoManager:
     def __init__(self, snapshot_manager):
         self.snapshot_manager = snapshot_manager
-        # self.ui_manager = ui_manager
         self.history = []
         self.current_index = -1
-
-    # def is_mouse_on_ui(self):
-    #     return self.ui_manager.manager.get_focus_set()
+        set_undo_redo(self)
 
     def handle_input(self, event: pygame.event.Event):
-        # if self.is_mouse_on_ui():
-        #     return
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_z and (event.mod & pygame.KMOD_CTRL):
                 self.undo()
             elif event.key == pygame.K_y and (event.mod & pygame.KMOD_CTRL):
                 self.redo()
 
-            # elif event.key == pygame.K_t:
-            #     self.take_snapshot()
-            #     print("take_snapshot!")
-
     def update(self):
-        pass
         self.draw_snapshots_debug()
 
     def take_snapshot(self):

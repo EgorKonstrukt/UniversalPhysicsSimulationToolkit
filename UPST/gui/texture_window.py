@@ -18,6 +18,8 @@ import hashlib
 
 from UPST.modules.texture_processor import TextureState, TextureProcessor
 
+from UPST.modules.undo_redo_manager import get_undo_redo
+
 class FilterMode(Enum):
     NEAREST = 0
     BILINEAR = 1
@@ -74,6 +76,7 @@ class TextureWindow:
         self.load_config()
         self.create_window()
         self.load_body_texture_state()
+        self.undo_redo = get_undo_redo()
 
     def load_body_texture_state(self):
         """Initialize editor state from the body's current texture properties."""
@@ -436,6 +439,7 @@ class TextureWindow:
             self.body.stretch_texture = (self.tiling_mode != 'clamp')
             self.save_config()
             self.last_save_time = time.time()
+            self.undo_redo.take_snapshot()
         except Exception as e:
             print(f"Texture apply error: {e}")
 

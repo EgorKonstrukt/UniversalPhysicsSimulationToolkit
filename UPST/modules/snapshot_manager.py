@@ -3,7 +3,7 @@ import pymunk
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
 
-from UPST.misc import surface_to_bytes, bytes_to_surface
+from UPST.misc import surface_to_bytes, bytes_to_surface, ensure_rgba_surface
 
 
 class SnapshotManager:
@@ -36,19 +36,15 @@ class SnapshotManager:
                         sd["b"] = tuple(shape.b)
                         sd["radius"] = float(shape.radius)
                     shapes_data.append(sd)
-                tex_surface = None
                 texture_path = getattr(body, 'texture_path', None)
                 tex_bytes = None
-                if texture_path:
-                    if texture_path not in self._texture_byte_cache:
-                        if hasattr(self.physics_manager.app, 'renderer'):
-                            renderer = self.physics_manager.app.renderer
-                            surf = renderer._get_texture(texture_path)
-                            self._texture_byte_cache[texture_path] = surface_to_bytes(surf)
-                        else:
-                            self._texture_byte_cache[texture_path] = None
-                    tex_bytes = self._texture_byte_cache[texture_path]
-                tex_size = getattr(body, 'texture_size', None)
+                tex_size = None
+                if texture_path and hasattr(self.physics_manager.app, 'renderer'):
+                    renderer = self.physics_manager.app.renderer
+                    surf = renderer._get_texture(texture_path)
+                    if surf:
+                        tex_bytes = surface_to_bytes(surf)
+                        tex_size = surf.get_size()
                 bd = {
                     "position": tuple(body.position),
                     "angle": float(body.angle),
@@ -223,7 +219,8 @@ class SnapshotManager:
                 elif ctype == "PivotJoint":
                     c = pymunk.PivotJoint(a, b, cd["anchor"])
                 elif ctype == "DampedSpring":
-                    c = pymunk.DampedSpring(a, b, cd["anchor_a"], cd["anchor_b"], float(cd["rest_length"]), float(cd["stiffness"]), float(cd["damping"]))
+                    c = pymunk.DampedSpring(a, b, cd["anchor_a"], cd["anchor_b"], float(cd["rest_length"]),
+                                            float(cd["stiffness"]), float(cd["damping"]))
                 elif ctype == "SimpleMotor":
                     c = pymunk.SimpleMotor(a, b, float(cd["rate"]))
                 elif ctype == "GearJoint":
@@ -240,7 +237,8 @@ class SnapshotManager:
                 if ld.get("type") == "Poly":
                     line = pymunk.Poly(self.physics_manager.static_body, [pymunk.Vec2d(*v) for v in ld["vertices"]])
                 elif ld.get("type") == "Segment":
-                    line = pymunk.Segment(self.physics_manager.static_body, pymunk.Vec2d(*ld["a"]), pymunk.Vec2d(*ld["b"]), float(ld["radius"]))
+                    line = pymunk.Segment(self.physics_manager.static_body, pymunk.Vec2d(*ld["a"]),
+                                          pymunk.Vec2d(*ld["b"]), float(ld["radius"]))
                 if line is None:
                     continue
                 line.friction = float(ld.get("friction", 0.5))
@@ -250,15 +248,17 @@ class SnapshotManager:
                 self.physics_manager.space.add(line)
 
         if (hasattr(self.physics_manager.app, 'renderer') and
-            config.snapshot.save_object_positions and "bodies" in data):
+                config.snapshot.save_object_positions and "bodies" in data):
             renderer = self.physics_manager.app.renderer
             unique_textures = {}
             for bd in data["bodies"]:
                 tex_bytes = bd.get("texture_bytes")
-                if tex_bytes:
+                tex_size = bd.get("texture_size")
+                if tex_bytes and tex_size:
                     if tex_bytes not in unique_textures:
-                        surf = bytes_to_surface(tex_bytes)
-                        unique_textures[tex_bytes] = surf
+                        surf = bytes_to_surface(tex_bytes, tex_size)
+                        if surf:
+                            unique_textures[tex_bytes] = surf
             renderer.texture_cache.clear()
             for tex_bytes, surf in unique_textures.items():
                 renderer.texture_cache[tex_bytes] = surf
