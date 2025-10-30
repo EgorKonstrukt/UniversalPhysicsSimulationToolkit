@@ -13,6 +13,7 @@ from tkinter import Tk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Any
+from UPST.config import config
 from dataclasses import dataclass, asdict
 import hashlib
 
@@ -47,24 +48,22 @@ class TextureWindow:
         self.crop_rect = pygame.Rect(0, 0, 128, 128)
         self.dragging = False
         self.drag_offset = (0, 0)
-        self.bg_color = pygame.Color(30, 30, 30)
+        self.bg_color = pygame.Color(config.texture_editor.bg_color)
         self.loaded_surface = None
         self.rotation_angle = 0
         self.scale_factor = 1.0
         self.mirror_x = False
         self.mirror_y = False
-        self.filter_mode = FilterMode.BILINEAR
-        self.tiling_mode = 'clamp'
-        self.blend_mode = 'normal'
-        self.preview_quality = 1.0
-        self.config_path = os.path.join(os.path.dirname(__file__), 'texture_config.json')
+        self.filter_mode = FilterMode(config.texture_editor.filter_mode)
+        self.tiling_mode = config.texture_editor.tiling_mode
+        self.blend_mode = config.texture_editor.blend_mode
+        self.preview_quality = config.texture_editor.preview_quality
         self.undo_stack: List[TextureState] = []
-        self.max_undo_steps = 10
         self.active_layer = 0
         self.layers = [{'name': 'Base', 'visible': True, 'opacity': 255}]
         self.crop_mode = False
         self.last_save_time = 0
-        self.auto_save_interval = 5.0
+        self.auto_save_interval = config.texture_editor.auto_save_interval
         self.processor = TextureProcessor()
         self.batch_mode = False
         self.batch_paths: List[str] = []
@@ -73,13 +72,11 @@ class TextureWindow:
         self.preview_lock = threading.Lock()
         self.preview_surface: Optional[pygame.Surface] = None
         self.preview_dirty = True
-        self.load_config()
         self.create_window()
         self.load_body_texture_state()
         self.undo_redo = get_undo_redo()
 
     def load_body_texture_state(self):
-        """Initialize editor state from the body's current texture properties."""
         if hasattr(self.body, 'texture_path') and self.body.texture_path:
             self.texture_path_input.set_text(self.body.texture_path)
         if hasattr(self.body, 'texture_rotation'):
@@ -94,35 +91,7 @@ class TextureWindow:
             self.mirror_x = self.body.texture_mirror_x
         if hasattr(self.body, 'texture_mirror_y'):
             self.mirror_y = self.body.texture_mirror_y
-        # Note: filter_mode, tiling_mode, blend_mode are editor-only for now
         self.update_preview()
-
-    def load_config(self):
-        try:
-            with open(self.config_path, 'r') as f:
-                cfg = json.load(f)
-                self.bg_color = pygame.Color(cfg.get('bg_color', [30, 30, 30]))
-                self.rotation_angle = cfg.get('rotation', 0)
-                self.scale_factor = cfg.get('scale', 1.0)
-                self.filter_mode = FilterMode(cfg.get('filter_mode', FilterMode.BILINEAR.value))
-                self.tiling_mode = cfg.get('tiling_mode', 'clamp')
-                self.blend_mode = cfg.get('blend_mode', 'normal')
-                self.preview_quality = cfg.get('preview_quality', 1.0)
-        except FileNotFoundError:
-            pass
-
-    def save_config(self):
-        cfg = {
-            'bg_color': list(self.bg_color),
-            'rotation': self.rotation_angle,
-            'scale': self.scale_factor,
-            'filter_mode': self.filter_mode.value,
-            'tiling_mode': self.tiling_mode,
-            'blend_mode': self.blend_mode,
-            'preview_quality': self.preview_quality
-        }
-        with open(self.config_path, 'w') as f:
-            json.dump(cfg, f)
 
     def create_window(self):
         surf = pygame.display.get_surface()
@@ -257,7 +226,7 @@ class TextureWindow:
             bg_color=(self.bg_color.r, self.bg_color.g, self.bg_color.b)
         )
         self.undo_stack.append(state)
-        if len(self.undo_stack) > self.max_undo_steps:
+        if len(self.undo_stack) > config.texture_editor.max_undo_steps:
             self.undo_stack.pop(0)
 
     def open_file_dialog(self):
@@ -417,7 +386,7 @@ class TextureWindow:
             filter_mode=self.filter_mode,
             tiling_mode=self.tiling_mode,
             blend_mode=self.blend_mode,
-            crop_rect=(0, 0, self.loaded_surface.get_width(), self.loaded_surface.get_height()), # Ignore crop for apply
+            crop_rect=(0, 0, self.loaded_surface.get_width(), self.loaded_surface.get_height()),
             bg_color=(self.bg_color.r, self.bg_color.g, self.bg_color.b)
         )
 
@@ -429,21 +398,17 @@ class TextureWindow:
             raw_bytes = pygame.image.tobytes(processed_surface, "RGBA")
             self.body.texture_bytes = raw_bytes
             self.body.texture_size = actual_size
-            self.body.texture_bytes = raw_bytes
-            self.body.texture_size = actual_size
             self.body.texture_path = path
             self.body.texture_rotation = self.rotation_angle
             self.body.texture_scale = self.scale_factor
             self.body.texture_mirror_x = self.mirror_x
             self.body.texture_mirror_y = self.mirror_y
             self.body.stretch_texture = (self.tiling_mode != 'clamp')
-            self.save_config()
+            self.body.texture_state = state
             self.last_save_time = time.time()
             self.undo_redo.take_snapshot()
         except Exception as e:
             print(f"Texture apply error: {e}")
-
-
 
     def undo(self):
         if self.undo_stack:

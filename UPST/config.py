@@ -194,6 +194,15 @@ class SnapshotConfig:
     save_camera_position: bool = False
     max_snapshots: int = 50
 
+@dataclass
+class TextureEditorConfig:
+    max_undo_steps: int = 10
+    bg_color: Tuple[int, int, int] = (30, 30, 30)
+    filter_mode: int = 1
+    tiling_mode: str = 'clamp'
+    blend_mode: str = 'normal'
+    preview_quality: float = 1.0
+    auto_save_interval: float = 5.0
 
 @dataclass
 class AppConfig:
@@ -249,6 +258,7 @@ class Config:
     debug: "DebugConfig"
     multithreading: "MultithreadingConfig"
     snapshot: "SnapshotConfig"
+    texture_editor: "TextureEditorConfig"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -335,6 +345,7 @@ Config.register("input", InputConfig)
 Config.register("debug", DebugConfig)
 Config.register("multithreading", MultithreadingConfig)
 Config.register("snapshot", SnapshotConfig)
+Config.register("texture_editor", TextureEditorConfig)
 
 def grid_to_dict_custom(self, d: Dict) -> Dict:
     d["default_colors"] = asdict(self.default_colors)

@@ -4,7 +4,7 @@ import pymunk
 import time
 from UPST.config import config
 from UPST.misc import bytes_to_surface
-from UPST.modules.texture_processor import TextureProcessor
+from UPST.modules.texture_processor import TextureProcessor, TextureState
 
 
 class Renderer:
@@ -101,31 +101,44 @@ class Renderer:
             rotation = getattr(body, 'texture_rotation', 0.0)
             mirror_x = getattr(body, 'texture_mirror_x', False)
             mirror_y = getattr(body, 'texture_mirror_y', False)
+            texture_state = getattr(body, 'texture_state', None)
+            texture_offset = getattr(body, 'texture_offset', (0, 0))
+
+            if texture_state:
+                processed_tex = self._apply_texture_state(tex, texture_state)
+            else:
+                processed_tex = tex
+                if mirror_x or mirror_y:
+                    processed_tex = pygame.transform.flip(processed_tex, mirror_x, mirror_y)
+                if rotation != 0:
+                    processed_tex = pygame.transform.rotate(processed_tex, rotation)
 
             if any(isinstance(s, pymunk.Circle) for s in body.shapes):
-                self._draw_circle_texture(body, tex, scale_mult, rotation, mirror_x, mirror_y)
+                self._draw_circle_texture(body, processed_tex, scale_mult, stretch, texture_offset)
             elif any(isinstance(s, pymunk.Poly) for s in body.shapes):
-                self._draw_poly_texture(body, tex, stretch, scale_mult, rotation, mirror_x, mirror_y)
+                self._draw_poly_texture(body, processed_tex, stretch, scale_mult, texture_offset)
+
+    def _apply_texture_state(self, tex, state: TextureState):
+        processed = tex
+        if state.mirror_x or state.mirror_y:
+            processed = pygame.transform.flip(processed, state.mirror_x, state.mirror_y)
+        if state.rotation != 0:
+            processed = pygame.transform.rotate(processed, state.rotation)
+        return processed
 
     def _update_texture_cache(self):
         if len(self.texture_cache) > self.texture_cache_size:
             for key in list(self.texture_cache.keys())[:len(self.texture_cache) - self.texture_cache_size]:
                 del self.texture_cache[key]
 
-    def _draw_circle_texture(self, body, tex, scale_mult, rotation, mirror_x, mirror_y):
+    def _draw_circle_texture(self, body, tex, scale_mult, stretch, offset):
         circle = next(s for s in body.shapes if isinstance(s, pymunk.Circle))
-        radius_px = int(circle.radius * scale_mult * self.camera.scaling)
+        radius_px = int(circle.radius * self.camera.scaling)
         if radius_px <= 0: return
         diam = radius_px * 2
         pos = self.camera.world_to_screen(body.position)
 
-        processed_tex = tex
-        if mirror_x or mirror_y:
-            processed_tex = pygame.transform.flip(processed_tex, mirror_x, mirror_y)
-        if rotation != 0:
-            processed_tex = pygame.transform.rotate(processed_tex, rotation)
-
-        scaled_tex = pygame.transform.smoothscale(processed_tex, (diam, diam))
+        scaled_tex = pygame.transform.smoothscale(tex, (diam, diam))
         mask = pygame.Surface((diam, diam), pygame.SRCALPHA)
         pygame.draw.circle(mask, (255, 255, 255, 255), (radius_px, radius_px), radius_px)
         scaled_tex.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -133,11 +146,15 @@ class Renderer:
         if abs(angle_deg) > 0.1:
             rotated = pygame.transform.rotate(scaled_tex, angle_deg)
             w, h = rotated.get_size()
-            self.screen.blit(rotated, (pos[0] - w // 2, pos[1] - h // 2))
+            offset_x = offset[0] * self.camera.scaling
+            offset_y = offset[1] * self.camera.scaling
+            self.screen.blit(rotated, (pos[0] - w // 2 + offset_x, pos[1] - h // 2 + offset_y))
         else:
-            self.screen.blit(scaled_tex, (pos[0] - radius_px, pos[1] - radius_px))
+            offset_x = offset[0] * self.camera.scaling
+            offset_y = offset[1] * self.camera.scaling
+            self.screen.blit(scaled_tex, (pos[0] - radius_px + offset_x, pos[1] - radius_px + offset_y))
 
-    def _draw_poly_texture(self, body, tex, stretch, scale_mult, rotation, mirror_x, mirror_y):
+    def _draw_poly_texture(self, body, tex, stretch, scale_mult, offset):
         poly = next(s for s in body.shapes if isinstance(s, pymunk.Poly))
         local_verts = poly.get_vertices()
         if len(local_verts) < 3: return
@@ -154,18 +171,12 @@ class Renderer:
         h_scr = int(max_y - min_y)
         if w_scr <= 0 or h_scr <= 0: return
 
-        processed_tex = tex
-        if mirror_x or mirror_y:
-            processed_tex = pygame.transform.flip(processed_tex, mirror_x, mirror_y)
-        if rotation != 0:
-            processed_tex = pygame.transform.rotate(processed_tex, rotation)
-
         if stretch:
-            tex_surf = pygame.transform.smoothscale(processed_tex, (w_scr, h_scr))
+            tex_surf = pygame.transform.smoothscale(tex, (w_scr, h_scr))
         else:
-            tex_w, tex_h = processed_tex.get_size()
-            scale = min(w_scr / tex_w, h_scr / tex_h) * scale_mult
-            tex_surf = pygame.transform.smoothscale_by(processed_tex, scale)
+            tex_w, tex_h = tex.get_size()
+            scale = min(w_scr / tex_w, h_scr / tex_h)
+            tex_surf = pygame.transform.smoothscale_by(tex, scale)
             tex_surf = pygame.transform.smoothscale(tex_surf, (w_scr, h_scr))
 
         angle_deg = math.degrees(-body.angle)
@@ -174,16 +185,18 @@ class Renderer:
         w_rot, h_rot = tex_surf.get_size()
 
         screen_pos = self.camera.world_to_screen(body.position)
+        offset_x = offset[0] * self.camera.scaling
+        offset_y = offset[1] * self.camera.scaling
         final_surf = pygame.Surface((w_rot, h_rot), pygame.SRCALPHA)
-        final_surf.blit(tex_surf, (0, 0))
+        final_surf.blit(tex_surf, (offset_x, offset_y))
 
         mask = pygame.Surface((w_rot, h_rot), pygame.SRCALPHA)
-        offset_x = screen_pos[0] - w_rot // 2
-        offset_y = screen_pos[1] - h_rot // 2
-        rel_verts = [(sx - offset_x, sy - offset_y) for sx, sy in screen_verts]
+        rel_offset_x = screen_pos[0] - w_rot // 2
+        rel_offset_y = screen_pos[1] - h_rot // 2
+        rel_verts = [(sx - rel_offset_x, sy - rel_offset_y) for sx, sy in screen_verts]
         pygame.draw.polygon(mask, (255, 255, 255, 255), rel_verts)
         final_surf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        self.screen.blit(final_surf, (offset_x, offset_y))
+        self.screen.blit(final_surf, (rel_offset_x, rel_offset_y))
 
     def _get_scaled_texture(self, path, scale):
         key = (path, round(scale, 3))
