@@ -2,6 +2,7 @@ import pygame
 import math
 import pymunk
 from UPST.config import config
+from UPST.misc import bytes_to_surface
 
 
 class Renderer:
@@ -55,6 +56,8 @@ class Renderer:
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
 
     def _get_texture(self, path):
+        if not path:
+            return None
         if path not in self.texture_cache:
             try:
                 self.texture_cache[path] = pygame.image.load(path).convert_alpha()
@@ -64,9 +67,14 @@ class Renderer:
 
     def _draw_textured_bodies(self):
         for body in self.physics_manager.space.bodies:
-            if not (hasattr(body, 'texture_path') and body.texture_path):
-                continue
-            tex = self._get_texture(body.texture_path)
+            tex = None
+            if hasattr(body, 'texture_bytes') and body.texture_bytes is not None:
+                key = id(body.texture_bytes)
+                if key not in self.texture_cache:
+                    self.texture_cache[key] = bytes_to_surface(body.texture_bytes)
+                tex = self.texture_cache[key]
+            elif hasattr(body, 'texture_path') and body.texture_path:
+                tex = self._get_texture(body.texture_path)
             if not tex:
                 continue
             scale_mult = getattr(body, 'texture_scale', 1.0)

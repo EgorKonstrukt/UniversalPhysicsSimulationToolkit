@@ -6,6 +6,7 @@ import pymunk
 
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
+from UPST.misc import surface_to_bytes, bytes_to_surface
 
 
 class SaveLoadManager:
@@ -66,6 +67,12 @@ class SaveLoadManager:
                         shape_data["radius"] = float(shape.radius)
                     shapes_data.append(shape_data)
 
+                tex_surface = None
+                if hasattr(self.physics_manager.app, 'renderer'):
+                    renderer = self.physics_manager.app.renderer
+                    tex_surface = renderer._get_texture(getattr(body, 'texture_path', None))
+                tex_bytes = surface_to_bytes(tex_surface)
+
                 body_data = {
                     "position": tuple(body.position),
                     "angle": float(body.angle),
@@ -75,6 +82,9 @@ class SaveLoadManager:
                     "moment": float(getattr(body, "moment", 1.0)),
                     "body_type": int(body.body_type),
                     "shapes": shapes_data,
+                    "texture_bytes": tex_bytes,
+                    "texture_scale": getattr(body, "texture_scale", 1.0),
+                    "stretch_texture": getattr(body, "stretch_texture", True),
                 }
                 data_to_save["bodies"].append(body_data)
 
@@ -172,6 +182,10 @@ class SaveLoadManager:
                 bt.angle = float(bd.get("angle", 0.0))
                 bt.velocity = pymunk.Vec2d(*bd.get("velocity", (0.0, 0.0)))
                 bt.angular_velocity = float(bd.get("angular_velocity", 0.0))
+                # Texture metadata
+                bt.texture_bytes = bd.get("texture_bytes")
+                bt.texture_scale = float(bd.get("texture_scale", 1.0))
+                bt.stretch_texture = bool(bd.get("stretch_texture", True))
 
                 shapes = []
                 for sd in bd.get("shapes", []):
@@ -231,6 +245,9 @@ class SaveLoadManager:
                 line.color = tuple(ld.get("color", (200, 200, 200, 255)))
                 self.physics_manager.static_lines.append(line)
                 self.physics_manager.space.add(line)
+
+            if hasattr(self.physics_manager.app, 'renderer'):
+                self.physics_manager.app.renderer.texture_cache.clear()
 
             self.ui_manager.console_window.add_output_line_to_log("Load successful!")
             Debug.log_succes(message="Loaded! file name: " + str(file_path), category="SaveLoadManager")
