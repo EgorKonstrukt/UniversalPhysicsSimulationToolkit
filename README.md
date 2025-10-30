@@ -1,7 +1,8 @@
 # Universal Physics Simulation Toolkit
 
 <div align="center">
-  <img width="200" height="200" alt="Toolkit Logo" src="https://github.com/user-attachments/assets/6606ba1d-72a8-43bc-86b2-a26056b4a0b8" />
+  <img width="250" height="250" alt="logo2" src="https://github.com/user-attachments/assets/655f3ce9-dd18-4c66-9ac4-fad3a38b0e3b" />
+
   <p><em>Simulate. Visualize. Understand.</em></p>
 </div>
 
