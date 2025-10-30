@@ -37,9 +37,9 @@ class SnapshotManager:
                         sd["radius"] = float(shape.radius)
                     shapes_data.append(sd)
                 texture_path = getattr(body, 'texture_path', None)
-                tex_bytes = None
-                tex_size = None
-                if texture_path and hasattr(self.physics_manager.app, 'renderer'):
+                tex_bytes = getattr(body, 'texture_bytes', None)
+                tex_size = getattr(body, 'texture_size', None)
+                if tex_bytes is None and texture_path and hasattr(self.physics_manager.app, 'renderer'):
                     renderer = self.physics_manager.app.renderer
                     surf = renderer._get_texture(texture_path)
                     if surf:
@@ -180,7 +180,7 @@ class SnapshotManager:
                 bt.angle = float(bd.get("angle", 0.0))
                 bt.velocity = pymunk.Vec2d(*bd.get("velocity", (0.0, 0.0)))
                 bt.angular_velocity = float(bd.get("angular_velocity", 0.0))
-
+                bt.texture_path = bd.get("texture_path")
                 bt.texture_bytes = bd.get("texture_bytes")
                 bt.texture_size = bd.get("texture_size")
                 bt.texture_scale = float(bd.get("texture_scale", 1.0))

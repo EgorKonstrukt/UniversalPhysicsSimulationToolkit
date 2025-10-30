@@ -1,9 +1,11 @@
-from typing import Optional
+from typing import Optional, Callable, Dict, Any
 from UPST.debug.debug_manager import Debug, get_debug
 from UPST.gizmos.gizmos_manager import Gizmos
 import pickle
 from UPST.config import config
 import pygame
+import json
+from datetime import datetime
 
 debug = get_debug()
 
@@ -16,65 +18,179 @@ def set_undo_redo(undo_redo_manager: 'UndoRedoManager'):
     global _undo_redo_instance
     _undo_redo_instance = undo_redo_manager
 
+class SnapshotMetadata:
+    def __init__(self, index: int, timestamp: datetime, body_count: int, total_mass: float, custom_data: Dict[str, Any] = None):
+        self.index = index
+        self.timestamp = timestamp
+        self.body_count = body_count
+        self.total_mass = total_mass
+        self.custom_data = custom_data or {}
+
 class UndoRedoManager:
-    def __init__(self, snapshot_manager):
+    def __init__(self, snapshot_manager, on_state_change: Optional[Callable] = None):
         self.snapshot_manager = snapshot_manager
         self.history = []
+        self.metadata_history = []
         self.current_index = -1
+        self.max_snapshots = config.snapshot.max_snapshots
+        self.on_state_change = on_state_change
+        self._batch_operations = 0
+        self._batch_snapshot = None
         set_undo_redo(self)
 
     def handle_input(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_z and (event.mod & pygame.KMOD_CTRL):
-                self.undo()
-            elif event.key == pygame.K_y and (event.mod & pygame.KMOD_CTRL):
-                self.redo()
+            ctrl_held = event.mod & pygame.KMOD_CTRL
+            shift_held = event.mod & pygame.KMOD_SHIFT
+            if ctrl_held:
+                if event.key == pygame.K_z:
+                    if shift_held:
+                        self.redo()
+                    else:
+                        self.undo()
+                elif event.key == pygame.K_y:
+                    self.redo()
+                elif event.key == pygame.K_s:
+                    self.take_snapshot()
 
     def update(self):
         self.draw_snapshots_debug()
 
-    def take_snapshot(self):
+    def begin_batch_operation(self):
+        self._batch_operations += 1
+        if self._batch_operations == 1:
+            self._batch_snapshot = self.snapshot_manager.create_snapshot()
+
+    def end_batch_operation(self):
+        if self._batch_operations > 0:
+            self._batch_operations -= 1
+            if self._batch_operations == 0 and self._batch_snapshot:
+                self.take_snapshot()
+                self._batch_snapshot = None
+
+    def take_snapshot(self, custom_metadata: Dict[str, Any] = None):
+        if self._batch_operations > 0:
+            return
         if self.current_index < len(self.history) - 1:
             self.history = self.history[:self.current_index + 1]
+            self.metadata_history = self.metadata_history[:self.current_index + 1]
         snapshot = self.snapshot_manager.create_snapshot()
+        snapshot_meta = self._create_metadata(snapshot, len(self.history), custom_metadata)
         self.history.append(snapshot)
+        self.metadata_history.append(snapshot_meta)
         self.current_index += 1
-        if len(self.history) > config.snapshot.max_snapshots:
+        if len(self.history) > self.max_snapshots:
             self.history.pop(0)
+            self.metadata_history.pop(0)
             self.current_index -= 1
-        Debug.log("taking snapshot, index: "+str(self.current_index), category="Snapshot")
+            for i, meta in enumerate(self.metadata_history):
+                meta.index = i
+        Debug.log(f"taking snapshot, index: {self.current_index}", category="Snapshot")
+        if self.on_state_change:
+            self.on_state_change(self.current_index, len(self.history))
 
-    def undo(self):
+    def _create_metadata(self, snapshot_bytes: bytes, index: int, custom_data: Dict[str, Any]) -> SnapshotMetadata:
+        snapshot = pickle.loads(snapshot_bytes)
+        body_count = len(snapshot.get('bodies', []))
+        total_mass = sum(b.get('mass', 0) for b in snapshot.get('bodies', []))
+        return SnapshotMetadata(index, datetime.now(), body_count, total_mass, custom_data)
+
+    def undo(self) -> bool:
         if self.current_index > 0:
             self.current_index -= 1
             snapshot = self.history[self.current_index]
             self.snapshot_manager.load_snapshot(snapshot)
-            Debug.log("loading snapshot, index: " + str(self.current_index), category="Snapshot")
+            Debug.log(f"loading snapshot, index: {self.current_index}", category="Snapshot")
+            if self.on_state_change:
+                self.on_state_change(self.current_index, len(self.history))
             return True
         return False
 
-    def redo(self):
+    def redo(self) -> bool:
         if self.current_index < len(self.history) - 1:
             self.current_index += 1
             snapshot = self.history[self.current_index]
             self.snapshot_manager.load_snapshot(snapshot)
-            Debug.log("loading snapshot, index: " + str(self.current_index), category="Snapshot")
+            Debug.log(f"loading snapshot, index: {self.current_index}", category="Snapshot")
+            if self.on_state_change:
+                self.on_state_change(self.current_index, len(self.history))
             return True
         return False
 
+    def clear_history(self):
+        self.history.clear()
+        self.metadata_history.clear()
+        self.current_index = -1
+        if self.on_state_change:
+            self.on_state_change(self.current_index, 0)
+
+    def get_history_size(self) -> int:
+        return len(self.history)
+
+    def get_current_index(self) -> int:
+        return self.current_index
+
+    def can_undo(self) -> bool:
+        return self.current_index > 0
+
+    def can_redo(self) -> bool:
+        return self.current_index < len(self.history) - 1
+
+    def get_snapshot_metadata(self, index: int) -> Optional[SnapshotMetadata]:
+        if 0 <= index < len(self.metadata_history):
+            return self.metadata_history[index]
+        return None
+
+    def export_history(self, filepath: str):
+        export_data = {
+            'history': [pickle.loads(s) for s in self.history],
+            'metadata': [{'index': m.index, 'timestamp': m.timestamp.isoformat(), 'body_count': m.body_count, 'total_mass': m.total_mass, 'custom_data': m.custom_data} for m in self.metadata_history],
+            'current_index': self.current_index
+        }
+        with open(filepath, 'w') as f:
+            json.dump(export_data, f, indent=2)
+
+    def import_history(self, filepath: str):
+        with open(filepath, 'r') as f:
+            import_data = json.load(f)
+        self.history = [pickle.dumps(s) for s in import_data['history']]
+        self.metadata_history = [
+            SnapshotMetadata(
+                m['index'],
+                datetime.fromisoformat(m['timestamp']),
+                m['body_count'],
+                m['total_mass'],
+                m.get('custom_data', {})
+            ) for m in import_data['metadata']
+        ]
+        self.current_index = import_data['current_index']
+        if self.on_state_change:
+            self.on_state_change(self.current_index, len(self.history))
+
     def draw_snapshots_debug(self):
-        if debug.show_snapshots_debug:
+        if not debug.show_snapshots_debug:
             return
-        for i, snapshot_bytes in enumerate(self.history):
-            snapshot = pickle.loads(snapshot_bytes)
-            pos = (config.app.screen_height-500 , 50+ i * 30)
+        start_idx = max(0, self.current_index - 10)
+        end_idx = min(len(self.history), self.current_index + 11)
+        for i in range(start_idx, end_idx):
+            snapshot_meta = self.metadata_history[i]
+            pos = (config.app.screen_width - 200, 50 + (i - start_idx) * 35)
             color = "green" if i == self.current_index else "white"
             Gizmos.draw_circle(pos, radius=8, color=color, filled=True, duration=0.1, world_space=False)
             Gizmos.draw_text(
-                (pos[0], pos[1] - 15),
-                text=f"{i} | bodies={len(snapshot['bodies'])} | mass≈{sum(b['mass'] for b in snapshot['bodies']):.1f}",
+                (pos[0] + 15, pos[1] - 8),
+                text=f"{i} | {snapshot_meta.body_count}b | {snapshot_meta.total_mass:.1f}m",
                 color="yellow",
-                font_size=12,
+                font_size=10,
+                duration=0.1,
+                world_space=False
+            )
+            time_str = snapshot_meta.timestamp.strftime("%H:%M:%S")
+            Gizmos.draw_text(
+                (pos[0] + 15, pos[1] + 5),
+                text=time_str,
+                color="gray",
+                font_size=8,
                 duration=0.1,
                 world_space=False
             )

@@ -7,6 +7,7 @@ import pymunk
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
 from UPST.misc import surface_to_bytes, bytes_to_surface
+from UPST.modules.undo_redo_manager import get_undo_redo
 
 
 class SaveLoadManager:
@@ -15,6 +16,7 @@ class SaveLoadManager:
         self.camera = camera
         self.ui_manager = ui_manager
         self.sound_manager = sound_manager
+        self.undo_redo = get_undo_redo()
 
     def save_world(self):
         root = tk.Tk()
@@ -70,6 +72,8 @@ class SaveLoadManager:
                 if hasattr(self.physics_manager.app, 'renderer'):
                     renderer = self.physics_manager.app.renderer
                     tex_surface = renderer._get_texture(getattr(body, 'texture_path', None))
+
+                texture_path = getattr(body, 'texture_path', None)
                 tex_bytes = surface_to_bytes(tex_surface)
                 tex_size = None
                 if tex_surface:
@@ -84,6 +88,7 @@ class SaveLoadManager:
                     "moment": float(getattr(body, "moment", 1.0)),
                     "body_type": int(body.body_type),
                     "shapes": shapes_data,
+                    "texture_path": texture_path,
                     "texture_bytes": tex_bytes,
                     "texture_size": tex_size,
                     "texture_scale": getattr(body, "texture_scale", 1.0),
@@ -182,7 +187,7 @@ class SaveLoadManager:
                 bt.angle = float(bd.get("angle", 0.0))
                 bt.velocity = pymunk.Vec2d(*bd.get("velocity", (0.0, 0.0)))
                 bt.angular_velocity = float(bd.get("angular_velocity", 0.0))
-                # Texture metadata
+                bt.texture_path = bd.get("texture_path")
                 bt.texture_bytes = bd.get("texture_bytes")
                 bt.texture_size = bd.get("texture_size")
                 bt.texture_scale = float(bd.get("texture_scale", 1.0))
@@ -247,9 +252,22 @@ class SaveLoadManager:
                 self.physics_manager.static_lines.append(line)
                 self.physics_manager.space.add(line)
 
-            if hasattr(self.physics_manager.app, 'renderer'):
-                self.physics_manager.app.renderer.texture_cache.clear()
-
+            if (hasattr(self.physics_manager.app, 'renderer') and
+                "bodies" in data):
+                renderer = self.physics_manager.app.renderer
+                unique_textures = {}
+                for bd in data["bodies"]:
+                    tex_bytes = bd.get("texture_bytes")
+                    tex_size = bd.get("texture_size")
+                    if tex_bytes and tex_size:
+                        if tex_bytes not in unique_textures:
+                            surf = bytes_to_surface(tex_bytes, tex_size)
+                            if surf:
+                                unique_textures[tex_bytes] = surf
+                renderer.texture_cache.clear()
+                for tex_bytes, surf in unique_textures.items():
+                    renderer.texture_cache[tex_bytes] = surf
+            self.undo_redo.take_snapshot()
             self.ui_manager.console_window.add_output_line_to_log("Load successful!")
             Debug.log_succes(message="Loaded! file name: " + str(file_path), category="SaveLoadManager")
             # self.sound_manager.play("save_done")
