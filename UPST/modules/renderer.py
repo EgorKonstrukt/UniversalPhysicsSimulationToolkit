@@ -69,10 +69,9 @@ class Renderer:
         for body in self.physics_manager.space.bodies:
             tex = None
             if hasattr(body, 'texture_bytes') and body.texture_bytes is not None:
-                key = id(body.texture_bytes)
-                if key not in self.texture_cache:
-                    self.texture_cache[key] = bytes_to_surface(body.texture_bytes)
-                tex = self.texture_cache[key]
+                if body.texture_bytes not in self.texture_cache:
+                    self.texture_cache[body.texture_bytes] = bytes_to_surface(body.texture_bytes)
+                tex = self.texture_cache[body.texture_bytes]
             elif hasattr(body, 'texture_path') and body.texture_path:
                 tex = self._get_texture(body.texture_path)
             if not tex:

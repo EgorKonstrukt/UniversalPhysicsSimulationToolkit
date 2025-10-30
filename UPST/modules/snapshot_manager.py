@@ -10,6 +10,7 @@ class SnapshotManager:
     def __init__(self, physics_manager, camera):
         self.physics_manager = physics_manager
         self.camera = camera
+        self._texture_byte_cache = {}  # path -> bytes
 
     def create_snapshot(self):
         bodies_data = []
@@ -36,10 +37,17 @@ class SnapshotManager:
                         sd["radius"] = float(shape.radius)
                     shapes_data.append(sd)
                 tex_surface = None
-                if hasattr(self.physics_manager.app, 'renderer'):
-                    renderer = self.physics_manager.app.renderer
-                    tex_surface = renderer._get_texture(getattr(body, 'texture_path', None))
-                tex_bytes = surface_to_bytes(tex_surface)
+                texture_path = getattr(body, 'texture_path', None)
+                tex_bytes = None
+                if texture_path:
+                    if texture_path not in self._texture_byte_cache:
+                        if hasattr(self.physics_manager.app, 'renderer'):
+                            renderer = self.physics_manager.app.renderer
+                            surf = renderer._get_texture(texture_path)
+                            self._texture_byte_cache[texture_path] = surface_to_bytes(surf)
+                        else:
+                            self._texture_byte_cache[texture_path] = None
+                    tex_bytes = self._texture_byte_cache[texture_path]
 
                 bd = {
                     "position": tuple(body.position),
@@ -50,7 +58,8 @@ class SnapshotManager:
                     "moment": float(getattr(body, "moment", 1.0)),
                     "body_type": int(body.body_type),
                     "shapes": shapes_data,
-                    "texture_bytes": tex_bytes,
+                    "texture_path": texture_path,      # сохраняем путь для справки
+                    "texture_bytes": tex_bytes,        # и данные — для полной независимости
                     "texture_scale": getattr(body, "texture_scale", 1.0),
                     "stretch_texture": getattr(body, "stretch_texture", True),
                 }
@@ -239,7 +248,18 @@ class SnapshotManager:
                 self.physics_manager.static_lines.append(line)
                 self.physics_manager.space.add(line)
 
-        if hasattr(self.physics_manager.app, 'renderer'):
-            self.physics_manager.app.renderer.texture_cache.clear()
+        if (hasattr(self.physics_manager.app, 'renderer') and
+            config.snapshot.save_object_positions and "bodies" in data):
+            renderer = self.physics_manager.app.renderer
+            unique_textures = {}
+            for bd in data["bodies"]:
+                tex_bytes = bd.get("texture_bytes")
+                if tex_bytes:
+                    if tex_bytes not in unique_textures:
+                        surf = bytes_to_surface(tex_bytes)
+                        unique_textures[tex_bytes] = surf
+            renderer.texture_cache.clear()
+            for tex_bytes, surf in unique_textures.items():
+                renderer.texture_cache[tex_bytes] = surf
 
         Debug.log_succes(message="Snapshot restored.", category="SnapshotManager")
