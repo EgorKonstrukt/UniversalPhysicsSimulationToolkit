@@ -48,7 +48,7 @@ class SnapshotManager:
                         else:
                             self._texture_byte_cache[texture_path] = None
                     tex_bytes = self._texture_byte_cache[texture_path]
-
+                tex_size = getattr(body, 'texture_size', None)
                 bd = {
                     "position": tuple(body.position),
                     "angle": float(body.angle),
@@ -58,8 +58,9 @@ class SnapshotManager:
                     "moment": float(getattr(body, "moment", 1.0)),
                     "body_type": int(body.body_type),
                     "shapes": shapes_data,
-                    "texture_path": texture_path,      # сохраняем путь для справки
-                    "texture_bytes": tex_bytes,        # и данные — для полной независимости
+                    "texture_path": texture_path,
+                    "texture_bytes": tex_bytes,
+                    "texture_size": tex_size,
                     "texture_scale": getattr(body, "texture_scale", 1.0),
                     "stretch_texture": getattr(body, "stretch_texture", True),
                 }
@@ -184,8 +185,8 @@ class SnapshotManager:
                 bt.velocity = pymunk.Vec2d(*bd.get("velocity", (0.0, 0.0)))
                 bt.angular_velocity = float(bd.get("angular_velocity", 0.0))
 
-                # Texture metadata
                 bt.texture_bytes = bd.get("texture_bytes")
+                bt.texture_size = bd.get("texture_size")
                 bt.texture_scale = float(bd.get("texture_scale", 1.0))
                 bt.stretch_texture = bool(bd.get("stretch_texture", True))
 

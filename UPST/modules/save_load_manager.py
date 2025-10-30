@@ -22,7 +22,6 @@ class SaveLoadManager:
         file_path = filedialog.asksaveasfilename(defaultextension=".ngsv", filetypes=[("Newgodoo Save File", "*.ngsv")])
         if not file_path:
             Debug.log_warning("Canceled...", "SaveLoadManager")
-            # self.sound_manager.play("load_error")
             return
         try:
             data_to_save = {
@@ -72,6 +71,9 @@ class SaveLoadManager:
                     renderer = self.physics_manager.app.renderer
                     tex_surface = renderer._get_texture(getattr(body, 'texture_path', None))
                 tex_bytes = surface_to_bytes(tex_surface)
+                tex_size = None
+                if tex_surface:
+                    tex_size = tex_surface.get_size()
 
                 body_data = {
                     "position": tuple(body.position),
@@ -83,6 +85,7 @@ class SaveLoadManager:
                     "body_type": int(body.body_type),
                     "shapes": shapes_data,
                     "texture_bytes": tex_bytes,
+                    "texture_size": tex_size,
                     "texture_scale": getattr(body, "texture_scale", 1.0),
                     "stretch_texture": getattr(body, "stretch_texture", True),
                 }
@@ -135,10 +138,8 @@ class SaveLoadManager:
 
             self.ui_manager.console_window.add_output_line_to_log("Save successful!")
             Debug.log_succes(message="Saving! file name: " + str(file_path), category="SaveLoadManager")
-            # self.sound_manager.play("save_done")
         except Exception as e:
             self.ui_manager.console_window.add_output_line_to_log(f"Save error: {e}")
-            # self.sound_manager.play("error")
             Debug.log_exception(message="Error! file name: " + str(file_path), category="SaveLoadManager")
 
     def load_world(self):
@@ -147,7 +148,6 @@ class SaveLoadManager:
         file_path = filedialog.askopenfilename(filetypes=[("Newgodoo Save File", "*.ngsv")])
         if not file_path:
             Debug.log_warning("Canceled..." + str(file_path), "SaveLoadManager")
-            # self.sound_manager.play("load_error")
             return
         try:
             with open(file_path, "rb") as f:
@@ -184,6 +184,7 @@ class SaveLoadManager:
                 bt.angular_velocity = float(bd.get("angular_velocity", 0.0))
                 # Texture metadata
                 bt.texture_bytes = bd.get("texture_bytes")
+                bt.texture_size = bd.get("texture_size")
                 bt.texture_scale = float(bd.get("texture_scale", 1.0))
                 bt.stretch_texture = bool(bd.get("stretch_texture", True))
 

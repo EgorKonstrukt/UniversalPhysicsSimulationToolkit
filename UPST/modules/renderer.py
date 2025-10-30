@@ -1,8 +1,10 @@
 import pygame
 import math
 import pymunk
+import time
 from UPST.config import config
 from UPST.misc import bytes_to_surface
+from UPST.modules.texture_processor import TextureProcessor
 
 
 class Renderer:
@@ -18,6 +20,11 @@ class Renderer:
         self.ui_manager = ui_manager
         self.script_system = script_system
         self.texture_cache = {}
+        self.texture_processor = TextureProcessor()
+        self.texture_cache_size = 100
+        self.texture_cache_access_order = []
+        self.last_texture_update = 0
+        self.texture_update_interval = 0.1
 
     def draw(self):
         start_time = pygame.time.get_ticks()
@@ -66,30 +73,59 @@ class Renderer:
         return self.texture_cache[path]
 
     def _draw_textured_bodies(self):
+        current_time = time.time()
+        if current_time - self.last_texture_update > self.texture_update_interval:
+            self._update_texture_cache()
+            self.last_texture_update = current_time
+
         for body in self.physics_manager.space.bodies:
             tex = None
             if hasattr(body, 'texture_bytes') and body.texture_bytes is not None:
-                if body.texture_bytes not in self.texture_cache:
-                    self.texture_cache[body.texture_bytes] = bytes_to_surface(body.texture_bytes)
-                tex = self.texture_cache[body.texture_bytes]
+                size = getattr(body, 'texture_size', None)
+                if size is None or not isinstance(size, (tuple, list)) or len(size) != 2:
+                    print(f"Skipping body: missing or invalid texture_size: {size}")
+                    continue
+                width, height = size
+                if width <= 0 or height <= 0:
+                    continue
+                cache_key = (body.texture_bytes, size)
+                if cache_key not in self.texture_cache:
+                    self.texture_cache[cache_key] = bytes_to_surface(body.texture_bytes, size)
+                tex = self.texture_cache[cache_key]
             elif hasattr(body, 'texture_path') and body.texture_path:
                 tex = self._get_texture(body.texture_path)
             if not tex:
                 continue
             scale_mult = getattr(body, 'texture_scale', 1.0)
             stretch = getattr(body, 'stretch_texture', True)
-            if any(isinstance(s, pymunk.Circle) for s in body.shapes):
-                self._draw_circle_texture(body, tex, scale_mult)
-            elif any(isinstance(s, pymunk.Poly) for s in body.shapes):
-                self._draw_poly_texture(body, tex, stretch, scale_mult)
+            rotation = getattr(body, 'texture_rotation', 0.0)
+            mirror_x = getattr(body, 'texture_mirror_x', False)
+            mirror_y = getattr(body, 'texture_mirror_y', False)
 
-    def _draw_circle_texture(self, body, tex, scale_mult):
+            if any(isinstance(s, pymunk.Circle) for s in body.shapes):
+                self._draw_circle_texture(body, tex, scale_mult, rotation, mirror_x, mirror_y)
+            elif any(isinstance(s, pymunk.Poly) for s in body.shapes):
+                self._draw_poly_texture(body, tex, stretch, scale_mult, rotation, mirror_x, mirror_y)
+
+    def _update_texture_cache(self):
+        if len(self.texture_cache) > self.texture_cache_size:
+            for key in list(self.texture_cache.keys())[:len(self.texture_cache) - self.texture_cache_size]:
+                del self.texture_cache[key]
+
+    def _draw_circle_texture(self, body, tex, scale_mult, rotation, mirror_x, mirror_y):
         circle = next(s for s in body.shapes if isinstance(s, pymunk.Circle))
         radius_px = int(circle.radius * scale_mult * self.camera.scaling)
         if radius_px <= 0: return
         diam = radius_px * 2
         pos = self.camera.world_to_screen(body.position)
-        scaled_tex = pygame.transform.smoothscale(tex, (diam, diam))
+
+        processed_tex = tex
+        if mirror_x or mirror_y:
+            processed_tex = pygame.transform.flip(processed_tex, mirror_x, mirror_y)
+        if rotation != 0:
+            processed_tex = pygame.transform.rotate(processed_tex, rotation)
+
+        scaled_tex = pygame.transform.smoothscale(processed_tex, (diam, diam))
         mask = pygame.Surface((diam, diam), pygame.SRCALPHA)
         pygame.draw.circle(mask, (255, 255, 255, 255), (radius_px, radius_px), radius_px)
         scaled_tex.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -101,7 +137,7 @@ class Renderer:
         else:
             self.screen.blit(scaled_tex, (pos[0] - radius_px, pos[1] - radius_px))
 
-    def _draw_poly_texture(self, body, tex, stretch, scale_mult):
+    def _draw_poly_texture(self, body, tex, stretch, scale_mult, rotation, mirror_x, mirror_y):
         poly = next(s for s in body.shapes if isinstance(s, pymunk.Poly))
         local_verts = poly.get_vertices()
         if len(local_verts) < 3: return
@@ -118,12 +154,18 @@ class Renderer:
         h_scr = int(max_y - min_y)
         if w_scr <= 0 or h_scr <= 0: return
 
+        processed_tex = tex
+        if mirror_x or mirror_y:
+            processed_tex = pygame.transform.flip(processed_tex, mirror_x, mirror_y)
+        if rotation != 0:
+            processed_tex = pygame.transform.rotate(processed_tex, rotation)
+
         if stretch:
-            tex_surf = pygame.transform.smoothscale(tex, (w_scr, h_scr))
+            tex_surf = pygame.transform.smoothscale(processed_tex, (w_scr, h_scr))
         else:
-            tex_w, tex_h = tex.get_size()
+            tex_w, tex_h = processed_tex.get_size()
             scale = min(w_scr / tex_w, h_scr / tex_h) * scale_mult
-            tex_surf = pygame.transform.smoothscale_by(tex, scale)
+            tex_surf = pygame.transform.smoothscale_by(processed_tex, scale)
             tex_surf = pygame.transform.smoothscale(tex_surf, (w_scr, h_scr))
 
         angle_deg = math.degrees(-body.angle)

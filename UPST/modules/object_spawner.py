@@ -55,6 +55,8 @@ class ObjectSpawner:
         body = pymunk.Body(mass, moment)
         body.position = start_pos
         shape = pymunk.Circle(body, radius)
+        body.texture_bytes = None
+        body.texture_size = None
 
         shape.friction = float(inputs['friction_entry'].get_text())
         shape.elasticity = float(inputs['elasticity_entry'].get_text())
