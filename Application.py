@@ -161,10 +161,11 @@ class Application:
 
         self.undo_redo_manager.take_snapshot()
 
-        print(pygame.display.Info())
-        print(pygame.display.get_wm_info())
-
-
+        Debug.log_info(str(pygame.display.Info()), "Init")
+        Debug.log_info(str(pygame.display.get_wm_info()), "Init")
+        Debug.log_info(str(pygame.display.get_surface()), "Init")
+        Debug.log_info("Refresh rate: "+str(pygame.display.get_current_refresh_rate()), "Init")
+        Debug.log_info("Displays: "+str(pygame.display.get_num_displays()), "Init")
 
 
 

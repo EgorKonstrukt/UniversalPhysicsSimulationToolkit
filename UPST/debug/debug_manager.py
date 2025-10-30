@@ -8,6 +8,9 @@ from collections import defaultdict, deque
 import json
 from UPST.config import config
 
+import colorama
+colorama.init()
+
 _debug_instance = None
 
 class LogLevel(int, Enum):
@@ -91,31 +94,30 @@ class DebugManager:
         if include_stack or level >= LogLevel.ERROR:
             stack_trace = traceback.format_stack()
 
-        entry = LogEntry(
-            timestamp=time.time() - self.start_time,
-            level=level,
-            message=message,
-            category=category,
-            frame_count=self.frame_count,
-            stack_trace=stack_trace
-        )
-
-        self.log_entries.append(entry)
-
-        if self.auto_save_logs and level >= LogLevel.ERROR:
-            self._save_log_entry(entry)
-
         ansi_colors = {
-            LogLevel.DEBUG: "\033[38;5;245m",      # Gray
-            LogLevel.INFO: "\033[38;5;207m",       # Pink
-            LogLevel.SUCCESS: "\033[38;5;46m",     # Green
-            LogLevel.WARNING: "\033[38;5;226m",    # Yellow
-            LogLevel.ERROR: "\033[38;5;203m",      # Light red
-            LogLevel.CRITICAL: "\033[38;5;196m"    # Bright red
+            LogLevel.DEBUG: "\033[38;5;245m",
+            LogLevel.INFO: "\033[38;5;207m",
+            LogLevel.SUCCESS: "\033[38;5;46m",
+            LogLevel.WARNING: "\033[38;5;226m",
+            LogLevel.ERROR: "\033[38;5;203m",
+            LogLevel.CRITICAL: "\033[38;5;196m"
         }
         reset = "\033[0m"
         color = ansi_colors.get(level, "")
-        print(f"{color}[{level.name}] {category}: {message}{reset}")
+
+        for line in message.split('\n'):
+            entry = LogEntry(
+                timestamp=time.time() - self.start_time,
+                level=level,
+                message=line,
+                category=category,
+                frame_count=self.frame_count,
+                stack_trace=stack_trace
+            )
+            self.log_entries.append(entry)
+            if self.auto_save_logs and level >= LogLevel.ERROR:
+                self._save_log_entry(entry)
+            print(f"{color}[{level.name}] {category}: {line}{reset}")
 
     def _save_log_entry(self, entry: LogEntry):
         """Сохранение записи лога в файл"""
