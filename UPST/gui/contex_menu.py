@@ -7,7 +7,7 @@ import pymunk
 import math
 from UPST.config import config
 from UPST.gui.properties_window import PropertiesWindow
-
+from UPST.gui.texture_window import TextureWindow
 
 class ContextMenu:
     def __init__(self, manager, ui_manager):
@@ -32,13 +32,7 @@ class ContextMenu:
             'Properties',
             'Duplicate',
             'Freeze/Unfreeze',
-            'Set Velocity',
-            'Set Angular Velocity',
-            'Set Mass',
-            'Set Friction',
-            'Set Elasticity',
-            'Add Force',
-            'Add Torque',
+            'Set Texture',
             'Reset Position',
             'Reset Rotation',
             'Make Static',
@@ -83,13 +77,7 @@ class ContextMenu:
             'Delete Object': self.delete_object,
             'Duplicate': self.duplicate_object,
             'Freeze/Unfreeze': self.toggle_freeze_object,
-            'Set Velocity': self.set_velocity_dialog,
-            'Set Angular Velocity': self.set_angular_velocity_dialog,
-            'Set Mass': self.set_mass_dialog,
-            'Set Friction': self.set_friction_dialog,
-            'Set Elasticity': self.set_elasticity_dialog,
-            'Add Force': self.add_force_dialog,
-            'Add Torque': self.add_torque_dialog,
+            'Set Texture': self.open_texture_window,
             'Reset Position': self.reset_position,
             'Reset Rotation': self.reset_rotation,
             'Make Static': self.make_static,
@@ -140,29 +128,14 @@ class ContextMenu:
         else:
             b.velocity, b.angular_velocity = (0, 0), 0
 
-    def set_velocity_dialog(self):
-        if self.clicked_object: self.clicked_object.velocity = (100, 0)
-
-    def set_angular_velocity_dialog(self):
-        if self.clicked_object: self.clicked_object.angular_velocity = 2.0
-
-    def set_mass_dialog(self):
-        if self.clicked_object: self.clicked_object.mass = 10.0
-
-    def set_friction_dialog(self):
-        if self.clicked_object and self.clicked_object.shapes:
-            for s in self.clicked_object.shapes: s.friction = 0.8
-
-    def set_elasticity_dialog(self):
-        if self.clicked_object and self.clicked_object.shapes:
-            for s in self.clicked_object.shapes: s.elasticity = 0.9
-
-    def add_force_dialog(self):
-        if self.clicked_object:
-            self.clicked_object.apply_force_at_world_point((1000, 0), self.clicked_object.position)
-
-    def add_torque_dialog(self):
-        if self.clicked_object: self.clicked_object.torque += 1000
+    def open_texture_window(self):
+        if self.properties_window:
+            self.properties_window.close()
+        self.properties_window = TextureWindow(
+            manager=self.manager,
+            body=self.clicked_object,
+            on_close_callback=lambda: setattr(self, 'properties_window', None)
+        )
 
     def reset_position(self):
         if self.clicked_object:

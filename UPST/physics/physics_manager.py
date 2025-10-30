@@ -27,6 +27,9 @@ class PhysicsManager:
         self._ccd_bodies = set()
         self._angular_damping = 0.0
         self.theme = config.world.themes.get(self.app.world_theme)
+
+
+
         if not self.theme:
             Debug.log_warning(f"Theme '{self.app.world_theme}' not found, defaulting to Classic.", "Physics")
             self.theme = config.world.themes["Classic"]
