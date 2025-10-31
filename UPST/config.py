@@ -195,6 +195,11 @@ class SnapshotConfig:
     max_snapshots: int = 50
 
 @dataclass
+class SaveLoadConfig:
+    enable_compression = True
+    compression_method = "lzma"  # "gzip", "lzma", or "none"
+
+@dataclass
 class TextureEditorConfig:
     max_undo_steps: int = 10
     bg_color: Tuple[int, int, int] = (30, 30, 30)
@@ -259,6 +264,7 @@ class Config:
     multithreading: "MultithreadingConfig"
     snapshot: "SnapshotConfig"
     texture_editor: "TextureEditorConfig"
+    save_load: "SaveLoadConfig"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -346,6 +352,7 @@ Config.register("debug", DebugConfig)
 Config.register("multithreading", MultithreadingConfig)
 Config.register("snapshot", SnapshotConfig)
 Config.register("texture_editor", TextureEditorConfig)
+Config.register("save_load", SaveLoadConfig)
 
 def grid_to_dict_custom(self, d: Dict) -> Dict:
     d["default_colors"] = asdict(self.default_colors)
