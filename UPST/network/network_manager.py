@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio,threading,queue,random,math
 from typing import Any,Dict,Optional,List,Tuple,Callable
 try:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio,traceback
 from typing import Dict,Any,Callable,Optional,Tuple,List
 from .protocol import read_message,write_message,now_ms,PROTO_VERSION,sig
