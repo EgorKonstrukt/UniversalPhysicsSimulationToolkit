@@ -116,6 +116,7 @@ class GridColorScheme:
 @dataclass
 class GridConfig:
     enabled_by_default: bool = True
+    is_visible:bool = True
     base_size: int = 100
     major_multiplier: int = 20
     min_pixel_spacing: int = 40

@@ -186,7 +186,7 @@ class Application:
 
     def toggle_grid(self):
         self.grid_manager.toggle_grid()
-        Debug.log(f"Grid toggled: {self.grid_manager.is_visible}", "Grid")
+        Debug.log(f"Grid toggled: {config.grid.is_visible}", "Grid")
 
     def set_world_theme(self, theme_name):
         if theme_name in config.world.themes:

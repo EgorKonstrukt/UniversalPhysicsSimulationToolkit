@@ -158,7 +158,7 @@ class GizmosManager:
         self._alpha_surface_frame: Dict[int, int] = {}
         self._frame_id = 0
 
-        self._executor = ThreadPoolExecutor(max_workers=20)
+        self._executor = ThreadPoolExecutor(max_workers=1)
         self._prepared_data = None
 
 

@@ -7,6 +7,7 @@ from UPST.misc import bytes_to_surface
 from UPST.modules.texture_processor import TextureProcessor, TextureState
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
 
+
 class Renderer:
     def __init__(self, app, screen, camera, physics_manager, gizmos_manager,
                  grid_manager, input_handler, ui_manager, script_system=None):
@@ -183,21 +184,27 @@ class Renderer:
         angle_deg = math.degrees(-body.angle)
         if abs(angle_deg) > 0.1:
             tex_surf = pygame.transform.rotate(tex_surf, angle_deg)
-        w_rot, h_rot = tex_surf.get_size()
 
-        screen_pos = self.camera.world_to_screen(body.position)
+        w_rot, h_rot = tex_surf.get_size()
+        center_x = (min_x + max_x) / 2
+        center_y = (min_y + max_y) / 2
+        screen_pos = (center_x, center_y)
+
         offset_x = offset[0] * self.camera.scaling
         offset_y = offset[1] * self.camera.scaling
-        final_surf = pygame.Surface((w_rot, h_rot), pygame.SRCALPHA)
-        final_surf.blit(tex_surf, (offset_x, offset_y))
 
-        mask = pygame.Surface((w_rot, h_rot), pygame.SRCALPHA)
+        temp_surf = pygame.Surface((w_rot, h_rot), pygame.SRCALPHA)
+        temp_surf.blit(tex_surf, (0, 0))
+
         rel_offset_x = screen_pos[0] - w_rot // 2
         rel_offset_y = screen_pos[1] - h_rot // 2
         rel_verts = [(sx - rel_offset_x, sy - rel_offset_y) for sx, sy in screen_verts]
+
+        mask = pygame.Surface((w_rot, h_rot), pygame.SRCALPHA)
         pygame.draw.polygon(mask, (255, 255, 255, 255), rel_verts)
-        final_surf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        self.screen.blit(final_surf, (rel_offset_x, rel_offset_y))
+        temp_surf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+        self.screen.blit(temp_surf, (rel_offset_x + offset_x, rel_offset_y + offset_y))
 
     def _get_scaled_texture(self, path, scale):
         key = (path, round(scale, 3))
