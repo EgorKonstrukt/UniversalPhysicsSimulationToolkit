@@ -5,7 +5,7 @@ import time
 from UPST.config import config
 from UPST.misc import bytes_to_surface
 from UPST.modules.texture_processor import TextureProcessor, TextureState
-
+from UPST.modules.profiler import profile, start_profiling, stop_profiling
 
 class Renderer:
     def __init__(self, app, screen, camera, physics_manager, gizmos_manager,
@@ -72,6 +72,7 @@ class Renderer:
                 self.texture_cache[path] = None
         return self.texture_cache[path]
 
+    @profile("_draw_textured_bodies", "renderer")
     def _draw_textured_bodies(self):
         current_time = time.time()
         if current_time - self.last_texture_update > self.texture_update_interval:
