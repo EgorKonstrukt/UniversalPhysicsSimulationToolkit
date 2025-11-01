@@ -4,7 +4,7 @@ import pymunk
 
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos
-
+from UPST.scripting.script_manager import ScriptManager
 
 class PhysicsManager:
     def __init__(self, game_app, undo_redo_manager):
@@ -27,7 +27,7 @@ class PhysicsManager:
         self._ccd_bodies = set()
         self._angular_damping = 0.0
         self.theme = config.world.themes.get(self.app.world_theme)
-
+        self.script_manager = ScriptManager()
 
 
         if not self.theme:
@@ -37,6 +37,9 @@ class PhysicsManager:
         if config.app.create_base_world:
             self.create_base_world()
             Debug.log_info("Base world created.", "Physics")
+
+    def update_scripts(self, dt: float):
+        self.script_manager.update_all(dt)
 
     def create_base_world(self):
         Debug.log_info("Creating base world geometry and debug texts.", "Physics")

@@ -119,7 +119,10 @@ class SnapshotManager:
             "sleep_time_threshold": float(self.physics_manager.space.sleep_time_threshold),
             "collision_slop": float(self.physics_manager.space.collision_slop),
             "collision_bias": float(self.physics_manager.space.collision_bias),
+            'scripts': self.physics_manager.script_manager.serialize_for_save(),
         }
+
+        snapshot["scripts"] = self.physics_manager.script_manager.take_snapshot()
 
         if config.snapshot.save_object_positions:
             snapshot.update({
@@ -264,3 +267,4 @@ class SnapshotManager:
                 renderer.texture_cache[tex_bytes] = surf
 
         Debug.log_succes(message="Snapshot restored.", category="SnapshotManager")
+

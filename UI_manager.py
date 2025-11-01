@@ -48,6 +48,7 @@ class UIManager:
         ])
         self.active_color_picker = None
         self.color_picker_for_shape = None
+        self.script_editor_window = None
 
     def _create_color_controls(self, parent_window, obj_prefix):
         panel = UIPanel(relative_rect=pygame.Rect(5, 100, 200, 60), manager=self.manager, container=parent_window)
@@ -87,6 +88,135 @@ class UIManager:
         self.context_menu = ContextMenu(self.manager, self)
         self.create_physics_debug_settings_window()
         self.create_plotter_window()
+        self.create_script_window()
+
+    def update_script_list(self):
+        if not self.script_window or not hasattr(self.physics_manager, 'script_manager'):
+            return
+        scripts = self.physics_manager.script_manager.get_all_scripts()
+        items = []
+        self._script_item_map = {}
+        for i, s in enumerate(scripts):
+            owner_desc = "World" if s.owner is None else f"Body@{id(s.owner)}"
+            status = "R" if s.running else "S"
+            threaded_mark = "T" if s.threaded else "M"
+            display = f"[{threaded_mark}{status}] {s.name} — {owner_desc}"
+            items.append(display)
+            self._script_item_map[display] = s
+        self.script_list.set_item_list(items)
+
+    def stop_selected_script(self):
+        selected = self.script_list.get_single_selection()
+        if selected and selected in self._script_item_map:
+            script = self._script_item_map[selected]
+            self.physics_manager.script_manager.remove_script(script)
+            self.update_script_list()
+
+    def open_script_editor(self):
+        if self.script_editor_window:
+            self.script_editor_window.kill()
+        self.script_editor_window = pygame_gui.windows.UIFileDialog(
+            rect=pygame.Rect(100, 100, 600, 500),
+            manager=self.manager,
+            window_title="Attach Python Script",
+            initial_file_path="",
+            allow_picking_directories=False,
+            allow_existing_files_only=False
+        )
+        # Но лучше использовать кастомное окно с текстовым полем
+        self._show_inline_script_editor()
+
+    def _show_inline_script_editor(self):
+        if hasattr(self, '_inline_script_win') and self._inline_script_win:
+            self._inline_script_win.kill()
+        self._inline_script_win = pygame_gui.elements.UIWindow(
+            pygame.Rect(150, 100, 500, 400),
+            manager=self.manager,
+            window_display_title="New Script"
+        )
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(10, 10, 200, 25),
+            text="Script Name:",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+        self._script_name_input = pygame_gui.elements.UITextEntryLine(
+            relative_rect=pygame.Rect(120, 10, 360, 25),
+            initial_text="MyScript",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(10, 40, 100, 25),
+            text="Code:",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+        self._script_code_box = pygame_gui.elements.UITextBox(
+            html_text="# def start():\n#     pass\n# def update(dt):\n#     pass\n# def stop():\n#     pass",
+            relative_rect=pygame.Rect(10, 65, 470, 220),
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+        self._threaded_checkbox = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(10, 295, 150, 25),
+            text="Run in Thread",
+            container=self._inline_script_win,
+            manager=self.manager,
+            tool_tip_text="Execute update() in a background thread"
+        )
+        self._threaded_state = False
+        self._apply_script_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(350, 295, 120, 25),
+            text="Apply & Run",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+
+    def create_script_window(self):
+        self.script_window = pygame_gui.elements.UIWindow(
+            pygame.Rect(50, 50, 400, 500),
+            manager=self.manager,
+            window_display_title="Script Manager",
+            visible=False
+        )
+        self.script_list = pygame_gui.elements.UISelectionList(
+            relative_rect=pygame.Rect(10, 50, 370, 350),
+            item_list=[],
+            manager=self.manager,
+            container=self.script_window
+        )
+        self.refresh_scripts_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(10, 410, 120, 30),
+            text="Refresh",
+            manager=self.manager,
+            container=self.script_window
+        )
+        self.stop_script_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(140, 410, 120, 30),
+            text="Stop Selected",
+            manager=self.manager,
+            container=self.script_window
+        )
+        self.open_script_editor_button = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(270, 410, 110, 30),
+            text="New Script",
+            manager=self.manager,
+            container=self.script_window
+        )
+
+    def _apply_new_script(self):
+        name = self._script_name_input.get_text().strip() or "Unnamed"
+        code = self._script_code_box.html_text.replace('<br>', '\n').replace('&nbsp;', ' ')
+        # Remove HTML tags manually
+        import re
+        clean_code = re.sub(r'<[^>]+>', '', code)
+        owner = self.context_menu.clicked_object if self.context_menu.clicked_object else None
+        self.physics_manager.script_manager.add_script_to(owner, clean_code, name, self._threaded_state)
+        if hasattr(self, '_inline_script_win'):
+            self._inline_script_win.kill()
+        if self.script_window and self.script_window.alive():
+            self.update_script_list()
 
     def create_force_field_buttons(self):
         self.force_field_buttons = []
@@ -242,6 +372,11 @@ class UIManager:
         self.toggle_debug_window_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 110, 125, 40), text="Debug Settings", manager=self.manager)
         self.toggle_plotter_window_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 160, 125, 40), text="Plotter", manager=self.manager)
 
+        self.toggle_script_window_button = UIButton(
+            relative_rect=pygame.Rect(config.app.screen_width - 135, 210, 125, 40),
+            text="Scripts",
+            manager=self.manager
+        )
     def create_pause_icon(self):
         self.pause_icon = UIImage(relative_rect=pygame.Rect(config.app.screen_width - 450, 10, 50, 50),
                                   image_surface=pygame.image.load("sprites/gui/pause.png").convert_alpha(),
@@ -398,6 +533,7 @@ class UIManager:
         self.toggle_debug_window_button.set_position((config.app.screen_width - 135, 110))
         self.toggle_plotter_window_button.set_position((config.app.screen_width - 135, 160))
         self.delete_all_button.set_position((200, config.app.screen_height - 50))
+        self.toggle_script_window_button.set_position((config.app.screen_width - 135, 210))
 
     def handle_button_press(self, event, game_app):
         if event.ui_element in self.tool_buttons:
@@ -438,9 +574,9 @@ class UIManager:
         elif event.ui_element == getattr(self, 'polyhedron_color_random_checkbox', None):
             self.toggle_color_mode('polyhedron')
         elif event.ui_element == self.toggle_debug_window_button:
-            self.physics_debug_window.show() if not self.physics_debug_window.is_visible else self.physics_debug_window.hide()
+            self.physics_debug_window.show() if not self.physics_debug_window.visible else self.physics_debug_window.hide()
         elif event.ui_element == self.toggle_plotter_window_button:
-            self.plotter_window.show() if not self.plotter_window.is_visible else self.plotter_window.hide()
+            self.plotter_window.show() if not self.plotter_window.visible else self.plotter_window.hide()
         elif event.ui_element == self.toggle_all_debug_button:
             if self.physics_debug_manager:
                 self.physics_debug_manager.toggle_all_debug()
@@ -456,6 +592,16 @@ class UIManager:
         elif event.ui_element == self.plotter_clear_button:
             if self.plotter:
                 self.plotter.clear_data()
+
+        elif event.ui_element == self.toggle_script_window_button:
+            self.script_window.show() if not self.script_window.visible else self.script_window.hide()
+        elif event.ui_element == self.refresh_scripts_button:
+            self.update_script_list()
+        elif event.ui_element == self.stop_script_button:
+            self.stop_selected_script()
+        elif event.ui_element == self.open_script_editor_button:
+            self.open_script_editor()
+
         else:
             for setting_name, checkbox in self.debug_setting_checkboxes.items():
                 if event.ui_element == checkbox:
@@ -536,6 +682,8 @@ class UIManager:
         self.context_menu.update(time_delta, clock)
         if self.plotter:
             self.plotter_surface_element.set_image(self.plotter.get_surface())
+        if self.script_window and self.script_window.alive():
+            self.update_script_list()
 
     @profile("ui_draw")
     def draw(self, screen):

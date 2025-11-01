@@ -1,4 +1,5 @@
 import tkinter as tk
+import uuid
 from tkinter import filedialog
 import pickle
 import traceback
@@ -63,10 +64,12 @@ class SaveLoadManager:
             "bodies": [],
             "constraints": [],
             "static_lines": [],
+            "scripts": self.physics_manager.script_manager.serialize_for_save(),
         }
 
         sim_bodies = [b for b in self.physics_manager.space.bodies if b is not self.physics_manager.static_body]
         body_map = {b: i for i, b in enumerate(sim_bodies)}
+        body_index_map = {b: i for i, b in enumerate(sim_bodies)}
 
         for body in sim_bodies:
             shapes_data = []
@@ -232,6 +235,7 @@ class SaveLoadManager:
             bt.texture_scale = float(bd.get("texture_scale", 1.0))
             bt.stretch_texture = bool(bd.get("stretch_texture", True))
 
+
             shapes = []
             for sd in bd.get("shapes", []):
                 st = sd.get("type", "")
@@ -254,6 +258,10 @@ class SaveLoadManager:
             else:
                 self.physics_manager.space.add(bt)
             loaded_bodies.append(bt)
+
+        body_id_map = {id(b): b for b in loaded_bodies}
+        script_data = data.get("scripts", {})
+        self.physics_manager.script_manager.deserialize_from_save(script_data, body_id_map)
 
         for cd in data.get("constraints", []):
             a = loaded_bodies[cd["a"]]

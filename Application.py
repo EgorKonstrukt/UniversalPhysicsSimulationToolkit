@@ -25,7 +25,6 @@ from UPST.modules.undo_redo_manager import UndoRedoManager
 from UPST.sound.sound_manager import SoundManager
 from UPST.network.network_manager import NetworkManager
 from UI_manager import UIManager
-from UPST.demos.demo_all_gizmos import demo_all_gizmos
 # from UPST.script_system.script_system_main import integrate_script_system
 from UPST.modules.renderer import Renderer
 

@@ -1,6 +1,8 @@
 from UPST.gizmos.gizmos_manager import Gizmos
 
-def demo_all_gizmos():
+def update(dt):
+
+
 
     # POINT
     Gizmos.draw_point((0, 0), color='red', size=5, duration=0.1)

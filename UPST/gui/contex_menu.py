@@ -8,8 +8,8 @@ import math
 from UPST.config import config
 from UPST.gui.properties_window import PropertiesWindow
 from UPST.gui.texture_window import TextureWindow
-from UPST.gui.script_menu import ScriptMenu
-from UPST.script_system.script_system import GlobalScriptManager
+import tkinter as tk
+from tkinter import simpledialog, messagebox
 
 class ContextMenu:
     def __init__(self, manager, ui_manager):
@@ -19,18 +19,6 @@ class ContextMenu:
         self.context_menu_list = None
         self.clicked_object = None
         self.properties_window = None
-        self.script_menu = ScriptMenu(manager, ui_manager, self)
-        self.global_script_manager = GlobalScriptManager()
-        self.global_script_manager.set_context_provider(lambda: {
-            'ui_manager': self.ui_manager,
-            'context_menu': self,
-            'clicked_object': self.clicked_object,
-            'config': config,
-            'PropertiesWindow': PropertiesWindow,
-            'TextureWindow': TextureWindow,
-            'physics_manager': getattr(self.ui_manager, 'physics_manager', None),
-            'space': getattr(getattr(self.ui_manager, 'physics_manager', None), 'space', None)
-        })
         self.create_menu()
 
     def create_menu(self):
@@ -53,7 +41,7 @@ class ContextMenu:
             'Make Static',
             'Make Dynamic',
             'Select for Debug',
-            'Run Python Script'
+            'Run Python Script',
         ]
 
         self.context_menu_list = UISelectionList(
@@ -64,6 +52,17 @@ class ContextMenu:
             allow_double_clicks=False,
             object_id=pygame_gui.core.ObjectID(object_id='#context_menu_list', class_id='@context_menu')
         )
+
+    def handle_run_script(self):
+
+        root = tk.Tk()
+        root.withdraw()
+        code = simpledialog.askstring("Script Input", "Enter Python script code:", parent=root)
+        if code is None: return
+        name = simpledialog.askstring("Script Name", "Enter script name:", parent=root) or "Script"
+        threaded = tk.messagebox.askyesno("Threaded?", "Run in separate thread?")
+        owner = self.clicked_object or None
+        self.ui_manager.physics_manager.script_manager.add_script_to(owner, code, name, threaded)
 
     def show_menu(self, position, clicked_object):
         self.clicked_object = clicked_object
@@ -77,7 +76,6 @@ class ContextMenu:
 
     def hide(self):
         self.context_menu.hide()
-        self.script_menu.hide()
 
     def process_event(self, event):
         if self.properties_window:
@@ -88,10 +86,9 @@ class ContextMenu:
                 self.handle_selection(event.text)
                 self.context_menu.hide()
 
-        self.script_menu.process_event(event)
 
     def handle_selection(self, selection):
-        if not self.clicked_object and selection != 'Run Python Script':
+        if not self.clicked_object and selection not in ('Run Python Script',):
             return
 
         handlers = {
@@ -105,18 +102,15 @@ class ContextMenu:
             'Make Static': self.make_static,
             'Make Dynamic': self.make_dynamic,
             'Select for Debug': self.select_for_debug,
-            'Run Python Script': self.run_python_script
+            'Run Python Script': self.handle_run_script,
         }
 
         handler = handlers.get(selection)
         if handler:
             handler()
+        elif selection == 'Run Python Script':
+            self.ui_manager._show_inline_script_editor()
 
-    def run_python_script(self):
-        self.script_menu.show_menu(
-            pygame.mouse.get_pos(),
-            self.clicked_object
-        )
 
     def open_properties_window(self):
         if self.properties_window:
@@ -130,7 +124,6 @@ class ContextMenu:
     def update(self, time_delta, clock):
         if self.properties_window:
             self.properties_window.update(time_delta)
-        self.global_script_manager.update()
 
     def delete_object(self):
         if self.clicked_object:

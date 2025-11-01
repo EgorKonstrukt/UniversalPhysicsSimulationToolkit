@@ -19,11 +19,12 @@ def set_undo_redo(undo_redo_manager: 'UndoRedoManager'):
     _undo_redo_instance = undo_redo_manager
 
 class SnapshotMetadata:
-    def __init__(self, index: int, timestamp: datetime, body_count: int, total_mass: float, custom_data: Dict[str, Any] = None):
+    def __init__(self, index: int, timestamp: datetime, body_count: int, total_mass: float, script_count , custom_data: Dict[str, Any] = None):
         self.index = index
         self.timestamp = timestamp
         self.body_count = body_count
         self.total_mass = total_mass
+        self.script_count = script_count
         self.custom_data = custom_data or {}
 
 class UndoRedoManager:
@@ -90,9 +91,19 @@ class UndoRedoManager:
             self.on_state_change(self.current_index, len(self.history))
 
     def _create_metadata(self, snapshot_bytes: bytes, index: int, custom_data: Dict[str, Any]) -> SnapshotMetadata:
-        snapshot = pickle.loads(snapshot_bytes)
+        snapshot = pickle.loads(snapshot_bytes)  # Deserialize first
         body_count = len(snapshot.get('bodies', []))
         total_mass = sum(b.get('mass', 0) for b in snapshot.get('bodies', []))
+
+        script_data = snapshot.get('scripts', {})
+        if isinstance(script_data, dict):
+            script_count = len(script_data.get('object_scripts', [])) + len(script_data.get('world_scripts', []))
+        else:
+            script_count = 0
+
+        custom_data = custom_data or {}
+        custom_data['script_count'] = script_count
+
         return SnapshotMetadata(index, datetime.now(), body_count, total_mass, custom_data)
 
     def undo(self) -> bool:
