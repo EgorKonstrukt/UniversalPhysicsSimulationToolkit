@@ -26,7 +26,7 @@ from UPST.sound.sound_manager import SoundManager
 from UPST.network.network_manager import NetworkManager
 from UI_manager import UIManager
 from UPST.demos.demo_all_gizmos import demo_all_gizmos
-from UPST.script_system.script_system_main import integrate_script_system
+# from UPST.script_system.script_system_main import integrate_script_system
 from UPST.modules.renderer import Renderer
 
 
@@ -112,23 +112,23 @@ class Application:
         Debug.log_info(str(pygame.display.get_surface()), "Init")
         Debug.log_info("Refresh rate: "+str(pygame.display.get_current_refresh_rate()), "Init")
         Debug.log_info("Displays: "+str(pygame.display.get_num_displays()), "Init")
-        try:
-            self.script_system = integrate_script_system(self)
-            Debug.log("Python Scripting System initialized successfully", "ScriptSystem")
-            self.ui_manager.console_window.add_output_line_to_log("=== Python Scripting System Loaded ===")
-            self.ui_manager.console_window.add_output_line_to_log("Press F5 to run all auto-run scripts")
-            self.ui_manager.console_window.add_output_line_to_log("Press F6 to launch IDLE IDE")
-            self.ui_manager.console_window.add_output_line_to_log("Press F7 to open Script Editor")
-            self.ui_manager.console_window.add_output_line_to_log("Right-click script objects to interact")
-            self.ui_manager.console_window.add_output_line_to_log("=====================================")
-        except Exception as e:
-            Debug.log_error(f"Failed to initialize Python Scripting System: {e}", "ScriptSystem")
-            self.script_system = None
+        # try:
+        #     self.script_system = integrate_script_system(self)
+        #     Debug.log("Python Scripting System initialized successfully", "ScriptSystem")
+        #     self.ui_manager.console_window.add_output_line_to_log("=== Python Scripting System Loaded ===")
+        #     self.ui_manager.console_window.add_output_line_to_log("Press F5 to run all auto-run scripts")
+        #     self.ui_manager.console_window.add_output_line_to_log("Press F6 to launch IDLE IDE")
+        #     self.ui_manager.console_window.add_output_line_to_log("Press F7 to open Script Editor")
+        #     self.ui_manager.console_window.add_output_line_to_log("Right-click script objects to interact")
+        #     self.ui_manager.console_window.add_output_line_to_log("=====================================")
+        # except Exception as e:
+        #     Debug.log_error(f"Failed to initialize Python Scripting System: {e}", "ScriptSystem")
+        #     self.script_system = None
         Debug.log("Application initialized successfully", "Application")
         self.renderer = Renderer(app=self, screen=self.screen, camera=self.camera,
                                  physics_manager=self.physics_manager, gizmos_manager=self.gizmos_manager,
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
-                                 ui_manager=self.ui_manager, script_system=self.script_system)
+                                 ui_manager=self.ui_manager, script_system=None)
 
     def setup_screen(self):
         flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE
@@ -149,18 +149,18 @@ class Application:
             self.physics_debug_manager.draw_physics_info_panel()
             self.profiler.stop("physics debug")
             events = pygame.event.get()
-            for event in events:
-                if self.script_system: self.script_system.handle_event(event)
+            # for event in events:
+            #     if self.script_system: self.script_system.handle_event(event)
             self.input_handler.process_events(profiler=self.profiler, events=events)
             self.gizmos_demo.draw(time_delta)
             self.update(time_delta)
             self.draw()
-        if self.script_system: self.script_system.shutdown()
+        # if self.script_system: self.script_system.shutdown()
         pygame.quit()
 
     @profile("MAIN_LOOP")
     def update(self, time_delta):
-        demo_all_gizmos()
+        # demo_all_gizmos()
         Debug.set_performance_counter("Update Time", time_delta * 1000)
         self.profiler.start("camera", "app")
         self.camera.update(pygame.key.get_pressed())
@@ -175,10 +175,10 @@ class Application:
         self.profiler.start("gui", "gui")
         self.ui_manager.update(time_delta, self.clock)
         self.profiler.stop("gui")
-        if self.script_system:
-            self.profiler.start("script_system", "scripting")
-            self.script_system.update(time_delta)
-            self.profiler.stop("script_system")
+        # if self.script_system:
+        #     self.profiler.start("script_system", "scripting")
+        #     self.script_system.update(time_delta)
+        #     self.profiler.stop("script_system")
         self.undo_redo_manager.update()
 
     def draw(self):
@@ -194,19 +194,19 @@ class Application:
             self.grid_manager.set_theme_colors(theme_name)
             Debug.log(f"World theme changed to: {theme_name}", "Theme")
 
-    def create_example_script_world(self):
-        if not self.script_system: return
-        self.physics_manager.delete_all()
-        for i in range(5):
-            x = (i - 2) * 100
-            y = -200
-            self.spawner.spawn_circle((x, y))
-        for i in range(-5, 6):
-            x = i * 100
-            y = 300
-            self.spawner.spawn_rectangle((x, y), (80, 20))
-        self.script_system.script_object_manager.execute_all_auto_run()
-        Debug.log("Example script world created!", "ScriptSystem")
+    # def create_example_script_world(self):
+    #     if not self.script_system: return
+    #     self.physics_manager.delete_all()
+    #     for i in range(5):
+    #         x = (i - 2) * 100
+    #         y = -200
+    #         self.spawner.spawn_circle((x, y))
+    #     for i in range(-5, 6):
+    #         x = i * 100
+    #         y = 300
+    #         self.spawner.spawn_rectangle((x, y), (80, 20))
+    #     self.script_system.script_object_manager.execute_all_auto_run()
+    #     Debug.log("Example script world created!", "ScriptSystem")
 
 
 if __name__ == '__main__':
