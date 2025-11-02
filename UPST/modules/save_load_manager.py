@@ -41,25 +41,52 @@ class SaveLoadManager:
             Debug.log_exception(f"Save failed for {fp}: {traceback.format_exc()}", "SaveLoadManager")
 
     def _prepare_save_data(self):
-        data = {"iterations":int(self.physics_manager.space.iterations),"sim_freq":int(self.physics_manager.simulation_frequency),"gravity":tuple(self.physics_manager.space.gravity),"damping_linear":float(self.physics_manager.space.damping),"damping_angular":float(getattr(self.physics_manager,"_angular_damping",0.0)),"sleep_time_threshold":float(self.physics_manager.space.sleep_time_threshold),"collision_slop":float(self.physics_manager.space.collision_slop),"collision_bias":float(self.physics_manager.space.collision_bias),"camera_translation":(getattr(getattr(self.camera,"translation",None),"tx",0.0),getattr(getattr(self.camera,"translation",None),"ty",0.0)),"camera_scaling":float(getattr(self.camera,"scaling",1.0)),"bodies":[],"constraints":[],"static_lines":[],"scripts":self.physics_manager.script_manager.serialize_for_save()}
+        data = {"iterations": int(self.physics_manager.space.iterations),
+                "sim_freq": int(self.physics_manager.simulation_frequency),
+                "gravity": tuple(self.physics_manager.space.gravity),
+                "damping_linear": float(self.physics_manager.space.damping),
+                "damping_angular": float(getattr(self.physics_manager, "_angular_damping", 0.0)),
+                "sleep_time_threshold": float(self.physics_manager.space.sleep_time_threshold),
+                "collision_slop": float(self.physics_manager.space.collision_slop),
+                "collision_bias": float(self.physics_manager.space.collision_bias),
+                "camera_translation": (getattr(getattr(self.camera, "translation", None), "tx", 0.0),
+                                       getattr(getattr(self.camera, "translation", None), "ty", 0.0)),
+                "camera_scaling": float(getattr(self.camera, "scaling", 1.0)), "bodies": [], "constraints": [],
+                "static_lines": [], "scripts": self.physics_manager.script_manager.serialize_for_save()}
         sim_bodies = [b for b in self.physics_manager.space.bodies if b is not self.physics_manager.static_body]
-        body_map = {b:i for i,b in enumerate(sim_bodies)}
+        body_map = {b: i for i, b in enumerate(sim_bodies)}
         for body in sim_bodies:
-            shapes_data = []
             if not hasattr(body, '_script_uuid'):
                 body._script_uuid = uuid.uuid4()
+            shapes_data = []
             for shape in body.shapes:
-                shape_data = {"type":shape.__class__.__name__,"friction":float(getattr(shape,"friction",0.5)),"elasticity":float(getattr(shape,"elasticity",0.0)),"color":getattr(shape,"color",(200,200,200,255))}
-                if isinstance(shape,pymunk.Circle): shape_data.update({"radius":float(shape.radius),"offset":tuple(getattr(shape,"offset",(0.0,0.0)))})
-                elif isinstance(shape,pymunk.Poly): shape_data["vertices"] = [tuple(v) for v in shape.get_vertices()]
-                elif isinstance(shape,pymunk.Segment): shape_data.update({"a":tuple(shape.a),"b":tuple(shape.b),"radius":float(shape.radius)})
+                shape_data = {"type": shape.__class__.__name__, "friction": float(getattr(shape, "friction", 0.5)),
+                              "elasticity": float(getattr(shape, "elasticity", 0.0)),
+                              "color": getattr(shape, "color", (200, 200, 200, 255))}
+                if isinstance(shape, pymunk.Circle):
+                    shape_data.update(
+                        {"radius": float(shape.radius), "offset": tuple(getattr(shape, "offset", (0.0, 0.0)))})
+                elif isinstance(shape, pymunk.Poly):
+                    shape_data["vertices"] = [tuple(v) for v in shape.get_vertices()]
+                elif isinstance(shape, pymunk.Segment):
+                    shape_data.update({"a": tuple(shape.a), "b": tuple(shape.b), "radius": float(shape.radius)})
                 shapes_data.append(shape_data)
             tex_surface = None
-            if hasattr(self.physics_manager.app,'renderer'): tex_surface = self.physics_manager.app.renderer._get_texture(getattr(body,'texture_path',None))
-            texture_path = getattr(body,'texture_path',None)
+            if hasattr(self.physics_manager.app,
+                       'renderer'): tex_surface = self.physics_manager.app.renderer._get_texture(
+                getattr(body, 'texture_path', None))
+            texture_path = getattr(body, 'texture_path', None)
             tex_bytes = surface_to_bytes(tex_surface) if tex_surface else None
             tex_size = tex_surface.get_size() if tex_surface else None
-            body_data = {"position":tuple(body.position),"angle":float(body.angle),"velocity":tuple(body.velocity),"angular_velocity":float(body.angular_velocity),"mass":float(getattr(body,"mass",1.0)),"moment":float(getattr(body,"moment",1.0)),"body_type":int(body.body_type),"shapes":shapes_data,"texture_path":texture_path,"texture_bytes":tex_bytes,"texture_size":tex_size,"texture_scale":float(getattr(body,"texture_scale",1.0)),"stretch_texture":bool(getattr(body,"stretch_texture",True))}
+            body_data = {
+                "_script_uuid": str(body._script_uuid),
+                "position": tuple(body.position), "angle": float(body.angle), "velocity": tuple(body.velocity),
+                "angular_velocity": float(body.angular_velocity), "mass": float(getattr(body, "mass", 1.0)),
+                "moment": float(getattr(body, "moment", 1.0)), "body_type": int(body.body_type), "shapes": shapes_data,
+                "texture_path": texture_path, "texture_bytes": tex_bytes, "texture_size": tex_size,
+                "texture_scale": float(getattr(body, "texture_scale", 1.0)),
+                "stretch_texture": bool(getattr(body, "stretch_texture", True))
+            }
             data["bodies"].append(body_data)
 
         for c in list(self.physics_manager.space.constraints):
@@ -119,9 +146,18 @@ class SaveLoadManager:
         self.camera.scaling = cam_scale
         if hasattr(self.camera,"target_scaling"): self.camera.target_scaling = cam_scale
         loaded_bodies = []
-        for bd in data.get("bodies",[]):
-            body_type = int(bd.get("body_type",int(pymunk.Body.DYNAMIC)))
+        body_uuid_map = {}
+        for bd in data.get("bodies", []):
+            body_type = int(bd.get("body_type", int(pymunk.Body.DYNAMIC)))
             bt = pymunk.Body(body_type=body_type)
+            if '_script_uuid' in bd and bd['_script_uuid']:
+                try:
+                    bt._script_uuid = uuid.UUID(bd['_script_uuid'])
+                except:
+                    bt._script_uuid = uuid.uuid4()
+            else:
+                bt._script_uuid = uuid.uuid4()
+            body_uuid_map[bt._script_uuid] = bt
             if bt.body_type == pymunk.Body.DYNAMIC:
                 bt.mass = float(bd.get("mass",1.0))
                 bt.moment = float(bd.get("moment",1.0))
@@ -149,11 +185,10 @@ class SaveLoadManager:
             if shapes: self.physics_manager.space.add(bt,*shapes)
             else: self.physics_manager.space.add(bt)
             loaded_bodies.append(bt)
-        body_uuid_map = {}
-        for bd, bt in zip(data.get("bodies", []), loaded_bodies):
-            if '_script_uuid' in bd:
-                bt._script_uuid = uuid.UUID(bd['_script_uuid'])
-                body_uuid_map[bt._script_uuid] = bt
+        # for bd, bt in zip(data.get("bodies", []), loaded_bodies):
+        #     if '_script_uuid' in bd:
+        #         bt._script_uuid = uuid.UUID(bd['_script_uuid'])
+        #         body_uuid_map[bt._script_uuid] = bt
         script_data = data.get("scripts", {})
         self.physics_manager.script_manager.deserialize_from_save(script_data, body_uuid_map)
         for cd in data.get("constraints",[]):

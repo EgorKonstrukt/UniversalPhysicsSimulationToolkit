@@ -5,8 +5,9 @@ def start():
 
 
 def update(dt):
-    Gizmos.draw_text(owner.position, "Hello Gizmos! "+str(dt), color='white', background_color=(0, 0, 0, 180),
+    Gizmos.draw_text(owner.position, str(owner)+str(dt), color='white', background_color=(0, 0, 0, 180),
                      font_size=20, collision=True, duration=0.1)
+
 
 
     # POINT
