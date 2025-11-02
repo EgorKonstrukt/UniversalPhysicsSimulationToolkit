@@ -26,7 +26,7 @@ class SaveLoadManager:
 
     def save_world(self):
         root = tk.Tk(); root.withdraw()
-        fp = filedialog.asksaveasfilename(defaultextension=".ngsv", filetypes=[("Newgodoo Save File","*.ngsv")])
+        fp = filedialog.asksaveasfilename(defaultextension=".ngsv", filetypes=[("UPST Save File","*.space")])
         if not fp: Debug.log_warning("Canceled...", "SaveLoadManager"); return
         try:
             data = self._prepare_save_data()
@@ -112,7 +112,7 @@ class SaveLoadManager:
 
     def load_world(self):
         root = tk.Tk(); root.withdraw()
-        fp = filedialog.askopenfilename(filetypes=[("Newgodoo Save File","*.ngsv")])
+        fp = filedialog.askopenfilename(filetypes=[("UPST Save File","*.space")])
         if not fp: Debug.log_warning(f"Load canceled: {fp}", "SaveLoadManager"); return
         try:
             data = self._load_data_with_fallback(fp)
