@@ -1,64 +1,79 @@
 import threading
 import time
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Callable
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos
-from UPST.modules.profiler import profile
-from UPST.sound.sound_synthesizer import synthesizer
-from UPST.config import config
-import pygame
-import pymunk
-import math
-import random
+import pygame, pymunk, math, random
 
 class ScriptInstance:
     def __init__(self, code: str, owner: Any, name: str = "Unnamed Script", threaded: bool = False):
         self.code = code
         self.owner = owner
         self.name = name
-        self.threaded = threaded
         self.running = False
         self.thread: Optional[threading.Thread] = None
-        self.globals = {"owner": owner, "Gizmos": Gizmos, "Debug": Debug, "pymunk": pymunk, "math": math, "random": random, "pygame": pygame, "log": lambda msg: Debug.log_info(str(msg), "UserScript"), "script": self}
+        self.thread_lock = threading.Lock()
+        self._user_thread_pool: list[threading.Thread] = []
+        self.globals = {
+            "owner": owner,
+            "Gizmos": Gizmos,
+            "Debug": Debug,
+            "pymunk": pymunk,
+            "math": math,
+            "random": random,
+            "threading": threading,
+            "pygame": pygame,
+            "script": self,
+            "thread_lock": self.thread_lock, "spawn_thread": self.spawn_thread,
+            "log": lambda msg: Debug.log_info(str(msg), "UserScript")
+        }
         self.locals = {}
         exec(self.code, self.globals, self.locals)
         self._start_fn = self.locals.get("start")
-        self._update_fn = self.locals.get("update")
-        self._update_threaded_fn = self.locals.get("update_threaded")
+        self._update_main = self.locals.get("update")
+        self._update_bg = self.locals.get("update_threaded")
         self._stop_fn = self.locals.get("stop")
+        self.threaded = threaded or bool(self._update_bg)
         Debug.log_info(f"Script '{self.name}' initialized on {type(owner).__name__}.", "Scripting")
+
+    def spawn_thread(self, target: Callable, *args, **kwargs) -> threading.Thread:
+        t = threading.Thread(target=target, args=args, kwargs=kwargs, daemon=True)
+        self._user_thread_pool.append(t)
+        t.start()
+        return t
 
     def start(self):
         if self.running: return
         self.running = True
-        if self.threaded and (self._update_threaded_fn or self._update_fn):
-            self.thread = threading.Thread(target=self._threaded_loop, daemon=True)
+        if self.threaded and (self._update_bg or self._update_main):
+            self.thread = threading.Thread(target=self._bg_loop, daemon=True)
             self.thread.start()
         if self._start_fn:
             try: self._start_fn()
-            except Exception as e: Debug.log_exception(f"Error in script '{self.name}' start(): {e}", "Scripting")
+            except Exception as e: Debug.log_exception(f"Script '{self.name}' start() error: {e}", "Scripting")
 
-    def update(self, dt: float = 0.0):
+    def update(self, dt: float):
         if not self.running: return
-        if self._update_fn:
-            try: self._update_fn(dt)
-            except Exception as e: Debug.log_exception(f"Error in script '{self.name}' update(): {e}", "Scripting")
+        if self._update_main:
+            try: self._update_main(dt)
+            except Exception as e: Debug.log_exception(f"Script '{self.name}' update() error: {e}", "Scripting")
 
     def stop(self):
         if not self.running: return
         self.running = False
-        if self.thread and self.thread.is_alive(): self.thread.join(timeout=1.0)
+        for t in self._user_thread_pool:
+            if t.is_alive(): t.join(0.5)
+        if self.thread and self.thread.is_alive(): self.thread.join(0.5)
         if self._stop_fn:
             try: self._stop_fn()
-            except Exception as e: Debug.log_exception(f"Error in script '{self.name}' stop(): {e}", "Scripting")
+            except Exception as e: Debug.log_exception(f"Script '{self.name}' stop() error: {e}", "Scripting")
 
-    def _threaded_loop(self):
+    def _bg_loop(self):
+        fps = getattr(self, 'bg_fps', 100)
+        dt = 1.0 / max(1, fps)
         while self.running:
-            dt = 1.0 / 100.0
-            if self._update_threaded_fn:
-                try: self._update_threaded_fn(dt)
-                except Exception as e: Debug.log_exception(f"Error in script '{self.name}' update_threaded(): {e}", "Scripting")
-            elif self._update_fn:
-                try: self._update_fn(dt)
-                except Exception as e: Debug.log_exception(f"Error in script '{self.name}' update() [threaded fallback]: {e}", "Scripting")
+            fn = self._update_bg or self._update_main
+            if fn:
+                try: fn(dt)
+                except Exception as e: Debug.log_exception(f"Script '{self.name}' bg update error: {e}", "Scripting")
             time.sleep(dt)

@@ -44,7 +44,6 @@ class Application:
         self.sound_manager = SoundManager()
         Debug.log("SoundManager initialized successfully", "Init")
 
-        # Создаем PhysicsManager с временным undo_redo_manager=None
         self.physics_manager = PhysicsManager(self, undo_redo_manager=None)
         Debug.log("PhysicsManager initialized successfully", "Init")
 
@@ -62,10 +61,8 @@ class Application:
         self.undo_redo_manager = UndoRedoManager(snapshot_manager=self.snapshot_manager)
         Debug.log("UndoRedoManager initialized successfully", "Init")
 
-        # Устанавливаем undo_redo_manager в physics_manager ДО создания базового мира
         self.physics_manager.undo_redo_manager = self.undo_redo_manager
 
-        # Переносим создание базового мира после установки undo_redo_manager
         if config.app.create_base_world:
             self.physics_manager.create_base_world()
             Debug.log_info("Base world created after undo_redo manager setup.", "Physics")
@@ -157,7 +154,6 @@ class Application:
 
     @profile("MAIN_LOOP")
     def update(self, time_delta):
-        # demo_all_gizmos()
         Debug.set_performance_counter("Update Time", time_delta * 1000)
         self.profiler.start("camera", "app")
         self.camera.update(pygame.key.get_pressed())
@@ -173,8 +169,9 @@ class Application:
         self.ui_manager.update(time_delta, self.clock)
         self.profiler.stop("gui")
         self.undo_redo_manager.update()
-        # Используем script_manager из physics_manager вместо отдельного экземпляра
+        self.profiler.start("update_scripts", "scripting")
         self.physics_manager.update_scripts(time_delta)
+        self.profiler.stop("update_scripts")
 
     def draw(self):
         self.renderer.draw()
