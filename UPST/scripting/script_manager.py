@@ -1,14 +1,27 @@
 import pickle
-from typing import List, Any, Optional
+import uuid
+from typing import List, Any, Optional, Dict
 from UPST.debug.debug_manager import Debug
 from UPST.scripting.script_instance import ScriptInstance
+
 
 class ScriptManager:
     def __init__(self):
         self.scripts: List[ScriptInstance] = []
         self.world_scripts: List[ScriptInstance] = []
+        self._body_uuid_map: Dict[uuid.UUID, Any] = {}
 
-    def add_script_to(self, owner: Any, code: str, name: str = "Script", threaded: bool = False):
+    def register_body(self, body):
+        """Assign UUID to bodies for persistent referencing"""
+        if not hasattr(body, '_script_uuid'):
+            body._script_uuid = uuid.uuid4()
+        self._body_uuid_map[body._script_uuid] = body
+
+    def add_script_to(self, owner: Any, code: str, name: str = "Script",
+                      threaded: bool = False, start_immediately: bool = True) -> ScriptInstance:
+        if owner is not None and hasattr(owner, '_script_uuid'):
+            self.register_body(owner)
+
         script = ScriptInstance(code, owner, name, threaded)
         if owner is None:
             self.world_scripts.append(script)
@@ -17,8 +30,10 @@ class ScriptManager:
                 owner._scripts = []
             owner._scripts.append(script)
             self.scripts.append(script)
-        script.start()
+        if start_immediately:
+            script.start()
         Debug.log_info(f"Added script '{name}' to {type(owner).__name__ if owner else 'world'}.", "Scripting")
+        return script
 
     def remove_script(self, script: ScriptInstance):
         script.stop()
@@ -30,10 +45,7 @@ class ScriptManager:
             script.owner._scripts.remove(script)
 
     def update_all(self, dt: float):
-        for s in self.scripts:
-            if s.running and not s.threaded:
-                s.update(dt)
-        for s in self.world_scripts:
+        for s in self.scripts + self.world_scripts:
             if s.running and not s.threaded:
                 s.update(dt)
 
@@ -45,44 +57,50 @@ class ScriptManager:
         return self.scripts + self.world_scripts
 
     def serialize_for_save(self) -> dict:
-        def serialize_script_list(lst):
-            return [
-                {
-                    "code": s.code,
-                    "name": s.name,
-                    "threaded": s.threaded,
-                    "owner_id": id(s.owner) if s.owner and hasattr(s.owner, "_id") else None,
-                    "running": s.running,
-                }
-                for s in lst
-            ]
+        def serialize_script(s):
+            owner_uuid = None
+            if s.owner is not None and hasattr(s.owner, '_script_uuid'):
+                owner_uuid = str(s.owner._script_uuid)
+            return {
+                "code": s.code,
+                "name": s.name,
+                "threaded": s.threaded,
+                "owner_uuid": owner_uuid,
+                "running": s.running
+            }
+
         return {
-            "object_scripts": serialize_script_list(self.scripts),
-            "world_scripts": serialize_script_list(self.world_scripts)
+            "object_scripts": [serialize_script(s) for s in self.scripts],
+            "world_scripts": [serialize_script(s) for s in self.world_scripts]
         }
 
-    def deserialize_from_save(self, data: dict, body_id_map: dict):
+    def deserialize_from_save(self, data: dict, body_uuid_map: dict):
         self.stop_all()
         self.scripts.clear()
         self.world_scripts.clear()
 
-        def load_script_list(lst, is_world=False):
-            for item in lst:
+        def load_script_list(items, is_world=False):
+            for item in items:
                 owner = None
-                if not is_world and item["owner_id"] is not None:
-                    owner = body_id_map.get(item["owner_id"])
+                if not is_world and item.get("owner_uuid"):
+                    owner_uuid = uuid.UUID(item["owner_uuid"])
+                    owner = body_uuid_map.get(owner_uuid)
                 if is_world or owner is not None:
-                    self.add_script_to(owner, item["code"], item["name"], item["threaded"])
+                    script = self.add_script_to(
+                        owner,
+                        item["code"],
+                        item["name"],
+                        item["threaded"],
+                        start_immediately=False
+                    )
                     if item.get("running", True):
-                        item.start()
+                        script.start()
 
         load_script_list(data.get("object_scripts", []), is_world=False)
         load_script_list(data.get("world_scripts", []), is_world=True)
 
     def take_snapshot(self) -> bytes:
-        snapshot = self.serialize_for_save()
-        return pickle.dumps(snapshot)
+        return pickle.dumps(self.serialize_for_save())
 
-    def restore_snapshot(self, snapshot_bytes: bytes, body_id_map: dict):
-        data = pickle.loads(snapshot_bytes)
-        self.deserialize_from_save(data, body_id_map)
+    def restore_snapshot(self, snapshot_bytes: bytes, body_uuid_map: dict):
+        self.deserialize_from_save(pickle.loads(snapshot_bytes), body_uuid_map)

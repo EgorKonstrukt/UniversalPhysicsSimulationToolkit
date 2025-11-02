@@ -9,6 +9,7 @@ from UPST.modules.profiler import profile
 import math
 from UPST.gui.contex_menu import ContextMenu
 from UPST.network.network_menu import NetworkMenu
+import pymunk
 
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera,
@@ -49,6 +50,135 @@ class UIManager:
         self.active_color_picker = None
         self.color_picker_for_shape = None
         self.script_editor_window = None
+
+        self.apply_script_btn = None
+        self.cancel_script_btn = None
+        self.load_script_btn = None
+
+    def show_inline_script_editor(self, script=None, owner=None):
+        """Улучшенный редактор скриптов с возможностью загрузки из файла"""
+        if hasattr(self, '_inline_script_win') and self._inline_script_win and self._inline_script_win.alive():
+            self._inline_script_win.kill()
+
+        self._inline_script_win = pygame_gui.elements.UIWindow(
+            pygame.Rect(150, 100, 550, 450),
+            manager=self.manager,
+            window_display_title="New Script"
+        )
+
+        # Script name field
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(10, 10, 100, 25),
+            text="Name:",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+        self._script_name_input = pygame_gui.elements.UITextEntryLine(
+            relative_rect=pygame.Rect(120, 10, 410, 25),
+            initial_text="MyScript",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+
+        # Owner selection (если передан owner из контекстного меню)
+        self._script_owner = owner
+
+        # Code editor
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(10, 40, 100, 25),
+            text="Code:",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+        self._script_code_box = pygame_gui.elements.UITextEntryBox(
+            initial_text="# def start():\n#     pass\n# def update(dt):\n#     pass\n# def stop():\n#     pass",
+            relative_rect=pygame.Rect(10, 65, 520, 250),
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+
+        # Threaded option (исправлен на настоящий чекбокс)
+        self._threaded_checkbox = pygame_gui.elements.UICheckBox(
+            text="Threaded",
+            relative_rect=pygame.Rect(10, 370, 20, 20),
+            manager=self.manager,
+            container=self._inline_script_win,
+            initial_state=script.threaded if script else False
+        )
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(35, 325, 150, 20),
+            text="Run in background thread",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+
+        # Кнопка загрузки из файла
+        self._load_script_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(10, 355, 120, 30),
+            text="Load from File",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+
+        # Action buttons
+        self.apply_script_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(420, 355, 110, 30),
+            text="Apply & Run",
+            container=self._inline_script_win,
+            manager=self.manager,
+            object_id="#apply_script_btn"
+        )
+        self.cancel_script_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(300, 355, 110, 30),
+            text="Cancel",
+            container=self._inline_script_win,
+            manager=self.manager
+        )
+
+    def load_script_from_file(self):
+        """Загрузка скрипта из файла через tkinter filedialog"""
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+
+        file_path = filedialog.askopenfilename(
+            title="Select Python Script",
+            filetypes=[("Python files", "*.py"), ("All files", "*.*")]
+        )
+
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, 'r') as f:
+                code = f.read()
+                script_name = file_path.split('/')[-1].split('\\')[-1].split('.')[0]
+
+            self._script_code_box.set_text(code)
+            self._script_name_input.set_text(script_name)
+        except Exception as e:
+            print(f"Error loading script: {e}")
+
+    def _apply_new_script(self):
+        """Применение и запуск нового скрипта"""
+        name = self._script_name_input.get_text().strip() or "Unnamed"
+        code = self._script_code_box.get_text()
+        threaded = self._threaded_checkbox.get_state()
+
+        # Используем владельца из контекстного меню или None для world script
+        owner = self._script_owner
+
+        try:
+            self.physics_manager.script_manager.add_script_to(owner, code, name, threaded)
+            if hasattr(self, '_inline_script_win') and self._inline_script_win.alive():
+                self._inline_script_win.kill()
+            if hasattr(self, 'script_window') and self.script_window and self.script_window.alive():
+                self.update_script_list()
+        except Exception as e:
+            print(f"Error creating script: {e}")
+            # Можно добавить сообщение об ошибке в UI
 
     def _create_color_controls(self, parent_window, obj_prefix):
         panel = UIPanel(relative_rect=pygame.Rect(5, 100, 200, 60), manager=self.manager, container=parent_window)
@@ -166,7 +296,7 @@ class UIManager:
             tool_tip_text="Execute update() in a background thread"
         )
         self._threaded_state = False
-        self._apply_script_btn = pygame_gui.elements.UIButton(
+        self.apply_script_btn = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(350, 295, 120, 25),
             text="Apply & Run",
             container=self._inline_script_win,
@@ -204,19 +334,6 @@ class UIManager:
             manager=self.manager,
             container=self.script_window
         )
-
-    def _apply_new_script(self):
-        name = self._script_name_input.get_text().strip() or "Unnamed"
-        code = self._script_code_box.html_text.replace('<br>', '\n').replace('&nbsp;', ' ')
-        # Remove HTML tags manually
-        import re
-        clean_code = re.sub(r'<[^>]+>', '', code)
-        owner = self.context_menu.clicked_object if self.context_menu.clicked_object else None
-        self.physics_manager.script_manager.add_script_to(owner, clean_code, name, self._threaded_state)
-        if hasattr(self, '_inline_script_win'):
-            self._inline_script_win.kill()
-        if self.script_window and self.script_window.alive():
-            self.update_script_list()
 
     def create_force_field_buttons(self):
         self.force_field_buttons = []
@@ -539,6 +656,10 @@ class UIManager:
         if event.ui_element in self.tool_buttons:
             synthesizer.play_frequency(1030, duration=0.03, waveform='sine')
             self.handle_tool_button_select(event.ui_element, game_app)
+        elif event.ui_element == self.apply_script_btn:
+            self._apply_new_script()
+        elif event.ui_element == self.load_script_btn:
+            self.load_script_from_file()
         elif event.ui_element in self.force_field_buttons:
             self.selected_force_field_button_text = event.ui_element.text
             self.show_force_field_settings()

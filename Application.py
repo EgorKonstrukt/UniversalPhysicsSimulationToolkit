@@ -25,7 +25,6 @@ from UPST.modules.undo_redo_manager import UndoRedoManager
 from UPST.sound.sound_manager import SoundManager
 from UPST.network.network_manager import NetworkManager
 from UI_manager import UIManager
-# from UPST.script_system.script_system_main import integrate_script_system
 from UPST.modules.renderer import Renderer
 
 
@@ -44,8 +43,11 @@ class Application:
         Debug.log("World Theme initialized successfully", "Init")
         self.sound_manager = SoundManager()
         Debug.log("SoundManager initialized successfully", "Init")
+
+        # Создаем PhysicsManager с временным undo_redo_manager=None
         self.physics_manager = PhysicsManager(self, undo_redo_manager=None)
         Debug.log("PhysicsManager initialized successfully", "Init")
+
         self.camera = Camera(self, config.app.screen_width, config.app.screen_height, self.screen)
         Debug.log("Camera initialized successfully", "Init")
         self.force_field_manager = ForceFieldManager(self.physics_manager, self.camera)
@@ -59,7 +61,15 @@ class Application:
         Debug.log("SnapshotManager initialized successfully", "Init")
         self.undo_redo_manager = UndoRedoManager(snapshot_manager=self.snapshot_manager)
         Debug.log("UndoRedoManager initialized successfully", "Init")
+
+        # Устанавливаем undo_redo_manager в physics_manager ДО создания базового мира
         self.physics_manager.undo_redo_manager = self.undo_redo_manager
+
+        # Переносим создание базового мира после установки undo_redo_manager
+        if config.app.create_base_world:
+            self.physics_manager.create_base_world()
+            Debug.log_info("Base world created after undo_redo manager setup.", "Physics")
+
         self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
                                     self.physics_manager, self.camera, None, self.screen, self.font,
                                     network_manager=None)
@@ -69,6 +79,7 @@ class Application:
                                           ui_manager=self.ui_manager)
         self.ui_manager.input_handler = self.input_handler
         Debug.log("InputHandler initialized successfully", "Init")
+
         self.plotter = Plotter(surface_size=(580, 300))
         Debug.log("UIManager initialized successfully", "Init")
         self.ui_manager.set_plotter(self.plotter)
@@ -109,20 +120,8 @@ class Application:
         Debug.log_info(str(pygame.display.Info()), "Init")
         Debug.log_info(str(pygame.display.get_wm_info()), "Init")
         Debug.log_info(str(pygame.display.get_surface()), "Init")
-        Debug.log_info("Refresh rate: "+str(pygame.display.get_current_refresh_rate()), "Init")
-        Debug.log_info("Displays: "+str(pygame.display.get_num_displays()), "Init")
-        # try:
-        #     self.script_system = integrate_script_system(self)
-        #     Debug.log("Python Scripting System initialized successfully", "ScriptSystem")
-        #     self.ui_manager.console_window.add_output_line_to_log("=== Python Scripting System Loaded ===")
-        #     self.ui_manager.console_window.add_output_line_to_log("Press F5 to run all auto-run scripts")
-        #     self.ui_manager.console_window.add_output_line_to_log("Press F6 to launch IDLE IDE")
-        #     self.ui_manager.console_window.add_output_line_to_log("Press F7 to open Script Editor")
-        #     self.ui_manager.console_window.add_output_line_to_log("Right-click script objects to interact")
-        #     self.ui_manager.console_window.add_output_line_to_log("=====================================")
-        # except Exception as e:
-        #     Debug.log_error(f"Failed to initialize Python Scripting System: {e}", "ScriptSystem")
-        #     self.script_system = None
+        Debug.log_info("Refresh rate: " + str(pygame.display.get_current_refresh_rate()), "Init")
+        Debug.log_info("Displays: " + str(pygame.display.get_num_displays()), "Init")
         Debug.log("Application initialized successfully", "Application")
         self.renderer = Renderer(app=self, screen=self.screen, camera=self.camera,
                                  physics_manager=self.physics_manager, gizmos_manager=self.gizmos_manager,
@@ -133,8 +132,10 @@ class Application:
         flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE
         if config.app.fullscreen: flags |= pygame.FULLSCREEN
         if not config.app.use_system_dpi:
-            try: ctypes.windll.user32.SetProcessDPIAware()
-            except AttributeError: pass
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except AttributeError:
+                pass
         return pygame.display.set_mode((config.app.screen_width, config.app.screen_height), flags)
 
     def run(self):
@@ -148,13 +149,10 @@ class Application:
             self.physics_debug_manager.draw_physics_info_panel()
             self.profiler.stop("physics debug")
             events = pygame.event.get()
-            # for event in events:
-            #     if self.script_system: self.script_system.handle_event(event)
             self.input_handler.process_events(profiler=self.profiler, events=events)
             self.gizmos_demo.draw(time_delta)
             self.update(time_delta)
             self.draw()
-        # if self.script_system: self.script_system.shutdown()
         pygame.quit()
 
     @profile("MAIN_LOOP")
@@ -174,11 +172,9 @@ class Application:
         self.profiler.start("gui", "gui")
         self.ui_manager.update(time_delta, self.clock)
         self.profiler.stop("gui")
-        # if self.script_system:
-        #     self.profiler.start("script_system", "scripting")
-        #     self.script_system.update(time_delta)
-        #     self.profiler.stop("script_system")
         self.undo_redo_manager.update()
+        # Используем script_manager из physics_manager вместо отдельного экземпляра
+        self.physics_manager.update_scripts(time_delta)
 
     def draw(self):
         self.renderer.draw()
@@ -193,27 +189,13 @@ class Application:
             self.grid_manager.set_theme_colors(theme_name)
             Debug.log(f"World theme changed to: {theme_name}", "Theme")
 
-    # def create_example_script_world(self):
-    #     if not self.script_system: return
-    #     self.physics_manager.delete_all()
-    #     for i in range(5):
-    #         x = (i - 2) * 100
-    #         y = -200
-    #         self.spawner.spawn_circle((x, y))
-    #     for i in range(-5, 6):
-    #         x = i * 100
-    #         y = 300
-    #         self.spawner.spawn_rectangle((x, y), (80, 20))
-    #     self.script_system.script_object_manager.execute_all_auto_run()
-    #     Debug.log("Example script world created!", "ScriptSystem")
-
 
 if __name__ == '__main__':
     try:
         game_app = Application()
-        # game_app.create_example_script_world()
         game_app.run()
     except Exception as e:
         print(f"Application error: {e}")
         import traceback
+
         traceback.print_exc()

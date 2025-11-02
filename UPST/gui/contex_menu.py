@@ -10,6 +10,7 @@ from UPST.gui.properties_window import PropertiesWindow
 from UPST.gui.texture_window import TextureWindow
 import tkinter as tk
 from tkinter import simpledialog, messagebox
+from UPST.gui.script_management_window import ScriptManagementWindow
 
 class ContextMenu:
     def __init__(self, manager, ui_manager):
@@ -19,6 +20,7 @@ class ContextMenu:
         self.context_menu_list = None
         self.clicked_object = None
         self.properties_window = None
+        self.script_window = None
         self.create_menu()
 
     def create_menu(self):
@@ -42,6 +44,8 @@ class ContextMenu:
             'Make Dynamic',
             'Select for Debug',
             'Run Python Script',
+            'Edit Script',
+            'Script Management',
         ]
 
         self.context_menu_list = UISelectionList(
@@ -53,16 +57,11 @@ class ContextMenu:
             object_id=pygame_gui.core.ObjectID(object_id='#context_menu_list', class_id='@context_menu')
         )
 
-    def handle_run_script(self):
+    def open_script_management(self):
+        if self.script_window and self.script_window.alive(): self.script_window.kill()
+        rect = pygame.Rect(100, 100, 400, 300)
+        self.script_window = ScriptManagementWindow(rect, self.manager, self.ui_manager.physics_manager.script_manager)
 
-        root = tk.Tk()
-        root.withdraw()
-        code = simpledialog.askstring("Script Input", "Enter Python script code:", parent=root)
-        if code is None: return
-        name = simpledialog.askstring("Script Name", "Enter script name:", parent=root) or "Script"
-        threaded = tk.messagebox.askyesno("Threaded?", "Run in separate thread?")
-        owner = self.clicked_object or None
-        self.ui_manager.physics_manager.script_manager.add_script_to(owner, code, name, threaded)
 
     def show_menu(self, position, clicked_object):
         self.clicked_object = clicked_object
@@ -102,7 +101,9 @@ class ContextMenu:
             'Make Static': self.make_static,
             'Make Dynamic': self.make_dynamic,
             'Select for Debug': self.select_for_debug,
-            'Run Python Script': self.handle_run_script,
+            'Run Python Script': lambda: self.ui_manager.show_inline_script_editor(owner=self.clicked_object),
+            'Edit Script': self.edit_script,
+            'Script Management': self.open_script_management,
         }
 
         handler = handlers.get(selection)
@@ -111,6 +112,17 @@ class ContextMenu:
         elif selection == 'Run Python Script':
             self.ui_manager._show_inline_script_editor()
 
+    def edit_script(self):
+        """Open editor for selected script on object"""
+        if not self.clicked_object or not hasattr(self.clicked_object, '_scripts'):
+            return
+        scripts = self.clicked_object._scripts
+        if not scripts:
+            return
+
+        # Simple selection for demo (in real app show list)
+        script = scripts[0]
+        self.ui_manager.show_inline_script_editor(script=script)
 
     def open_properties_window(self):
         if self.properties_window:
