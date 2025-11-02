@@ -24,22 +24,22 @@ class ScriptInstance:
         exec(self.code, self.globals, self.locals)
         self._start_fn = self.locals.get("start")
         self._update_fn = self.locals.get("update")
+        self._update_threaded_fn = self.locals.get("update_threaded")
         self._stop_fn = self.locals.get("stop")
         Debug.log_info(f"Script '{self.name}' initialized on {type(owner).__name__}.", "Scripting")
 
     def start(self):
         if self.running: return
         self.running = True
-        if self.threaded:
+        if self.threaded and (self._update_threaded_fn or self._update_fn):
             self.thread = threading.Thread(target=self._threaded_loop, daemon=True)
             self.thread.start()
-        else:
-            if self._start_fn:
-                try: self._start_fn()
-                except Exception as e: Debug.log_exception(f"Error in script '{self.name}' start(): {e}", "Scripting")
+        if self._start_fn:
+            try: self._start_fn()
+            except Exception as e: Debug.log_exception(f"Error in script '{self.name}' start(): {e}", "Scripting")
 
     def update(self, dt: float = 0.0):
-        if not self.running or self.threaded: return
+        if not self.running: return
         if self._update_fn:
             try: self._update_fn(dt)
             except Exception as e: Debug.log_exception(f"Error in script '{self.name}' update(): {e}", "Scripting")
@@ -48,19 +48,17 @@ class ScriptInstance:
         if not self.running: return
         self.running = False
         if self.thread and self.thread.is_alive(): self.thread.join(timeout=1.0)
-        if not self.threaded and self._stop_fn:
+        if self._stop_fn:
             try: self._stop_fn()
             except Exception as e: Debug.log_exception(f"Error in script '{self.name}' stop(): {e}", "Scripting")
 
     def _threaded_loop(self):
-        if self._start_fn:
-            try: self._start_fn()
-            except Exception as e: Debug.log_exception(f"Error in threaded script '{self.name}' start(): {e}", "Scripting")
         while self.running:
-            if self._update_fn:
-                try: self._update_fn(1.0/100.0)
-                except Exception as e: Debug.log_exception(f"Error in threaded script '{self.name}' update(): {e}", "Scripting")
-            time.sleep(1.0/100.0)
-        if self._stop_fn:
-            try: self._stop_fn()
-            except Exception as e: Debug.log_exception(f"Error in threaded script '{self.name}' stop(): {e}", "Scripting")
+            dt = 1.0 / 100.0
+            if self._update_threaded_fn:
+                try: self._update_threaded_fn(dt)
+                except Exception as e: Debug.log_exception(f"Error in script '{self.name}' update_threaded(): {e}", "Scripting")
+            elif self._update_fn:
+                try: self._update_fn(dt)
+                except Exception as e: Debug.log_exception(f"Error in script '{self.name}' update() [threaded fallback]: {e}", "Scripting")
+            time.sleep(dt)

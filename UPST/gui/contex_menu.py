@@ -110,7 +110,7 @@ class ContextMenu:
         if handler:
             handler()
         elif selection == 'Run Python Script':
-            self.ui_manager._show_inline_script_editor()
+            self.ui_manager._show_inline_script_editor(owner=self.clicked_object)
 
     def edit_script(self):
         """Open editor for selected script on object"""
@@ -122,7 +122,7 @@ class ContextMenu:
 
         # Simple selection for demo (in real app show list)
         script = scripts[0]
-        self.ui_manager.show_inline_script_editor(script=script)
+        self.ui_manager.show_inline_script_editor(script=script, owner=self.clicked_object)
 
     def open_properties_window(self):
         if self.properties_window:
