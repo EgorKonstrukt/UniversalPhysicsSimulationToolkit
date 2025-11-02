@@ -10,6 +10,8 @@ import math
 from UPST.gui.contex_menu import ContextMenu
 from UPST.network.network_menu import NetworkMenu
 import pymunk
+import tkinter as tk
+from tkinter import filedialog
 
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera,
@@ -167,12 +169,10 @@ class UIManager:
 
         # Store reference to edited script if any
         self._editing_script = script
-        print(self._script_owner)
 
 
     def load_script_from_file(self):
-        import tkinter as tk
-        from tkinter import filedialog
+
 
         root = tk.Tk()
         root.withdraw()
