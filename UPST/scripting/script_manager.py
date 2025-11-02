@@ -73,6 +73,15 @@ class ScriptManager:
             "object_scripts": [serialize_script(s) for s in self.scripts],
             "world_scripts": [serialize_script(s) for s in self.world_scripts]
         }
+    def start_script(self, script: ScriptInstance):
+        if script not in self.scripts and script not in self.world_scripts:
+            Debug.log_warning(f"Attempted to start unregistered script '{script.name}'", "Scripting")
+            return
+        if not script.running:
+            script.start()
+    def stop_script(self, script: ScriptInstance):
+        if script in self.scripts or script in self.world_scripts:
+            self.remove_script(script)
 
     def deserialize_from_save(self, data: dict, body_uuid_map: dict):
         self.stop_all()
