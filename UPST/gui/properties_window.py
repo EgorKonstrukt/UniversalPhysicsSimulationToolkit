@@ -8,6 +8,7 @@ from pygame_gui.elements import (
 import pymunk
 from math import isfinite
 
+
 class PropertiesWindow:
     _last_window_pos = (120, 120)
 

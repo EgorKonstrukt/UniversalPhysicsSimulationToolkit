@@ -4,7 +4,7 @@ from pygame_gui.elements import UIDropDownMenu, UILabel, UIButton, UITextEntryLi
 from pygame_gui.windows import UIMessageWindow
 import tkinter as tk
 from tkinter import filedialog
-
+from UPST.modules.undo_redo_manager import get_undo_redo
 
 class ScriptEditorWindow:
     def __init__(self, rect, manager, physics_manager, physics_debug_manager=None, owner=None, script=None):
@@ -20,6 +20,7 @@ class ScriptEditorWindow:
         )
         self._create_ui()
         self._load_initial_data()
+        self.undo_redo = get_undo_redo()
 
     def _get_title(self):
         if self.script:
@@ -118,6 +119,7 @@ class ScriptEditorWindow:
                 script_manager.remove_script(self.script)
             script_manager.add_script_to(owner, code, name, threaded, start_immediately=True)
             self.window.kill()
+            self.undo_redo.take_snapshot()
         except Exception as e:
             print(f"Error applying script: {e}")
             UIMessageWindow(
