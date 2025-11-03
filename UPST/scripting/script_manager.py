@@ -100,8 +100,9 @@ class ScriptManager:
                         item["code"],
                         item["name"],
                         item["threaded"],
-                        start_immediately=False
+                        start_immediately=True
                     )
+                    script.threaded = False
                     if item.get("running", True):
                         script.start()
 
