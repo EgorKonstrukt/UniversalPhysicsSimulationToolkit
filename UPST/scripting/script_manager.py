@@ -66,7 +66,8 @@ class ScriptManager:
                 "name": s.name,
                 "threaded": s.threaded,
                 "owner_uuid": owner_uuid,
-                "running": s.running
+                "running": s.running,
+                "state": s.get_serializable_state()
             }
 
         return {
@@ -100,9 +101,11 @@ class ScriptManager:
                         item["code"],
                         item["name"],
                         item["threaded"],
-                        start_immediately=True
+                        start_immediately=False
                     )
-                    script.threaded = False
+
+                    script.threaded = item.get("threaded", False)
+                    script.restore_state(item.get("state", {}))
                     if item.get("running", True):
                         script.start()
 
