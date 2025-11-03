@@ -27,7 +27,6 @@ from UPST.config import config
 from UPST.gizmos.gizmos_manager import Gizmos
 from UPST.modules.profiler import profile
 
-
 class GridManager:
     def __init__(self, camera, force_field_manager=None):
         self.camera = camera
@@ -43,8 +42,11 @@ class GridManager:
         self.minor_line_thickness = config.grid.minor_line_thickness
         self.major_line_thickness = config.grid.major_line_thickness
         self.origin_line_thickness = config.grid.origin_line_thickness
+        self.snap_radius_pixels = config.grid.snap_radius_pixels
+        self.snap_strength = config.grid.snap_strength
         self.ruler_font = pygame.font.SysFont("Consolas", 12)
         self._was_grabbed = False
+        self._was_visible = False
         self._snapping_active = False
         self._executor = ThreadPoolExecutor(max_workers=1)
 
@@ -57,65 +59,65 @@ class GridManager:
     def calculate_grid_spacing(self):
         camera_scale = self.camera.target_scaling
         base_pixels = self.base_grid_size * camera_scale
-        multiplier = 1
+        multiplier = 1.0
         if base_pixels < self.min_pixel_spacing:
             while base_pixels * multiplier < self.min_pixel_spacing:
                 multiplier *= 10
         elif base_pixels > self.max_pixel_spacing:
             while base_pixels / multiplier > self.max_pixel_spacing and multiplier < 100:
                 multiplier *= 10
-            multiplier = 1 / multiplier
+            multiplier = 1.0 / multiplier
         grid_spacing_world = self.base_grid_size * multiplier
         grid_spacing_pixels = grid_spacing_world * camera_scale
         return grid_spacing_world, grid_spacing_pixels
 
-    def _handle_snapping(self):
+    def _handle_snapping(self, grid_spacing_world, grid_spacing_pixels):
         keys = pygame.key.get_pressed()
         active = (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT])
-        if active and pygame.mouse.get_focused():
+        mouse_focused = pygame.mouse.get_focused()
+        if active and mouse_focused:
             if not self._snapping_active:
                 self._was_grabbed = pygame.event.get_grab()
+                self._was_visible = pygame.mouse.get_visible()
                 pygame.event.set_grab(False)
                 pygame.mouse.set_visible(True)
                 self._snapping_active = True
             mouse_x, mouse_y = pygame.mouse.get_pos()
             world_pos = self.camera.screen_to_world((mouse_x, mouse_y))
-            snapped_world_x = round(world_pos[0])
-            snapped_world_y = round(world_pos[1])
-            snapped_screen = self.camera.world_to_screen((snapped_world_x, snapped_world_y))
-            target_x, target_y = int(snapped_screen[0]), int(snapped_screen[1])
-            pygame.mouse.set_pos(target_x, target_y)
+            if grid_spacing_world <= 1e-5:
+                return
+            nearest_x = round(world_pos[0] / grid_spacing_world) * grid_spacing_world
+            nearest_y = round(world_pos[1] / grid_spacing_world) * grid_spacing_world
+            dx_world = nearest_x - world_pos[0]
+            dy_world = nearest_y - world_pos[1]
+            dx_pixels = dx_world * self.camera.target_scaling
+            dy_pixels = dy_world * self.camera.target_scaling
+            distance_pixels = math.hypot(dx_pixels, dy_pixels)
+            if distance_pixels <= max(self.snap_radius_pixels, 0.5):
+                if distance_pixels < 1e-4:
+                    target_x, target_y = nearest_x, nearest_y
+                else:
+                    t = (self.snap_radius_pixels - distance_pixels) / self.snap_radius_pixels
+                    t = max(0.0, min(1.0, t))
+                    t = t * self.snap_strength + (1.0 - self.snap_strength)
+                    target_x = world_pos[0] + dx_world * t
+                    target_y = world_pos[1] + dy_world * t
+                target_screen = self.camera.world_to_screen((target_x, target_y))
+                target_x_int = int(round(target_screen[0]))
+                target_y_int = int(round(target_screen[1]))
+                if (target_x_int, target_y_int) != (mouse_x, mouse_y):
+                    pygame.mouse.set_pos(target_x_int, target_y_int)
         else:
             if self._snapping_active:
-                if self._was_grabbed:
-                    pygame.event.set_grab(True)
+                pygame.event.set_grab(self._was_grabbed)
+                pygame.mouse.set_visible(self._was_visible)
                 self._snapping_active = False
-
-    def _compute_line_params(self, coord, is_vertical, top_left_world, bottom_right_world, grid_spacing_world):
-        if abs(coord) < 0.001:
-            color = self.grid_color_origin
-            thickness = self.origin_line_thickness
-        elif abs(coord / grid_spacing_world) % self.major_grid_multiplier < 0.001:
-            color = self.grid_color_major
-            thickness = self.major_line_thickness
-        else:
-            color = self.grid_color_minor
-            thickness = self.minor_line_thickness
-        if is_vertical:
-            start = (coord, top_left_world[1])
-            end = (coord, bottom_right_world[1])
-        else:
-            start = (top_left_world[0], coord)
-            end = (bottom_right_world[0], coord)
-        return (start, end, color, thickness, True)
 
     @profile("grid", "app")
     def draw(self, screen):
-        self._handle_snapping()
-        if not self.enabled:
-            return
         grid_spacing_world, grid_spacing_pixels = self.calculate_grid_spacing()
-        if grid_spacing_pixels < 5:
+        self._handle_snapping(grid_spacing_world, grid_spacing_pixels)
+        if not self.enabled or grid_spacing_pixels < 5:
             return
         top_left_world = self.camera.screen_to_world((0, 0))
         bottom_right_world = self.camera.screen_to_world((screen.get_width(), screen.get_height()))
@@ -144,6 +146,24 @@ class GridManager:
 
         self.draw_scale_indicator(screen, grid_spacing_world, grid_spacing_pixels)
         self.draw_rulers()
+
+    def _compute_line_params(self, coord, is_vertical, top_left_world, bottom_right_world, grid_spacing_world):
+        if abs(coord) < 0.001:
+            color = self.grid_color_origin
+            thickness = self.origin_line_thickness
+        elif abs(coord / grid_spacing_world) % self.major_grid_multiplier < 0.001:
+            color = self.grid_color_major
+            thickness = self.major_line_thickness
+        else:
+            color = self.grid_color_minor
+            thickness = self.minor_line_thickness
+        if is_vertical:
+            start = (coord, top_left_world[1])
+            end = (coord, bottom_right_world[1])
+        else:
+            start = (top_left_world[0], coord)
+            end = (bottom_right_world[0], coord)
+        return (start, end, color, thickness, True)
 
     def _draw_gravity_vectors(self, screen, grid_spacing_world, grid_spacing_pixels):
         if not self.force_field_manager or not any(

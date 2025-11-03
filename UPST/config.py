@@ -136,7 +136,9 @@ class GridConfig:
     min_alpha: int = 30
     max_alpha: int = 255
     snap_to_grid_enabled: bool = False
-    snap_tolerance: int = 5
+    snap_tolerance: int = 100
+    snap_radius_pixels:int = 100
+    snap_strength: float = 1.0
     max_lines: int = 1000
     skip_offscreen_lines: bool = True
 
