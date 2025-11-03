@@ -135,6 +135,7 @@ class UIManager:
         self._threaded_checkbox = pygame_gui.elements.UICheckBox(
             relative_rect=pygame.Rect(10, 355, 20, 20),
             text="",
+            initial_state=False,
             manager=self.manager,
             container=self._inline_script_win
         )
