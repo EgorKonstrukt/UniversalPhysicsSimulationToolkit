@@ -239,3 +239,59 @@ class ScriptInstance:
             sleep_time = max(0.0, dt_target - elapsed)
             if sleep_time > 0:
                 time.sleep(sleep_time)
+
+    def _recompile(self, new_code: str):
+        self.code = new_code
+        namespace = self._build_namespace()
+        try:
+            exec(self.code, namespace, namespace)
+        except Exception:
+            Debug.log_exception(f"Script '{self.name}' recompilation error: {traceback.format_exc()}", "Scripting")
+            return
+        self._update_functions_from_namespace(namespace)
+
+    def _build_namespace(self):
+        def threaded(fn):
+            def wrapper(*args, **kwargs):
+                return self.spawn_thread(fn, *args, **kwargs)
+
+            wrapper._is_user_threaded = True
+            wrapper._original = fn
+            return wrapper
+
+        return {
+            "owner": self.owner,
+            "Gizmos": Gizmos,
+            "Debug": Debug,
+            "pymunk": pymunk,
+            "time": time,
+            "math": math,
+            "random": random,
+            "threading": threading,
+            "pygame": pygame,
+            "self": self,
+            "traceback": traceback,
+            "profile": profile,
+            "thread_lock": self.thread_lock,
+            "spawn_thread": self.spawn_thread,
+            "log": lambda msg: Debug.log_info(str(msg), "UserScript"),
+            "set_bg_fps": self.set_bg_fps,
+            "threaded": threaded,
+            "np": np,
+            "njit": njit
+        }
+
+    def _update_functions_from_namespace(self, namespace):
+        def _unwrap_if_threaded(obj):
+            if getattr(obj, "_is_user_threaded", False):
+                orig = getattr(obj, "_original", None)
+                if callable(orig):
+                    return orig
+            return obj
+
+        self._start_fn = _unwrap_if_threaded(namespace.get("start"))
+        self._update_main = _unwrap_if_threaded(namespace.get("update"))
+        self._update_bg = namespace.get("update_threaded")
+        self._stop_fn = _unwrap_if_threaded(namespace.get("stop"))
+        self._save_state_fn = namespace.get("save_state")
+        self._load_state_fn = namespace.get("load_state")
