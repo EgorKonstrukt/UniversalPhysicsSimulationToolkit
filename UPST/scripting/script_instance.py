@@ -9,6 +9,7 @@ import pygame
 import pymunk
 import math
 import random
+from UPST.modules.profiler import Profiler, profile
 
 try:
     import numpy as np
@@ -17,7 +18,9 @@ except Exception:
 
 try:
     from numba import njit
+    _numba_available = True
 except Exception:
+    _numba_available = False
     def njit(cache=True):
         def _decorator(fn):
             return fn
@@ -43,11 +46,13 @@ class ScriptInstance:
                 if not self.running:
                     Debug.log_warning(f"Function '{fn.__name__}' called outside running ScriptInstance '{self.name}'", "Scripting")
                     return None
+                if not _numba_available and not (hasattr(fn, '_uses_io') or getattr(fn, '__name__', '').startswith('io_')):
+                    Debug.log_warning(f"CPU-bound @threaded function '{fn.__name__}' in script '{self.name}' may suffer from GIL. Install numba or use I/O-bound operations only.", "Scripting")
                 Debug.log_info(f"Spawning user thread for {fn.__name__} in script '{self.name}'", "Scripting")
                 return self.spawn_thread(fn, *args, **kwargs)
             wrapper._is_user_threaded = True
             wrapper._original = fn
-            return wrapper  # type: ignore
+            return wrapper
 
         namespace: Dict[str, Any] = {
             "owner": owner,
@@ -61,6 +66,7 @@ class ScriptInstance:
             "pygame": pygame,
             "self": self,
             "traceback": traceback,
+            "profile": profile,
             "thread_lock": self.thread_lock,
             "spawn_thread": self.spawn_thread,
             "log": lambda msg: Debug.log_info(str(msg), "UserScript"),
@@ -91,6 +97,8 @@ class ScriptInstance:
         self._update_bg = namespace.get("update_threaded")
         self._stop_fn = _unwrap_if_threaded(namespace.get("stop"))
         self.threaded = threaded_default or bool(self._update_bg)
+        if self.threaded and not _numba_available:
+            Debug.log_warning(f"Script '{self.name}' uses background updates without numba — may be GIL-bound.", "Scripting")
         Debug.log_info(f"Script '{self.name}' initialized on {type(owner).__name__}. threaded={self.threaded}", "Scripting")
 
     def set_bg_fps(self, fps: float):
@@ -99,22 +107,24 @@ class ScriptInstance:
                 fps_val = float(fps)
             except Exception:
                 return
-            self._bg_fps = max(1.0, min(sys.float_info.max, fps_val))
+            self._bg_fps = max(1.0, min(240.0, fps_val))
 
     def get_bg_dt(self) -> float:
         with self.thread_lock:
-            fps = max(1.0, self._bg_fps)
-            return 1.0 / fps
+            return 1.0 / max(1.0, self._bg_fps)
 
     def spawn_thread(self, target: Callable, *args, **kwargs) -> Optional[threading.Thread]:
         if not self.running:
             Debug.log_warning(f"Attempted to spawn thread on stopped script '{self.name}'", "Scripting")
             return None
+        with self.thread_lock:
+            if len(self._user_threads) > 16:
+                Debug.log_error(f"Script '{self.name}' exceeded thread limit (16). Ignoring spawn.", "Scripting")
+                return None
         t = threading.Thread(target=self._thread_wrapper, args=(target, args, kwargs), daemon=True)
         with self.thread_lock:
             self._user_threads.append(t)
         t.start()
-        Debug.log_info(f"Spawned thread {t.name} for script '{self.name}'", "Scripting")
         return t
 
     def _thread_wrapper(self, target: Callable, args, kwargs):
@@ -124,12 +134,9 @@ class ScriptInstance:
             Debug.log_exception(f"User thread in script '{self.name}' crashed: {traceback.format_exc()}", "Scripting")
         finally:
             with self.thread_lock:
-                try:
-                    current = threading.current_thread()
-                    if current in self._user_threads:
-                        self._user_threads.remove(current)
-                except Exception:
-                    pass
+                current = threading.current_thread()
+                if current in self._user_threads:
+                    self._user_threads.remove(current)
 
     def start(self):
         if self.running:
@@ -145,8 +152,8 @@ class ScriptInstance:
         if self.threaded and self._update_bg:
             self.thread = threading.Thread(target=self._bg_loop, daemon=True)
             self.thread.start()
-            Debug.log_info(f"Background thread started for script '{self.name}'", "Scripting")
 
+    @profile("update", "scripting")
     def update(self, dt: float):
         if not self.running or not self._update_main:
             return
@@ -163,13 +170,9 @@ class ScriptInstance:
         if self.thread and self.thread.is_alive():
             self.thread.join(0.5)
         with self.thread_lock:
-            threads = list(self._user_threads)
+            threads = [t for t in self._user_threads if t.is_alive()]
         for t in threads:
-            try:
-                if t.is_alive():
-                    t.join(0.1)
-            except Exception:
-                pass
+            t.join(0.1)
         with self.thread_lock:
             self._user_threads = [t for t in self._user_threads if t.is_alive()]
         try:
@@ -177,34 +180,18 @@ class ScriptInstance:
                 self._stop_fn()
         except Exception:
             Debug.log_exception(f"Script '{self.name}' stop() error: {traceback.format_exc()}", "Scripting")
-        Debug.log_info(f"Script '{self.name}' stopped", "Scripting")
 
     def _bg_loop(self):
         self._last_bg_time = time.perf_counter()
         while self.running and not self._stop_event.is_set():
             now = time.perf_counter()
-            elapsed = now - self._last_bg_time
-            self._last_bg_time = now
             dt_target = self.get_bg_dt()
-            if not self._update_bg:
-                time.sleep(dt_target)
-                continue
-            remaining = elapsed
-            frame_accum = 0.0
-            max_frame = 0.2
-            try:
-                while remaining > 0 and frame_accum < max_frame and self.running:
-                    step = min(remaining, dt_target)
-                    try:
-                        self._update_bg(step)
-                    except Exception:
-                        Debug.log_exception(f"Script '{self.name}' background update error: {traceback.format_exc()}", "Scripting")
-                    remaining -= step
-                    frame_accum += step
-            except Exception:
-                Debug.log_exception(f"Script '{self.name}' bg loop exception: {traceback.format_exc()}", "Scripting")
-            after = time.perf_counter()
-            took = after - now
-            sleep_time = max(0.0, dt_target - took)
+            if self._update_bg:
+                try:
+                    self._update_bg(dt_target)
+                except Exception:
+                    Debug.log_exception(f"Script '{self.name}' background update error: {traceback.format_exc()}", "Scripting")
+            elapsed = time.perf_counter() - now
+            sleep_time = max(0.0, dt_target - elapsed)
             if sleep_time > 0:
                 time.sleep(sleep_time)

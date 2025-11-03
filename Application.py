@@ -169,9 +169,7 @@ class Application:
         self.ui_manager.update(time_delta, self.clock)
         self.profiler.stop("gui")
         self.undo_redo_manager.update()
-        self.profiler.start("update_scripts", "scripting")
         self.physics_manager.update_scripts(time_delta)
-        self.profiler.stop("update_scripts")
 
     def draw(self):
         self.renderer.draw()
