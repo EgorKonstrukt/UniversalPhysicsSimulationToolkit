@@ -22,6 +22,8 @@ class PhysicsConfig:
 
 @dataclass
 class PhysicsDebugConfig:
+    smoothing = True
+    smoothing_window = 5  # Глубина буфера (рекомендуется 3–5)
     show_velocity_vectors: bool = True
     show_acceleration_vectors: bool = True
     show_forces: bool = True
@@ -32,18 +34,18 @@ class PhysicsDebugConfig:
     show_sleep_state: bool = False
     show_object_info: bool = False
     show_trails: bool = False
-    show_momentum_vectors: bool = False
+    show_momentum_vectors: bool = True
     show_angular_momentum: bool = True
     show_impulse_vectors: bool = False
     show_contact_forces: bool = False
-    show_friction_forces: bool = True
-    show_normal_forces: bool = True
+    show_friction_forces: bool = False
+    show_normal_forces: bool = False
     show_stress_visualization: bool = False
     show_deformation_energy: bool = False
     show_rotation_axes: bool = True
     show_velocity_profiles: bool = False
     show_phase_space: bool = False
-    show_lagrangian_mechanics: bool = False
+    show_lagrangian_mechanics: bool = True
     show_hamiltonian_mechanics: bool = False
     show_conservation_laws: bool = False
     show_stability_analysis: bool = False

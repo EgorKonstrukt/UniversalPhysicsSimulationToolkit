@@ -13,29 +13,27 @@ class SplashScreen:
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
         self.root.configure(bg="black")
-        self.logo_path = pathlib.Path(__file__).parent / "logo2.png"
+        self.logo_path = "sprites/logo2.png"
         screen_w, screen_h = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         win_w, win_h = 400, 200
         x, y = (screen_w - win_w) // 2, (screen_h - win_h) // 2
         self.root.geometry(f"{win_w}x{win_h}+{x}+{y}")
+        self.logo_label = None
 
         if self.logo_path and os.path.isfile(self.logo_path):
             try:
                 img = Image.open(self.logo_path).convert("RGBA")
                 img.thumbnail((120, 120), Image.LANCZOS)
-                self.logo_img = ImageTk.PhotoImage(img)
-                logo_label = tk.Label(self.root, image=self.logo_img, bg="black")
-                logo_label.pack(pady=(20, 5))
+                bg = Image.new("RGB", img.size, (0, 0, 0))
+                bg.paste(img, mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None)
+                logo_img = ImageTk.PhotoImage(bg)
+                self.logo_label = tk.Label(self.root, image=logo_img, bg="black")
+                self.logo_label.image = logo_img
+                self.logo_label.pack(pady=(20, 5))
             except Exception:
                 pass
 
-        label = tk.Label(
-            self.root,
-            text="Loading UPST...",
-            fg="#0af",
-            bg="black",
-            font=("Segoe UI", 16, "bold")
-        )
+        label = tk.Label(self.root, text="Loading UPST...", fg="#0af", bg="black", font=("Segoe UI", 16, "bold"))
         label.pack()
 
         progress = ttk.Progressbar(self.root, mode="indeterminate", length=300)
@@ -53,9 +51,8 @@ class SplashScreen:
 
 
 class FreezeWatcher:
-    def __init__(self, threshold_sec=1.0, logo_path=None):
+    def __init__(self, threshold_sec=1.0):
         self.threshold = threshold_sec
-        self.logo_path = logo_path
         self.last_ping = time.perf_counter()
         self.splash = None
         self.lock = threading.Lock()

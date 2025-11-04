@@ -1,4 +1,5 @@
 import pygame
+from collections import deque
 import math
 import pymunk
 import threading
@@ -9,6 +10,7 @@ from UPST.config import config
 from UPST.gizmos.gizmos_manager import Gizmos
 from UPST.debug.debug_manager import Debug
 from UPST.modules.profiler import profile
+
 
 
 
@@ -38,11 +40,22 @@ class PhysicsDebugManager:
         self.total_system_energy = 0.0
         self.system_center_of_mass = (0.0, 0.0)
         self.plot_parameters: Dict[pymunk.Body, List[str]] = {}
+        self.history_buffer = {}
 
         self._task_queue = queue.Queue()
         self._result_queue = queue.Queue()
         self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker_thread.start()
+
+
+    def _get_smoothed(self, body, key, value):
+        if body not in self.history_buffer:
+            self.history_buffer[body] = {}
+        if key not in self.history_buffer[body]:
+            self.history_buffer[body][key] = deque([value] * config.physics_debug.smoothing_window,
+                                                   maxlen=config.physics_debug.smoothing_window)
+        self.history_buffer[body][key].append(value)
+        return sum(self.history_buffer[body][key]) / len(self.history_buffer[body][key])
 
     def add_plot_parameter(self, body: pymunk.Body, parameter: str):
         if body not in self.plot_parameters:
@@ -295,43 +308,65 @@ class PhysicsDebugManager:
     @profile("_draw_velocity_vector", "physics_debug_manager")
     def _draw_velocity_vector(self, body, pos):
         velocity = body.velocity
-        speed = velocity.length
-        if speed > 0.01:
-            scale = config.physics_debug.vector_scale * 20
-            end_x = pos.x + velocity.x * scale
-            end_y = pos.y + velocity.y * scale
-            thickness = max(2, min(8, int(speed * 0.1)))
-            Gizmos.draw_arrow((pos.x, pos.y), (end_x, end_y),
-                              config.physics_debug.velocity_color, thickness, duration=0.1)
-            if config.physics_debug.show_vector_labels:
-                label_x = pos.x + velocity.x * scale * 0.6
-                label_y = pos.y + velocity.y * scale * 0.6 - 15
-                Gizmos.draw_text((label_x, label_y), f"v={speed:.{config.physics_debug.precision_digits}f}m/s",
-                                 config.physics_debug.velocity_color, duration=0.1, font_size=14,
-                                 background_color=(0, 0, 0, 128))
+        if velocity.length <= 0.01: return
+        speed = self._get_smoothed(body, 'speed',
+                                   velocity.length) if config.physics_debug.smoothing else velocity.length
+        vx = self._get_smoothed(body, 'vx', velocity.x) if config.physics_debug.smoothing else velocity.x
+        vy = self._get_smoothed(body, 'vy', velocity.y) if config.physics_debug.smoothing else velocity.y
+        scale = config.physics_debug.vector_scale * 20
+        origin = (pos.x, pos.y)
+        vx_end = (pos.x + vx * scale, pos.y)
+        vy_end = (pos.x, pos.y + vy * scale)
+        main_end = (pos.x + vx * scale, pos.y + vy * scale)
+        thickness = max(1, min(4, int(speed * 0.1)))
+        col = config.physics_debug.velocity_color
+        arrows = [(origin, vx_end), (origin, vy_end), (origin, main_end)]
+        for start, end in arrows:
+            Gizmos.draw_arrow(start, end, col, thickness, duration=0.1)
+        lines = [(vx_end, main_end), (vy_end, main_end)]
+        for start, end in lines:
+            Gizmos.draw_line(start, end, (200, 200, 200, 180), max(1, thickness // 2), duration=0.1)
+        if config.physics_debug.show_vector_labels:
+            pm = config.physics_debug.precision_digits
+            angle_deg = math.degrees(math.atan2(vy, vx))
+            label_main = (pos.x + vx * scale * 0.6, pos.y + vy * scale * 0.6 - 15)
+            Gizmos.draw_text(label_main, f"v={speed:.{pm}f}m/s ∠{angle_deg:+.{pm}f}°", col,
+                             duration=0.1, font_size=16,
+                             background_color=(0, 0, 0, 128))
+            label_vx = (pos.x + vx * scale * 0.5, pos.y - 25)
+            label_vy = (pos.x - 35, pos.y + vy * scale * 0.5)
+            # Gizmos.draw_text(label_vx, f"vx={vx:+.{pm}f}", col, duration=0.1, font_size=12,
+            #                  background_color=(0, 0, 0, 128))
+            # Gizmos.draw_text(label_vy, f"vy={vy:+.{pm}f}", col, duration=0.1, font_size=12,
+            #                  background_color=(0, 0, 0, 128))
 
     @profile("_draw_acceleration_vector", "physics_debug_manager")
     def _draw_acceleration_vector(self, body, pos, dt):
         current_velocity = (body.velocity.x, body.velocity.y)
-        if body in self.previous_velocities and dt > 0:
-            prev_velocity = self.previous_velocities[body]
-            acceleration = ((current_velocity[0] - prev_velocity[0]) / dt,
-                            (current_velocity[1] - prev_velocity[1]) / dt)
-            acceleration_magnitude = math.hypot(*acceleration)
-            if acceleration_magnitude > 1.0:
-                scale = config.physics_debug.vector_scale * 5
-                end_x = pos.x + acceleration[0] * scale
-                end_y = pos.y + acceleration[1] * scale
-                thickness = max(2, min(6, int(acceleration_magnitude * 0.05)))
-                Gizmos.draw_arrow((pos.x, pos.y), (end_x, end_y),
-                                  config.physics_debug.acceleration_color, thickness, duration=0.1)
-                if config.physics_debug.show_vector_labels:
-                    label_x = pos.x + acceleration[0] * scale * 0.6
-                    label_y = pos.y + acceleration[1] * scale * 0.6 + 15
-                    Gizmos.draw_text((label_x, label_y),
-                                     f"a={acceleration_magnitude:.{config.physics_debug.precision_digits}f}m/s²",
-                                     config.physics_debug.acceleration_color, duration=0.1, font_size=14,
-                                     background_color=(0, 0, 0, 128))
+        if body not in self.previous_velocities or dt <= 0:
+            self.previous_velocities[body] = current_velocity
+            return
+        prev_vx, prev_vy = self.previous_velocities[body]
+        acc_x = (current_velocity[0] - prev_vx) / dt
+        acc_y = (current_velocity[1] - prev_vy) / dt
+        acc_mag = math.hypot(acc_x, acc_y)
+        if acc_mag <= 1.0:
+            self.previous_velocities[body] = current_velocity
+            return
+        acc_x = self._get_smoothed(body, 'acc_x', acc_x) if config.physics_debug.smoothing else acc_x
+        acc_y = self._get_smoothed(body, 'acc_y', acc_y) if config.physics_debug.smoothing else acc_y
+        acc_mag = self._get_smoothed(body, 'acc_mag', acc_mag) if config.physics_debug.smoothing else acc_mag
+        scale = config.physics_debug.vector_scale * 5
+        end = (pos.x + acc_x * scale, pos.y + acc_y * scale)
+        thickness = max(2, min(6, int(acc_mag * 0.05)))
+        col = config.physics_debug.acceleration_color
+        Gizmos.draw_arrow((pos.x, pos.y), end, col, thickness, duration=0.1)
+        if config.physics_debug.show_vector_labels:
+            pm = config.physics_debug.precision_digits
+            angle_deg = math.degrees(math.atan2(acc_y, acc_x))
+            label_pos = (pos.x + acc_x * scale * 0.6, pos.y + acc_y * scale * 0.6 + 15)
+            Gizmos.draw_text(label_pos, f"a={acc_mag:.{pm}f}m/s² ∠{angle_deg:+.{pm}f}°", col, duration=0.1,
+                             font_size=16, background_color=(0, 0, 0, 128))
         self.previous_velocities[body] = current_velocity
 
     @profile("_draw_forces", "physics_debug_manager")
@@ -351,7 +386,7 @@ class PhysicsDebugManager:
                     label_y = pos.y + gravitational_force[1] * scale * 0.6
                     Gizmos.draw_text((label_x, label_y),
                                      f"F_g={force_magnitude:.{config.physics_debug.precision_digits}f}N",
-                                     config.physics_debug.force_color, duration=0.1, font_size=14,
+                                     config.physics_debug.force_color, duration=0.1, font_size=16,
                                      background_color=(0, 0, 0, 128))
         net_force = body.force
         if abs(net_force.x) > 0.1 or abs(net_force.y) > 0.1:
@@ -366,27 +401,29 @@ class PhysicsDebugManager:
                 label_y = pos.y + net_force.y * scale * 0.6
                 Gizmos.draw_text((label_x, label_y),
                                  f"F_net={net_force_magnitude:.{config.physics_debug.precision_digits}f}N",
-                                 (255, 255, 255), duration=0.1, font_size=14,
+                                 (255, 255, 255), duration=0.1, font_size=16,
                                  background_color=(0, 0, 0, 128))
 
     @profile("_draw_momentum_vector", "physics_debug_manager")
     def _draw_momentum_vector(self, body, pos):
-        momentum = (body.mass * body.velocity.x, body.mass * body.velocity.y)
-        momentum_magnitude = math.hypot(*momentum)
-        if momentum_magnitude > 0.01:
-            scale = config.physics_debug.vector_scale * 5
-            end_x = pos.x + momentum[0] * scale
-            end_y = pos.y + momentum[1] * scale
-            thickness = max(2, min(6, int(momentum_magnitude * 0.01)))
-            Gizmos.draw_arrow((pos.x, pos.y), (end_x, end_y),
-                              config.physics_debug.momentum_color, thickness, duration=0.1)
-            if config.physics_debug.show_vector_labels:
-                label_x = pos.x + momentum[0] * scale * 0.6
-                label_y = pos.y + momentum[1] * scale * 0.6 + 25
-                Gizmos.draw_text((label_x, label_y),
-                                 f"p={momentum_magnitude:.{config.physics_debug.precision_digits}f}kg⋅m/s",
-                                 config.physics_debug.momentum_color, duration=0.1, font_size=14,
-                                 background_color=(0, 0, 0, 128))
+        px = body.mass * body.velocity.x
+        py = body.mass * body.velocity.y
+        p_mag = math.hypot(px, py)
+        if p_mag <= 0.01: return
+        px = self._get_smoothed(body, 'px', px) if config.physics_debug.smoothing else px
+        py = self._get_smoothed(body, 'py', py) if config.physics_debug.smoothing else py
+        p_mag = self._get_smoothed(body, 'p_mag', p_mag) if config.physics_debug.smoothing else p_mag
+        scale = config.physics_debug.vector_scale * 5
+        end = (pos.x + px * scale, pos.y + py * scale)
+        thickness = max(2, min(6, int(p_mag * 0.01)))
+        col = config.physics_debug.momentum_color
+        Gizmos.draw_arrow((pos.x, pos.y), end, col, thickness, duration=0.1)
+        if config.physics_debug.show_vector_labels:
+            pm = config.physics_debug.precision_digits
+            angle_deg = math.degrees(math.atan2(py, px))
+            label_pos = (pos.x + px * scale * 0.6, pos.y + py * scale * 0.6 + 25)
+            Gizmos.draw_text(label_pos, f"p={p_mag:.{pm}f}kg⋅m/s ∠{angle_deg:+.{pm}f}°", col, duration=0.1,
+                             font_size=16, background_color=(0, 0, 0, 128))
 
     @profile("_draw_angular_velocity", "physics_debug_manager")
     def _draw_angular_velocity(self, body, pos, t):
@@ -404,20 +441,20 @@ class PhysicsDebugManager:
                 x2 = pos.x + radius * math.cos(angle2)
                 y2 = pos.y + radius * math.sin(angle2)
                 thickness = 4 if i == segments - 1 else 2
-                Gizmos.draw_line((x1, y1), (x2, y2), config.physics_debug.angular_color,
-                                 thickness, duration=0.1)
+                # Gizmos.draw_line((x1, y1), (x2, y2), config.physics_debug.angular_color,
+                #                  thickness, duration=0.1)
             final_angle = arc_angle + offset
             arrow_start = (pos.x + radius * math.cos(final_angle),
                            pos.y + radius * math.sin(final_angle))
             direction_angle = final_angle + math.pi / 2 * (1 if angular_velocity > 0 else -1)
             arrow_end = (arrow_start[0] + 10 * math.cos(direction_angle),
                          arrow_start[1] + 10 * math.sin(direction_angle))
-            Gizmos.draw_line(arrow_start, arrow_end, config.physics_debug.angular_color,
-                             5, duration=0.1)
+            # Gizmos.draw_line(arrow_start, arrow_end, config.physics_debug.angular_color,
+            #                  5, duration=0.1)
             if config.physics_debug.show_vector_labels:
                 Gizmos.draw_text((pos.x + 40, pos.y - 10),
                                  f"ω={angular_velocity:.{config.physics_debug.precision_digits}f}rad/s",
-                                 config.physics_debug.angular_color, duration=0.1, font_size=14,
+                                 config.physics_debug.angular_color, duration=0.1, font_size=16,
                                  background_color=(0, 0, 0, 128))
 
     @profile("_draw_angular_momentum", "physics_debug_manager")
@@ -432,7 +469,15 @@ class PhysicsDebugManager:
                                  f"L={angular_momentum:.{config.physics_debug.precision_digits}f}kg⋅m²/s",
                                  config.physics_debug.angular_momentum_color, duration=0.1, font_size=14,
                                  background_color=(0, 0, 0, 128))
-
+    @profile("_draw_rotation_axes", "physics_debug_manager")
+    def _draw_rotation_axes(self, body, pos):
+        if abs(body.angular_velocity) > 0.01:
+            axis_length = 50
+            Gizmos.draw_line((pos.x, pos.y - axis_length), (pos.x, pos.y + axis_length),
+                             (100, 100, 100), 2, duration=0.1)
+            Gizmos.draw_line((pos.x - axis_length, pos.y), (pos.x + axis_length, pos.y),
+                             (100, 100, 100), 2, duration=0.1)
+            Gizmos.draw_circle((pos.x, pos.y), 8, (255, 255, 255), thickness=2, duration=0.1)
     @profile("_draw_energy_meters", "physics_debug_manager")
     def _draw_energy_meters(self, body, pos):
         kinetic_energy = 0.5 * body.mass * (body.velocity.length ** 2)
@@ -469,6 +514,35 @@ class PhysicsDebugManager:
                              config.physics_debug.potential_color, duration=0.1, font_size=12,
                              background_color=(0, 0, 0, 128), collision=True)
 
+    @profile("_draw_lagrangian_info", "physics_debug_manager")
+    def _draw_lagrangian_info(self, body, pos):
+        if body == self.selected_body:
+            kinetic_energy = 0.5 * body.mass * (body.velocity.length ** 2) + 0.5 * body.moment * (
+                        body.angular_velocity ** 2)
+            gravity_magnitude = math.hypot(*self.physics_manager.space.gravity)
+            height = max(0, (config.app.screen_height - pos.y) * 0.001)
+            potential_energy = body.mass * gravity_magnitude * height
+            lagrangian = kinetic_energy - potential_energy
+            Gizmos.draw_text((pos.x + 60, pos.y - 60),
+                             f"L = T - V = {lagrangian:.{config.physics_debug.precision_digits}f}J",
+                             (255, 255, 255), duration=0.1, font_size=14,
+                             background_color=(0, 0, 0, 128))
+            generalized_momentum_x = body.mass * body.velocity.x
+            generalized_momentum_y = body.mass * body.velocity.y
+            generalized_momentum_angular = body.moment * body.angular_velocity
+            Gizmos.draw_text((pos.x + 60, pos.y - 45),
+                             f"∂L/∂ẋ = {generalized_momentum_x:.{config.physics_debug.precision_digits}f}kg⋅m/s",
+                             (200, 200, 200), duration=0.1, font_size=12,
+                             background_color=(0, 0, 0, 128))
+            Gizmos.draw_text((pos.x + 60, pos.y - 33),
+                             f"∂L/∂ẏ = {generalized_momentum_y:.{config.physics_debug.precision_digits}f}kg⋅m/s",
+                             (200, 200, 200), duration=0.1, font_size=12,
+                             background_color=(0, 0, 0, 128))
+            Gizmos.draw_text((pos.x + 60, pos.y - 21),
+                             f"∂L/∂θ̇ = {generalized_momentum_angular:.{config.physics_debug.precision_digits}f}kg⋅m²/s",
+                             (200, 200, 200), duration=0.1, font_size=12,
+                             background_color=(0, 0, 0, 128))
+
     @profile("_draw_deformation_energy", "physics_debug_manager")
     def _draw_deformation_energy(self, body, pos):
         deformation_energy = 0.0
@@ -489,16 +563,6 @@ class PhysicsDebugManager:
                                  f"E_def={deformation_energy:.{config.physics_debug.precision_digits}f}J",
                                  config.physics_debug.stress_color, duration=0.1, font_size=14,
                                  background_color=(0, 0, 0, 128))
-
-    @profile("_draw_rotation_axes", "physics_debug_manager")
-    def _draw_rotation_axes(self, body, pos):
-        if abs(body.angular_velocity) > 0.01:
-            axis_length = 50
-            Gizmos.draw_line((pos.x, pos.y - axis_length), (pos.x, pos.y + axis_length),
-                             (100, 100, 100), 2, duration=0.1)
-            Gizmos.draw_line((pos.x - axis_length, pos.y), (pos.x + axis_length, pos.y),
-                             (100, 100, 100), 2, duration=0.1)
-            Gizmos.draw_circle((pos.x, pos.y), 8, (255, 255, 255), thickness=2, duration=0.1)
 
     @profile("_draw_stress_visualization", "physics_debug_manager")
     def _draw_stress_visualization(self, body, pos):
@@ -536,34 +600,7 @@ class PhysicsDebugManager:
                                  instability_color, duration=0.1, font_size=12,
                                  background_color=(0, 0, 0, 128))
 
-    @profile("_draw_lagrangian_info", "physics_debug_manager")
-    def _draw_lagrangian_info(self, body, pos):
-        if body == self.selected_body:
-            kinetic_energy = 0.5 * body.mass * (body.velocity.length ** 2) + 0.5 * body.moment * (
-                        body.angular_velocity ** 2)
-            gravity_magnitude = math.hypot(*self.physics_manager.space.gravity)
-            height = max(0, (config.app.screen_height - pos.y) * 0.001)
-            potential_energy = body.mass * gravity_magnitude * height
-            lagrangian = kinetic_energy - potential_energy
-            Gizmos.draw_text((pos.x + 60, pos.y - 60),
-                             f"L = T - V = {lagrangian:.{config.physics_debug.precision_digits}f}J",
-                             (255, 255, 255), duration=0.1, font_size=14,
-                             background_color=(0, 0, 0, 128))
-            generalized_momentum_x = body.mass * body.velocity.x
-            generalized_momentum_y = body.mass * body.velocity.y
-            generalized_momentum_angular = body.moment * body.angular_velocity
-            Gizmos.draw_text((pos.x + 60, pos.y - 45),
-                             f"∂L/∂ẋ = {generalized_momentum_x:.{config.physics_debug.precision_digits}f}kg⋅m/s",
-                             (200, 200, 200), duration=0.1, font_size=12,
-                             background_color=(0, 0, 0, 128))
-            Gizmos.draw_text((pos.x + 60, pos.y - 33),
-                             f"∂L/∂ẏ = {generalized_momentum_y:.{config.physics_debug.precision_digits}f}kg⋅m/s",
-                             (200, 200, 200), duration=0.1, font_size=12,
-                             background_color=(0, 0, 0, 128))
-            Gizmos.draw_text((pos.x + 60, pos.y - 21),
-                             f"∂L/∂θ̇ = {generalized_momentum_angular:.{config.physics_debug.precision_digits}f}kg⋅m²/s",
-                             (200, 200, 200), duration=0.1, font_size=12,
-                             background_color=(0, 0, 0, 128))
+
 
     @profile("_draw_hamiltonian_info", "physics_debug_manager")
     def _draw_hamiltonian_info(self, body, pos):

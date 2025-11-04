@@ -71,7 +71,7 @@ class UIManager:
             physics_debug_manager=self.physics_debug_manager,
             owner=owner,
             script=script,
-            app=app
+            app=self.app
         )
 
     def _create_color_controls(self, parent_window, obj_prefix):
