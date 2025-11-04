@@ -32,6 +32,7 @@ class ContextMenu:
             object_id=pygame_gui.core.ObjectID(object_id='#context_menu_panel', class_id='@context_menu')
         )
 
+
         menu_items = [
             'Delete Object',
             'Properties',
@@ -56,6 +57,7 @@ class ContextMenu:
             allow_double_clicks=False,
             object_id=pygame_gui.core.ObjectID(object_id='#context_menu_list', class_id='@context_menu')
         )
+        self.context_menu_list.focus()
 
     def open_script_management(self):
         if self.script_window and self.script_window.alive(): self.script_window.kill()
@@ -110,7 +112,7 @@ class ContextMenu:
         if handler:
             handler()
         elif selection == 'Run Python Script':
-            self.ui_manager._show_inline_script_editor(owner=self.clicked_object)
+            self.ui_manager.show_inline_script_editor(owner=self.clicked_object)
 
     def edit_script(self):
         """Open editor for selected script on object"""
@@ -120,7 +122,6 @@ class ContextMenu:
         if not scripts:
             return
 
-        # Simple selection for demo (in real app show list)
         script = scripts[0]
         self.ui_manager.show_inline_script_editor(script=script, owner=self.clicked_object)
 

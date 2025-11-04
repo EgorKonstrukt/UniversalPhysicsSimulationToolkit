@@ -74,8 +74,8 @@ class Camera:
             else:
                 t = elapsed / self.anim_duration
                 eased = self.ease_in_out_expo(t)
-                new_tx = self.anim_start_tx.x + (self.anim_target_tx.x - self.anim_start_tx.x) * eased
-                new_ty = self.anim_start_tx.y + (self.anim_target_tx.y - self.anim_start_tx.y) * eased
+                new_tx = self.anim_start_tx.x - (self.anim_target_tx.x - self.anim_start_tx.x) * eased
+                new_ty = self.anim_start_tx.y - (self.anim_target_tx.y - self.anim_start_tx.y) * eased
                 self.translation = pymunk.Transform.translation(new_tx, new_ty)
 
     def _update_tracking(self):

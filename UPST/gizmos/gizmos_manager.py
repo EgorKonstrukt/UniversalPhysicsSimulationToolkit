@@ -158,8 +158,22 @@ class GizmosManager:
         self._alpha_surface_frame: Dict[int, int] = {}
         self._frame_id = 0
 
+        self._prev_frame_cache: Dict[str, Tuple[int, Tuple, float, bool]] = {}
+        #                       id -> (hash, screen_pos, screen_size, visible)
+        self._current_frame_cache: Dict[str, Tuple[int, Tuple, float, bool]] = {}
+
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._prepared_data = None
+        self._geom_cache: Dict[Tuple, pygame.Surface] = {}
+        self._geom_cache_frame: Dict[Tuple, int] = {}
+
+    def _get_geom_surface(self, key: Tuple, factory: Callable[[], pygame.Surface]) -> pygame.Surface:
+        if key in self._geom_cache and self._geom_cache_frame.get(key, -1) == self._frame_id:
+            return self._geom_cache[key]
+        surf = factory()
+        self._geom_cache[key] = surf
+        self._geom_cache_frame[key] = self._frame_id
+        return surf
 
 
     def handle_event(self, event: pygame.event.Event):
@@ -228,29 +242,110 @@ class GizmosManager:
     def draw(self):
         if not self.enabled:
             return
+        self._geom_cache = {k: v for k, v in self._geom_cache.items() if self._geom_cache_frame[k] == self._frame_id}
         all_gizmos = list(self.unique_gizmos.values()) + self.gizmos + self.persistent_gizmos
         if not all_gizmos:
+            self._prev_frame_cache.clear()
             return
         self._frame_id += 1
-
-        for g in all_gizmos:
-            g._screen_pos = None
-            g._adjusted_screen_pos = None
-            g._is_visible = None
+        self._current_frame_cache.clear()
 
         cam_pos = self.camera.screen_to_world((self._half_screen_width, self._half_screen_height))
         cam_scale = self.camera.target_scaling
         screen_size = (self._screen_width, self._screen_height)
-        chunk_size = max(1, len(all_gizmos) // 4)
-        chunks = [all_gizmos[i:i + chunk_size] for i in range(0, len(all_gizmos), chunk_size)]
-        futures = []
-        for chunk in chunks:
-            args = (chunk, cam_pos, cam_scale, screen_size, self.cull_margin, self.distance_culling_enabled)
-            future = self._executor.submit(_process_gizmo_chunk, args)
-            futures.append(future)
+
+        def _make_hashable(obj):
+            if isinstance(obj, list):
+                return tuple(_make_hashable(e) for e in obj)
+            elif isinstance(obj, tuple):
+                return tuple(_make_hashable(e) for e in obj)
+            elif obj is None:
+                return None
+            else:
+                return obj
+
+        uncached_gizmos = []
         visible_entries = []
-        for future in as_completed(futures):
-            visible_entries.extend(future.result())
+        for g in all_gizmos:
+            g._screen_pos = None
+            g._adjusted_screen_pos = None
+            g._is_visible = None
+            cache_key = g.unique_id or f"auto_{id(g)}"
+            try:
+                g_hash = hash((
+                    g.gizmo_type,
+                    _make_hashable(g.position),
+                    _make_hashable(getattr(g, 'end_position', None)),
+                    g.color,
+                    g.size,
+                    g.width,
+                    g.height,
+                    g.text,
+                    g.font_size,
+                    g.world_space,
+                    g.cull_distance,
+                    _make_hashable(g.cull_bounds),
+                    g.alpha,
+                    g.filled,
+                    g.thickness,
+                    g.font_name,
+                    g.font_world_space
+                ))
+            except (TypeError, ValueError):
+                g_hash = None
+
+            if cache_key in self._prev_frame_cache and g_hash is not None:
+                prev_hash, prev_pos, prev_size, prev_visible = self._prev_frame_cache[cache_key]
+                if prev_hash == g_hash and prev_visible:
+                    g._screen_pos = prev_pos
+                    g._screen_size = prev_size
+                    g._is_visible = True
+                    if g.gizmo_type == GizmoType.TEXT and g.collision:
+                        visible_entries.append((g, prev_pos, prev_size))
+                    else:
+                        visible_entries.append((g, prev_pos, prev_size))
+                    self._current_frame_cache[cache_key] = (g_hash, prev_pos, prev_size, True)
+                    continue
+            uncached_gizmos.append(g)
+
+        if uncached_gizmos:
+            chunk_size = max(1, len(uncached_gizmos) // 4)
+            chunks = [uncached_gizmos[i:i + chunk_size] for i in range(0, len(uncached_gizmos), chunk_size)]
+            futures = []
+            for chunk in chunks:
+                args = (chunk, cam_pos, cam_scale, screen_size, self.cull_margin, self.distance_culling_enabled)
+                future = self._executor.submit(_process_gizmo_chunk, args)
+                futures.append(future)
+            for future in as_completed(futures):
+                for g, screen_pos, screen_size_val in future.result():
+                    g._screen_pos = screen_pos
+                    g._screen_size = screen_size_val
+                    g._is_visible = True
+                    cache_key = g.unique_id or f"auto_{id(g)}"
+                    try:
+                        g_hash = hash((
+                            g.gizmo_type,
+                            _make_hashable(g.position),
+                            _make_hashable(getattr(g, 'end_position', None)),
+                            _make_hashable(g.color),
+                            g.size,
+                            g.width,
+                            g.height,
+                            g.text,
+                            g.font_size,
+                            g.world_space,
+                            g.cull_distance,
+                            _make_hashable(g.cull_bounds),
+                            g.alpha,
+                            g.filled,
+                            g.thickness
+                        ))
+                    except (TypeError, ValueError):
+                        g_hash = None
+                    visible_entries.append((g, screen_pos, screen_size_val))
+                    self._current_frame_cache[cache_key] = (g_hash, screen_pos, screen_size_val, True)
+
+        self._prev_frame_cache = self._current_frame_cache
 
         text_entries = [e for e in visible_entries if e[0].gizmo_type == GizmoType.TEXT and e[0].collision]
         other_entries = [e for e in visible_entries if not (e[0].gizmo_type == GizmoType.TEXT and e[0].collision)]
@@ -268,6 +363,7 @@ class GizmosManager:
             'culled_occlusion': len(text_entries) - len(adjusted_texts),
             'drawn_gizmos': len(other_entries) + len(adjusted_texts)
         }
+
     def _render_non_text_gizmos(self, entries, alpha_used):
         for g, screen_pos, _ in entries:
             self._draw_gizmo(g, screen_pos, alpha_used)
@@ -414,29 +510,42 @@ class GizmosManager:
     def _draw_circle_gfx(self, surface, center, radius, color, filled, thickness):
         x, y = int(center[0]), int(center[1])
         r = int(radius)
-        if r <= 0:
-            return
+        if r <= 0: return
         if filled:
             pygame.gfxdraw.filled_circle(surface, x, y, r, color)
         else:
-            if thickness == 1:
-                pygame.gfxdraw.circle(surface, x, y, r, color)
-            else:
-                for i in range(thickness):
-                    if r - i > 0:
-                        pygame.gfxdraw.circle(surface, x, y, r - i, color)
-    def _draw_rect_gfx(self, surface, rect, color, filled, thickness):
-        x, y, w, h = int(rect.x), int(rect.y), int(rect.width), int(rect.height)
-        if w <= 0 or h <= 0:
-            return
-        if filled:
-            pygame.gfxdraw.box(surface, (x, y, w, h), color)
+            key = ('circle', r, thickness, tuple(color))
+            surf = self._get_geom_surface(key, lambda: self._build_circle_surf(r, thickness, color))
+            surface.blit(surf, (x - r, y - r))
+
+    def _build_circle_surf(self, r, thickness, color):
+        color = tuple(color)
+        size = r * 2 + 1
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        if thickness == 1:
+            pygame.gfxdraw.circle(surf, r, r, r, color)
         else:
-            if thickness == 1:
-                pygame.gfxdraw.rectangle(surface, (x, y, w, h), color)
-            else:
-                for i in range(thickness):
-                    pygame.gfxdraw.rectangle(surface, (x - i, y - i, w + 2 * i, h + 2 * i), color)
+            for i in range(thickness):
+                if r - i > 0:
+                    pygame.gfxdraw.circle(surf, r, r, r - i, color)
+        return surf
+
+    def _build_rect_surf(self, w, h, thickness, color):
+        color = tuple(color)
+        surf_w = w + 2 * thickness
+        surf_h = h + 2 * thickness
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        for i in range(thickness):
+            pygame.gfxdraw.rectangle(surf, (i, i, w + 2*(thickness-i-1), h + 2*(thickness-i-1)), color)
+        return surf
+
+    def _build_rect_surf(self, w, h, thickness, color):
+        surf_w = w + 2 * thickness
+        surf_h = h + 2 * thickness
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        for i in range(thickness):
+            pygame.gfxdraw.rectangle(surf, (i, i, w + 2*(thickness-i-1), h + 2*(thickness-i-1)), color)
+        return surf
 
     def clear(self):
         self.gizmos.clear()

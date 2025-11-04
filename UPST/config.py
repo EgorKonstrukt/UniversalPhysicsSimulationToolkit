@@ -141,6 +141,7 @@ class GridConfig:
     snap_strength: float = 1.0
     max_lines: int = 1000
     skip_offscreen_lines: bool = True
+    ruler_skip_factor = 2
 
 @dataclass
 class WorldTheme:

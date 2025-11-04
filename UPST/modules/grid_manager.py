@@ -241,6 +241,7 @@ class GridManager:
         max_x = math.ceil(bottom_right_world[0] / grid_spacing_world) * grid_spacing_world
         min_y = math.floor(top_left_world[1] / grid_spacing_world) * grid_spacing_world
         max_y = math.ceil(bottom_right_world[1] / grid_spacing_world) * grid_spacing_world
+        skip = max(1, getattr(config.grid, 'ruler_skip_factor', 1))
 
         def format_number(val):
             abs_val = abs(val)
@@ -252,23 +253,27 @@ class GridManager:
         last_label_x = -min_label_spacing
         x = min_x
         while x <= max_x:
-            screen_x = self.camera.world_to_screen((x, 0))[0]
-            if 0 <= screen_x <= screen_width and screen_x - last_label_x >= min_label_spacing:
-                Gizmos.draw_line(start=(screen_x, 0), end=(screen_x, tick_length), color=(200, 200, 200), thickness=1, duration=0.05, world_space=False)
-                label = format_number(x)
-                Gizmos.draw_text(position=(screen_x, tick_length + text_offset), text=label, color=(200, 200, 200), font_size=12, font_name="Consolas", world_space=False, font_world_space=False, duration=0.05)
-                last_label_x = screen_x
+            tick_index = round(x / grid_spacing_world)
+            if tick_index % skip == 0:
+                screen_x = self.camera.world_to_screen((x, 0))[0]
+                if 0 <= screen_x <= screen_width and screen_x - last_label_x >= min_label_spacing:
+                    Gizmos.draw_line(start=(screen_x, 0), end=(screen_x, tick_length), color=(200, 200, 200), thickness=1, duration=0.05, world_space=False)
+                    label = format_number(x)
+                    Gizmos.draw_text(position=(screen_x, tick_length + text_offset), text=label, color=(200, 200, 200), font_size=12, font_name="Consolas", world_space=False, font_world_space=False, duration=0.05)
+                    last_label_x = screen_x
             x += grid_spacing_world
 
         last_label_y = -min_label_spacing
         y = min_y
         while y <= max_y:
-            screen_y = self.camera.world_to_screen((0, y))[1]
-            if 0 <= screen_y <= screen_height and screen_y - last_label_y >= min_label_spacing:
-                Gizmos.draw_line(start=(0, screen_y), end=(tick_length, screen_y), color=(200, 200, 200), thickness=1, duration=0.05, world_space=False)
-                label = format_number(y)
-                Gizmos.draw_text(position=(tick_length + text_offset, screen_y), text=label, color=(200, 200, 200), font_size=12, font_name="Consolas", world_space=False, font_world_space=False, duration=0.05)
-                last_label_y = screen_y
+            tick_index = round(y / grid_spacing_world)
+            if tick_index % skip == 0:
+                screen_y = self.camera.world_to_screen((0, y))[1]
+                if 0 <= screen_y <= screen_height and screen_y - last_label_y >= min_label_spacing:
+                    Gizmos.draw_line(start=(0, screen_y), end=(tick_length, screen_y), color=(200, 200, 200), thickness=1, duration=0.05, world_space=False)
+                    label = format_number(y)
+                    Gizmos.draw_text(position=(tick_length + text_offset, screen_y), text=label, color=(200, 200, 200), font_size=12, font_name="Consolas", world_space=False, font_world_space=False, duration=0.05)
+                    last_label_y = screen_y
             y += grid_spacing_world
 
         mouse_pos = pygame.mouse.get_pos()
