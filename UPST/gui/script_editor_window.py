@@ -11,9 +11,11 @@ import re
 import tokenize
 import io
 from UPST.modules.undo_redo_manager import get_undo_redo
+from UPST.utils import safe_filedialog
 
 class ScriptEditorWindow:
-    def __init__(self, rect, manager, physics_manager, physics_debug_manager=None, owner=None, script=None):
+    def __init__(self, rect, manager, physics_manager, physics_debug_manager=None, owner=None, script=None, app=None):
+        self.app = app
         self.manager = manager
         self.physics_manager = physics_manager
         self.physics_debug_manager = physics_debug_manager
@@ -132,7 +134,10 @@ class ScriptEditorWindow:
     def load_script_from_file(self):
         root = tk.Tk()
         root.withdraw()
-        path = filedialog.askopenfilename(title="Select Python Script", filetypes=[("Python files", "*.py"), ("All files", "*.*")])
+        path = safe_filedialog(filedialog.askopenfilename(title="Select Python Script",
+                                                          filetypes=[("Python files", "*.py"),
+                                                                     ("All files", "*.*")]),
+                             freeze_watcher=self.app.freeze_watcher)
         if not path: return
         try:
             with open(path, 'r', encoding='utf-8') as f: code = f.read()

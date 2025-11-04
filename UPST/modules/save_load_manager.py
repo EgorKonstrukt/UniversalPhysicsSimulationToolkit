@@ -9,13 +9,14 @@ import lzma
 
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
-from UPST.misc import surface_to_bytes, bytes_to_surface
+from UPST.utils import surface_to_bytes, bytes_to_surface, safe_filedialog
 from UPST.modules.undo_redo_manager import get_undo_redo
 import pygame
 
 
 class SaveLoadManager:
-    def __init__(self, physics_manager, camera, ui_manager, sound_manager):
+    def __init__(self, physics_manager, camera, ui_manager, sound_manager, app):
+        self.app = app
         self.physics_manager = physics_manager
         self.camera = camera
         self.ui_manager = ui_manager
@@ -26,7 +27,9 @@ class SaveLoadManager:
 
     def save_world(self):
         root = tk.Tk(); root.withdraw()
-        fp = filedialog.asksaveasfilename(defaultextension=".ngsv", filetypes=[("UPST Save File","*.space")])
+        fp = safe_filedialog(filedialog.asksaveasfilename, defaultextension=".ngsv",
+                                                          filetypes=[("UPST Save File","*.space")],
+                             freeze_watcher=self.app.freeze_watcher)
         if not fp: Debug.log_warning("Canceled...", "SaveLoadManager"); return
         try:
             data = self._prepare_save_data()
@@ -112,7 +115,8 @@ class SaveLoadManager:
 
     def load_world(self):
         root = tk.Tk(); root.withdraw()
-        fp = filedialog.askopenfilename(filetypes=[("UPST Save File","*.space")])
+        fp = safe_filedialog(filedialog.askopenfilename,filetypes=[("UPST Save File","*.space")],
+                             freeze_watcher=self.app.freeze_watcher)
         if not fp: Debug.log_warning(f"Load canceled: {fp}", "SaveLoadManager"); return
         try:
             data = self._load_data_with_fallback(fp)

@@ -1,4 +1,5 @@
 import pygame
+from tkinter import filedialog
 
 def ensure_rgba_surface(surface):
     if not surface:
@@ -26,3 +27,12 @@ def bytes_to_surface(data, size):
         print(f"Size mismatch: declared {size}, but data suggests width ~{w} (len={actual}, expected={expected})")
         return None
     return pygame.image.frombytes(data, size, "RGBA")
+
+def safe_filedialog(func, *args, freeze_watcher=None, **kwargs):
+    if freeze_watcher:
+        freeze_watcher.pause()
+    try:
+        return func(*args, **kwargs)
+    finally:
+        if freeze_watcher:
+            freeze_watcher.resume()

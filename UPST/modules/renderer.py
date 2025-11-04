@@ -3,7 +3,7 @@ import math
 import pymunk
 import time
 from UPST.config import config
-from UPST.misc import bytes_to_surface
+from UPST.utils import bytes_to_surface
 from UPST.modules.texture_processor import TextureProcessor, TextureState
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
 

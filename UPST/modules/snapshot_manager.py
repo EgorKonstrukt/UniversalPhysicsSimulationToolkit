@@ -3,7 +3,7 @@ import uuid
 import pymunk
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
-from UPST.misc import surface_to_bytes, bytes_to_surface
+from UPST.utils import surface_to_bytes, bytes_to_surface
 
 
 class SnapshotManager:

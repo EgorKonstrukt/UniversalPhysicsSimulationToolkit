@@ -16,7 +16,8 @@ from UPST.gui.script_editor_window import ScriptEditorWindow
 
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera,
-                 input_handler, screen, font, tool_manager=None, network_manager=None):
+                 input_handler, screen, font, tool_manager=None, network_manager=None, app=None):
+        self.app = app
         self.refresh_scripts_btn = None
         self.edit_script_btn = None
         self.stop_script_btn = None
@@ -69,7 +70,8 @@ class UIManager:
             physics_manager=self.physics_manager,
             physics_debug_manager=self.physics_debug_manager,
             owner=owner,
-            script=script
+            script=script,
+            app=app
         )
 
     def _create_color_controls(self, parent_window, obj_prefix):

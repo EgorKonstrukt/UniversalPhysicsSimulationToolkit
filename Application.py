@@ -3,6 +3,7 @@ import pygame
 import math
 import pymunk
 
+from UPST.splash_screen import SplashScreen, FreezeWatcher
 from UPST.config import config
 from UPST.modules.camera import Camera
 from UPST.modules.console_handler import ConsoleHandler
@@ -31,6 +32,7 @@ from UPST.modules.renderer import Renderer
 class Application:
     def __init__(self):
         pygame.init()
+        self.freeze_watcher = None
         config.load_from_file()
         self.screen = self.setup_screen()
         self.font = pygame.font.SysFont("Consolas", 16)
@@ -69,7 +71,7 @@ class Application:
 
         self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
                                     self.physics_manager, self.camera, None, self.screen, self.font,
-                                    network_manager=None)
+                                    network_manager=None, app=self)
         self.input_handler = InputHandler(self, gizmos_manager=self.gizmos_manager,
                                           debug_manager=self.debug_manager,
                                           undo_redo_manager=self.undo_redo_manager,
@@ -92,7 +94,7 @@ class Application:
         Debug.log("ToolManager initialized successfully", "Init")
         self.tool_manager.create_tool_buttons()
         self.save_load_manager = SaveLoadManager(self.physics_manager, self.camera,
-                                                 self.ui_manager, self.sound_manager)
+                                                 self.ui_manager, self.sound_manager, app=self)
         Debug.log("SaveLoadManager initialized successfully", "Init")
         self.console_handler = ConsoleHandler(self.ui_manager, self.physics_manager)
         Debug.log("ConsoleHandler initialized successfully", "Init")
@@ -136,7 +138,10 @@ class Application:
 
     def run(self):
         synthesizer.play_note("A3", duration=0.1, waveform="sine", adsr=(0.01, 0.1, 0.7, 0.1), volume=0.5, pan=0.0)
+        self.freeze_watcher = FreezeWatcher(threshold_sec=0.1)
+        self.freeze_watcher.start()
         while self.running:
+            self.freeze_watcher.ping()
             time_delta = self.clock.tick(config.app.clock_tickrate) / 1000.0
             self.debug_manager.update(time_delta)
             self.gizmos_manager.update(time_delta)
@@ -185,10 +190,15 @@ class Application:
 
 if __name__ == '__main__':
     try:
-        game_app = Application()
-        game_app.run()
+        splash = SplashScreen()
+        try:
+            game_app = Application()
+            splash.destroy()
+            game_app.run()
+        except Exception as inner_e:
+            splash.destroy()
+            raise inner_e
     except Exception as e:
         print(f"Application error: {e}")
         import traceback
-
         traceback.print_exc()
