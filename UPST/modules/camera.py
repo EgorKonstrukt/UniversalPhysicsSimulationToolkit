@@ -5,6 +5,7 @@ from UPST.config import config
 import pymunk.pygame_util
 import time
 
+
 class Camera:
     def __init__(self, app_game, screen_width, screen_height, screen):
         self.screen = screen
@@ -148,8 +149,10 @@ class Camera:
                 self.last_mouse_pos = current_pos
         elif event.type == pygame.MOUSEWHEEL:
             zoom_factor = 1.0
-            if event.y > 0: zoom_factor = 1 + self.zoom_speed
-            elif event.y < 0: zoom_factor = 1 - self.zoom_speed
+            if event.y > 0:
+                zoom_factor = 1 + self.zoom_speed
+            elif event.y < 0:
+                zoom_factor = 1 - self.zoom_speed
             self._zoom_at_cursor(zoom_factor)
 
     def _zoom_at_cursor(self, zoom_factor: float) -> None:

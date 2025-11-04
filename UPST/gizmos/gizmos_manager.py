@@ -21,6 +21,7 @@ class GizmoType(Enum):
     TEXT = "text"
     BUTTON = "button"
 
+
 @dataclass
 class GizmoData:
     gizmo_type: GizmoType
@@ -52,6 +53,7 @@ class GizmoData:
     _adjusted_screen_pos: Optional[Tuple[int, int]] = None
     on_click: Optional[Callable[[], None]] = None
     unique_id: Optional[str] = None
+
 
 def _process_gizmo_chunk(args):
     gizmos_chunk, cam_pos, cam_scale, screen_size, cull_margin, distance_culling_enabled = args
@@ -161,7 +163,6 @@ class GizmosManager:
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._prepared_data = None
 
-
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.WINDOWRESIZED:
             self._screen_width = event.x
@@ -186,7 +187,6 @@ class GizmosManager:
             if r.collidepoint(mx, my):
                 g.on_click()
                 break
-
 
     def get_font(self, font_name: str, font_size: int) -> pygame.font.Font:
         key = (font_name, font_size)
@@ -268,6 +268,7 @@ class GizmosManager:
             'culled_occlusion': len(text_entries) - len(adjusted_texts),
             'drawn_gizmos': len(other_entries) + len(adjusted_texts)
         }
+
     def _render_non_text_gizmos(self, entries, alpha_used):
         for g, screen_pos, _ in entries:
             self._draw_gizmo(g, screen_pos, alpha_used)
@@ -278,7 +279,8 @@ class GizmosManager:
             if g.alpha != 255:
                 alpha_used.add(g.alpha)
             self._draw_line_gfx(surf_target, orig_pos, adj_pos, g.color, 2)
-            size = int(g.font_size * self.camera.target_scaling) if (g.font_world_space and g.world_space) else g.font_size
+            size = int(g.font_size * self.camera.target_scaling) if (
+                        g.font_world_space and g.world_space) else g.font_size
             surf = self._get_text_surface(g.text, g.color, g.font_name, size)
             r = surf.get_rect(center=adj_pos)
             if g.background_color:
@@ -290,6 +292,7 @@ class GizmosManager:
     def _blit_alpha_surfaces(self, alpha_used):
         for a in alpha_used:
             self.screen.blit(self._alpha_surfaces[a], (0, 0))
+
     def _draw_line_gfx(self, surface, start, end, color, thickness):
         x1, y1 = map(int, start)
         x2, y2 = map(int, end)
@@ -321,7 +324,6 @@ class GizmosManager:
             alpha_used.add(gizmo.alpha)
         color = gizmo.color
         scale = self.camera.target_scaling if gizmo.world_space else 1.0
-
 
         if gizmo.gizmo_type == GizmoType.POINT:
             start_profiling("POINT", "gizmos")
@@ -425,6 +427,7 @@ class GizmosManager:
                 for i in range(thickness):
                     if r - i > 0:
                         pygame.gfxdraw.circle(surface, x, y, r - i, color)
+
     def _draw_rect_gfx(self, surface, rect, color, filled, thickness):
         x, y, w, h = int(rect.x), int(rect.y), int(rect.width), int(rect.height)
         if w <= 0 or h <= 0:
@@ -587,7 +590,7 @@ class GizmosManager:
         stats = self.get_stats()
         if stats:
             self.draw_text(
-                (config.app.screen_width-500, 50),
+                (config.app.screen_width - 500, 50),
                 f"Gizmos: {stats.get('drawn_gizmos', 0)}/{stats.get('total_gizmos', 0)}"
                 f"\nculled: f{stats.get('culled_frustum', 0)} d{stats.get('culled_distance', 0)} o{stats.get('culled_occlusion', 0)}",
                 'white',
@@ -606,7 +609,10 @@ _gizmos_instance: Optional[GizmosManager] = None
 
 
 def get_gizmos(): return _gizmos_instance
+
+
 def set_gizmos(gizmos_manager): global _gizmos_instance; _gizmos_instance = gizmos_manager
+
 
 class Gizmos:
     @staticmethod
