@@ -34,7 +34,7 @@ class PhysicsDebugConfig:
     show_sleep_state: bool = False
     show_object_info: bool = False
     show_trails: bool = False
-    show_momentum_vectors: bool = True
+    show_momentum_vectors: bool = False
     show_angular_momentum: bool = True
     show_impulse_vectors: bool = False
     show_contact_forces: bool = False
@@ -45,7 +45,7 @@ class PhysicsDebugConfig:
     show_rotation_axes: bool = True
     show_velocity_profiles: bool = False
     show_phase_space: bool = False
-    show_lagrangian_mechanics: bool = True
+    show_lagrangian_mechanics: bool = False
     show_hamiltonian_mechanics: bool = False
     show_conservation_laws: bool = False
     show_stability_analysis: bool = False
@@ -224,7 +224,7 @@ class AppConfig:
     use_system_dpi: bool = False
     version: str = "Universal Physics Simulation Toolkit"
     create_base_world: bool = True
-    clock_tickrate: int = 100
+    clock_tickrate: int = 1000
     background_color: Tuple[int, int, int] = (30, 30, 30)
     guide_text: str = (
         "F: Spawn object\n"
