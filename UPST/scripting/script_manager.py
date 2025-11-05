@@ -35,6 +35,14 @@ class ScriptManager:
         Debug.log_info(f"Added script '{name}' to {type(owner).__name__ if owner else 'world'}.", "Scripting")
         return script
 
+    def remove_scripts_by_owner(self, owner):
+        if not hasattr(owner, "_scripts"):
+            return
+        scripts_to_remove = list(owner._scripts)
+        for script in scripts_to_remove:
+            self.remove_script(script)
+        owner._scripts.clear()
+
     def remove_script(self, script: ScriptInstance):
         script.stop()
         if script in self.scripts:

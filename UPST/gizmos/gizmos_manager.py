@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from UPST.config import config
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
-
+from UPST.debug.debug_manager import Debug
 
 class GizmoType(Enum):
     POINT = "point"
@@ -228,47 +228,49 @@ class GizmosManager:
     def draw(self):
         if not self.enabled:
             return
-        all_gizmos = list(self.unique_gizmos.values()) + self.gizmos + self.persistent_gizmos
-        if not all_gizmos:
-            return
-        self._frame_id += 1
+        try:
+            all_gizmos = list(self.unique_gizmos.values()) + self.gizmos + self.persistent_gizmos
+            if not all_gizmos:
+                return
+            self._frame_id += 1
 
-        for g in all_gizmos:
-            g._screen_pos = None
-            g._adjusted_screen_pos = None
-            g._is_visible = None
+            for g in all_gizmos:
+                g._screen_pos = None
+                g._adjusted_screen_pos = None
+                g._is_visible = None
 
-        cam_pos = self.camera.screen_to_world((self._half_screen_width, self._half_screen_height))
-        cam_scale = self.camera.target_scaling
-        screen_size = (self._screen_width, self._screen_height)
-        chunk_size = max(1, len(all_gizmos) // 4)
-        chunks = [all_gizmos[i:i + chunk_size] for i in range(0, len(all_gizmos), chunk_size)]
-        futures = []
-        for chunk in chunks:
-            args = (chunk, cam_pos, cam_scale, screen_size, self.cull_margin, self.distance_culling_enabled)
-            future = self._executor.submit(_process_gizmo_chunk, args)
-            futures.append(future)
-        visible_entries = []
-        for future in as_completed(futures):
-            visible_entries.extend(future.result())
+            cam_pos = self.camera.screen_to_world((self._half_screen_width, self._half_screen_height))
+            cam_scale = self.camera.target_scaling
+            screen_size = (self._screen_width, self._screen_height)
+            chunk_size = max(1, len(all_gizmos) // 4)
+            chunks = [all_gizmos[i:i + chunk_size] for i in range(0, len(all_gizmos), chunk_size)]
+            futures = []
+            for chunk in chunks:
+                args = (chunk, cam_pos, cam_scale, screen_size, self.cull_margin, self.distance_culling_enabled)
+                future = self._executor.submit(_process_gizmo_chunk, args)
+                futures.append(future)
+            visible_entries = []
+            for future in as_completed(futures):
+                visible_entries.extend(future.result())
 
-        text_entries = [e for e in visible_entries if e[0].gizmo_type == GizmoType.TEXT and e[0].collision]
-        other_entries = [e for e in visible_entries if not (e[0].gizmo_type == GizmoType.TEXT and e[0].collision)]
-        adjusted_texts = _resolve_text_collisions_parallel(text_entries, screen_size) if text_entries else []
+            text_entries = [e for e in visible_entries if e[0].gizmo_type == GizmoType.TEXT and e[0].collision]
+            other_entries = [e for e in visible_entries if not (e[0].gizmo_type == GizmoType.TEXT and e[0].collision)]
+            adjusted_texts = _resolve_text_collisions_parallel(text_entries, screen_size) if text_entries else []
 
-        alpha_used = set()
-        self._render_non_text_gizmos(other_entries, alpha_used)
-        self._render_adjusted_texts(adjusted_texts, alpha_used)
-        self._blit_alpha_surfaces(alpha_used)
+            alpha_used = set()
+            self._render_non_text_gizmos(other_entries, alpha_used)
+            self._render_adjusted_texts(adjusted_texts, alpha_used)
+            self._blit_alpha_surfaces(alpha_used)
 
-        self.stats = {
-            'total_gizmos': len(all_gizmos),
-            'culled_frustum': len(all_gizmos) - len(visible_entries),
-            'culled_distance': 0,
-            'culled_occlusion': len(text_entries) - len(adjusted_texts),
-            'drawn_gizmos': len(other_entries) + len(adjusted_texts)
-        }
-
+            self.stats = {
+                'total_gizmos': len(all_gizmos),
+                'culled_frustum': len(all_gizmos) - len(visible_entries),
+                'culled_distance': 0,
+                'culled_occlusion': len(text_entries) - len(adjusted_texts),
+                'drawn_gizmos': len(other_entries) + len(adjusted_texts)
+            }
+        except Exception as e:
+            Debug.log_error(f"Error in Gizmos: {e}", "Gizmos")
     def _render_non_text_gizmos(self, entries, alpha_used):
         for g, screen_pos, _ in entries:
             self._draw_gizmo(g, screen_pos, alpha_used)

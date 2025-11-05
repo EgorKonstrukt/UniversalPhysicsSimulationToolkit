@@ -147,6 +147,7 @@ class PhysicsManager:
             self.undo_redo_manager.take_snapshot()
             Debug.log_info(f"Shape {shape.__hash__()} removed from space.", "Physics")
             if body and not body.shapes:
+                self.script_manager.remove_scripts_by_owner(body)
                 self.space.remove(body)
                 Debug.log_info(f"Body {body.__hash__()} removed as it has no more shapes.", "Physics")
             else:
@@ -203,6 +204,7 @@ class PhysicsManager:
         try:
             Debug.log_info(f"Attempting to remove body {body.__hash__()} and its shapes.", "Physics")
             if body in self.space.bodies:
+                self.script_manager.remove_scripts_by_owner(body)
                 for shape in list(body.shapes):
                     if shape in self.space.shapes:
                         self.space.remove(shape)
