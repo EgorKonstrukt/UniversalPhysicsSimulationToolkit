@@ -3,13 +3,18 @@ import time
 import traceback
 import sys
 from typing import Optional, Any, Callable, TypeVar, Dict
-from UPST.debug.debug_manager import Debug
-from UPST.gizmos.gizmos_manager import Gizmos
+
 import pygame
 import pymunk
 import math
 import random
+
+from UPST.config import config
+from UPST.modules.camera import Camera
 from UPST.modules.profiler import Profiler, profile
+from UPST.sound.sound_synthesizer import synthesizer
+from UPST.debug.debug_manager import Debug
+from UPST.gizmos.gizmos_manager import Gizmos
 
 try:
     import numpy as np
@@ -29,8 +34,9 @@ except Exception:
 T = TypeVar('T', bound=Callable)
 
 class ScriptInstance:
-    def __init__(self, code: str, owner: Any, name: str = "Unnamed Script", threaded_default: bool = False):
+    def __init__(self, code: str, owner: Any, name: str = "Unnamed Script", threaded_default: bool = False, app=None):
         self.code = code
+        self.app = app
         self.owner = owner
         self.name = name
         self.running = False
@@ -57,8 +63,12 @@ class ScriptInstance:
 
         namespace: Dict[str, Any] = {
             "owner": owner,
+            "app": app,
+            "config": config,
+            "Camera": Camera,
             "Gizmos": Gizmos,
             "Debug": Debug,
+            "synthesizer": synthesizer,
             "pymunk": pymunk,
             "time": time,
             "math": math,
@@ -94,7 +104,7 @@ class ScriptInstance:
 
         for k, v in namespace.items():
             if k.startswith('__') or k in (
-                    "owner", "Gizmos", "Debug", "pymunk", "time", "math", "random", "threading",
+                    "owner", "Gizmos", "Debug","synthesizer" , "pymunk", "time", "math", "random", "threading",
                     "pygame", "self", "traceback", "profile", "thread_lock", "spawn_thread",
                     "log", "set_bg_fps", "threaded", "np", "njit"
             ) or callable(v) or isinstance(v, type):
@@ -263,6 +273,7 @@ class ScriptInstance:
             "owner": self.owner,
             "Gizmos": Gizmos,
             "Debug": Debug,
+            "synthesizer": synthesizer,
             "pymunk": pymunk,
             "time": time,
             "math": math,

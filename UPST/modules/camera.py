@@ -7,7 +7,15 @@ import time
 
 
 class Camera:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self, app_game, screen_width, screen_height, screen):
+        if hasattr(self, 'screen'): return
         self.screen = screen
         self.app = app_game
         self.screen_width = screen_width
@@ -218,7 +226,9 @@ class Camera:
 
     def screen_to_world_y(self, screen_y):
         return ((self.screen_height // 2 - screen_y) / self.target_scaling) + self.offset_y
-
+    def get_cursor_world_position(self):
+        mouse_pos = pygame.mouse.get_pos()
+        return self.screen_to_world(mouse_pos)
     @property
     def position(self):
         return (-self.translation.tx, -self.translation.ty)

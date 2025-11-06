@@ -30,8 +30,8 @@ class Renderer:
     def draw(self):
         start_time = pygame.time.get_ticks()
         theme = config.world.themes[config.world.current_theme]
-        self.screen.fill(theme.background_color)
         self.grid_manager.draw(self.screen)
+        self.screen.fill(theme.background_color)
         self.gizmos_manager.draw_debug_gizmos()
         draw_opts = self.camera.get_draw_options(self.screen)
         self.physics_manager.space.debug_draw(draw_opts)
@@ -48,8 +48,10 @@ class Renderer:
         self._draw_cursor_icon()
         self.app.debug_manager.draw_all_debug_info(self.screen, self.physics_manager, self.camera)
         if self.script_system: self._draw_script_info()
+
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
+
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
 
     def _get_texture(self, path):

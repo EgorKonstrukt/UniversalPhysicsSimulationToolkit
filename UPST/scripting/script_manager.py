@@ -6,7 +6,8 @@ from UPST.scripting.script_instance import ScriptInstance
 
 
 class ScriptManager:
-    def __init__(self):
+    def __init__(self, app=None):
+        self.app = app
         self.scripts: List[ScriptInstance] = []
         self.world_scripts: List[ScriptInstance] = []
         self._body_uuid_map: Dict[uuid.UUID, Any] = {}
@@ -22,7 +23,7 @@ class ScriptManager:
         if owner is not None and hasattr(owner, '_script_uuid'):
             self.register_body(owner)
 
-        script = ScriptInstance(code, owner, name, threaded)
+        script = ScriptInstance(code, owner, name, threaded, app=self.app)
         if owner is None:
             self.world_scripts.append(script)
         else:

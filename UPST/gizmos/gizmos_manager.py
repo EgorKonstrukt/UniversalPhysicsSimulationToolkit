@@ -415,33 +415,6 @@ class GizmosManager:
             surface.blit(txt_surf, txt_rect)
             stop_profiling("BUTTON")
 
-    def _draw_circle_gfx(self, surface, center, radius, color, filled, thickness):
-        x, y = int(center[0]), int(center[1])
-        r = int(radius)
-        if r <= 0:
-            return
-        if filled:
-            pygame.gfxdraw.filled_circle(surface, x, y, r, color)
-        else:
-            if thickness == 1:
-                pygame.gfxdraw.circle(surface, x, y, r, color)
-            else:
-                for i in range(thickness):
-                    if r - i > 0:
-                        pygame.gfxdraw.circle(surface, x, y, r - i, color)
-
-    def _draw_rect_gfx(self, surface, rect, color, filled, thickness):
-        x, y, w, h = int(rect.x), int(rect.y), int(rect.width), int(rect.height)
-        if w <= 0 or h <= 0:
-            return
-        if filled:
-            pygame.gfxdraw.box(surface, (x, y, w, h), color)
-        else:
-            if thickness == 1:
-                pygame.gfxdraw.rectangle(surface, (x, y, w, h), color)
-            else:
-                for i in range(thickness):
-                    pygame.gfxdraw.rectangle(surface, (x - i, y - i, w + 2 * i, h + 2 * i), color)
 
     def clear(self):
         self.gizmos.clear()
@@ -511,11 +484,34 @@ class GizmosManager:
         }
         self._reuse_or_create_button(key, **cfg)
 
-    def _add_gizmo(self, gizmo: GizmoData):
-        if gizmo.duration == -1:
-            self.persistent_gizmos.append(gizmo)
+    def _draw_circle_gfx(self, surface, center, radius, color, filled, thickness):
+        x, y = int(center[0]), int(center[1])
+        r = int(radius)
+        if r <= 0:
+            return
+        if filled:
+            pygame.gfxdraw.filled_circle(surface, x, y, r, color)
         else:
-            self.gizmos.append(gizmo)
+            if thickness == 1:
+                pygame.gfxdraw.circle(surface, x, y, r, color)
+            else:
+                for i in range(thickness):
+                    if r - i > 0:
+                        pygame.gfxdraw.circle(surface, x, y, r - i, color)
+
+    def _draw_rect_gfx(self, surface, rect, color, filled, thickness):
+        x, y, w, h = int(rect.x), int(rect.y), int(rect.width), int(rect.height)
+        if w <= 0 or h <= 0:
+            return
+        if filled:
+            pygame.gfxdraw.box(surface, (x, y, w, h), color)
+        else:
+            if thickness == 1:
+                pygame.gfxdraw.rectangle(surface, (x, y, w, h), color)
+            else:
+                for i in range(thickness):
+                    pygame.gfxdraw.rectangle(surface, (x - i, y - i, w + 2 * i, h + 2 * i), color)
+
 
     def draw_point(self, position, color='white', size=3.0, duration=0.1, layer=0, world_space=True, cull_distance=-1.0,
                    cull_bounds=None):
@@ -585,6 +581,12 @@ class GizmosManager:
             collision=collision
         )
         self._add_gizmo(g)
+
+    def _add_gizmo(self, gizmo: GizmoData):
+        if gizmo.duration == -1:
+            self.persistent_gizmos.append(gizmo)
+        else:
+            self.gizmos.append(gizmo)
 
     def draw_debug_gizmos(self):
         if not config.debug.gizmos:

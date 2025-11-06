@@ -144,7 +144,7 @@ class GridManager:
         for future in futures:
             start, end, color, thickness, world_space = future.result()
             Gizmos.draw_line(start=start, end=end, color=color, thickness=thickness, duration=0.05,
-                             world_space=world_space)
+                             world_space=world_space, layer=-1)
 
         if self.force_field_manager and self.force_field_manager.physics_manager.running_physics:
             self._draw_gravity_vectors(screen, grid_spacing_world, grid_spacing_pixels)
@@ -226,7 +226,8 @@ class GridManager:
                     color=(255, 100, 100),
                     thickness=1,
                     duration=0.05,
-                    world_space=False
+                    world_space=False,
+                    layer = -1
                 )
                 y += spacing
             x += spacing
@@ -263,11 +264,11 @@ class GridManager:
                 screen_x = self.camera.world_to_screen((x, 0))[0]
                 if 0 <= screen_x <= screen_width and screen_x - last_label_x >= min_label_spacing:
                     Gizmos.draw_line(start=(screen_x, 0), end=(screen_x, tick_length), color=(200, 200, 200),
-                                     thickness=1, duration=0.05, world_space=False)
+                                     thickness=1, duration=0.05, world_space=False, layer=-1)
                     label = format_number(x)
                     Gizmos.draw_text(position=(screen_x, tick_length + text_offset), text=label, color=(200, 200, 200),
                                      font_size=12, font_name="Consolas", world_space=False, font_world_space=False,
-                                     duration=0.05)
+                                     duration=0.05, layer=-1)
                     last_label_x = screen_x
             x += grid_spacing_world
 
@@ -279,11 +280,11 @@ class GridManager:
                 screen_y = self.camera.world_to_screen((0, y))[1]
                 if 0 <= screen_y <= screen_height and screen_y - last_label_y >= min_label_spacing:
                     Gizmos.draw_line(start=(0, screen_y), end=(tick_length, screen_y), color=(200, 200, 200),
-                                     thickness=1, duration=0.05, world_space=False)
+                                     thickness=1, duration=0.05, world_space=False, layer=-1)
                     label = format_number(y)
                     Gizmos.draw_text(position=(tick_length + text_offset, screen_y), text=label, color=(200, 200, 200),
                                      font_size=12, font_name="Consolas", world_space=False, font_world_space=False,
-                                     duration=0.05)
+                                     duration=0.05, layer=-1)
                     last_label_y = screen_y
             y += grid_spacing_world
 
@@ -292,18 +293,18 @@ class GridManager:
         cursor_x_screen, cursor_y_screen = mouse_pos
         if 0 <= cursor_x_screen <= screen_width:
             Gizmos.draw_line(start=(cursor_x_screen, 0), end=(cursor_x_screen, tick_length * 2), color=(255, 255, 0),
-                             thickness=2, duration=0.05, world_space=False)
+                             thickness=2, duration=0.05, world_space=False, layer=-1)
             cursor_x_label = format_number(world_mouse[0])
             Gizmos.draw_text(position=(cursor_x_screen, tick_length * 2 + text_offset), text=cursor_x_label,
                              color=(255, 255, 0), font_size=12, font_name="Consolas", world_space=False,
-                             font_world_space=False, duration=0.05)
+                             font_world_space=False, duration=0.05, layer=-1)
         if 0 <= cursor_y_screen <= screen_height:
             Gizmos.draw_line(start=(0, cursor_y_screen), end=(tick_length * 2, cursor_y_screen), color=(255, 255, 0),
-                             thickness=2, duration=0.05, world_space=False)
+                             thickness=2, duration=0.05, world_space=False, layer=-1)
             cursor_y_label = format_number(world_mouse[1])
             Gizmos.draw_text(position=(tick_length * 2 + text_offset, cursor_y_screen), text=cursor_y_label,
                              color=(255, 255, 0), font_size=12, font_name="Consolas", world_space=False,
-                             font_world_space=False, duration=0.05)
+                             font_world_space=False, duration=0.05, layer=-1)
 
     def get_grid_info(self):
         if not self.enabled:
@@ -352,10 +353,11 @@ class GridManager:
         end_x = screen_width - margin
         y_pos = screen_height - margin
         Gizmos.draw_line(start=(start_x, y_pos), end=(end_x, y_pos), color="white", thickness=3, duration=0.01,
-                         world_space=False)
+                         world_space=False, layer=-1)
         tick_height = 6
         for x in (start_x, end_x):
             Gizmos.draw_line(start=(x, y_pos - tick_height // 2), end=(x, y_pos + tick_height // 2), color="white",
-                             thickness=3, duration=0.05, world_space=False)
+                             thickness=3, duration=0.05, world_space=False, layer=-1)
         Gizmos.draw_text(position=((start_x + bar_length_pixels / 2), y_pos - 14), text=label, color="white",
-                         font_size=16, duration=0.05, font_name="Consolas", world_space=False, font_world_space=False)
+                         font_size=16, duration=0.05, font_name="Consolas", world_space=False,
+                         font_world_space=False, layer=-1)

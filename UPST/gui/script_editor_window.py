@@ -170,9 +170,9 @@ class ScriptEditorWindow:
     def load_script_from_file(self):
         root = tk.Tk()
         root.withdraw()
-        path = safe_filedialog(filedialog.askopenfilename(title="Select Python Script",
+        path = safe_filedialog(filedialog.askopenfilename, title="Select Python Script",
                                                           filetypes=[("Python files", "*.py"),
-                                                                     ("All files", "*.*")]),
+                                                                     ("All files", "*.*")],
                                freeze_watcher=self.app.freeze_watcher)
         if not path: return
         try:
