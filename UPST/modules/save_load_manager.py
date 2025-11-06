@@ -38,7 +38,7 @@ class SaveLoadManager:
                 else: gzip.open(fp,"wb").__enter__().write(pickle.dumps(data))
             else: open(fp,"wb").write(pickle.dumps(data))
             self.ui_manager.console_window.add_output_line_to_log("Save successful!")
-            Debug.log_succes(f"Saved to {fp}", "SaveLoadManager")
+            Debug.log_success(f"Saved to {fp}", "SaveLoadManager")
         except Exception as e:
             self.ui_manager.console_window.add_output_line_to_log(f"Save error: {e}")
             Debug.log_exception(f"Save failed for {fp}: {traceback.format_exc()}", "SaveLoadManager")
@@ -122,7 +122,7 @@ class SaveLoadManager:
             data = self._load_data_with_fallback(fp)
             self._apply_loaded_data(data)
             self.ui_manager.console_window.add_output_line_to_log("Load successful!")
-            Debug.log_succes(f"Loaded from {fp}", "SaveLoadManager")
+            Debug.log_success(f"Loaded from {fp}", "SaveLoadManager")
         except Exception as e:
             self.ui_manager.console_window.add_output_line_to_log(f"Load error: {e}")
             Debug.log_exception(f"Load failed for {fp}: {traceback.format_exc()}", "SaveLoadManager")

@@ -440,7 +440,7 @@ class Debug:
         get_debug().log(LogLevel.INFO, message, category)
 
     @staticmethod
-    def log_succes(message: str, category: str = "General"):
+    def log_success(message: str, category: str = "General"):
         """Логирование информационного сообщения"""
         get_debug().log(LogLevel.SUCCESS, message, category)
 

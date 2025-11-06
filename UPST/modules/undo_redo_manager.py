@@ -19,7 +19,7 @@ def set_undo_redo(undo_redo_manager: 'UndoRedoManager'):
     _undo_redo_instance = undo_redo_manager
 
 class SnapshotMetadata:
-    def __init__(self, index: int, timestamp: datetime, body_count: int, total_mass: float, script_count , custom_data: Dict[str, Any] = None):
+    def __init__(self, index: int, timestamp: datetime, body_count: int, total_mass: float, script_count: int, custom_data: Dict[str, Any] = None):
         self.index = index
         self.timestamp = timestamp
         self.body_count = body_count
@@ -75,8 +75,12 @@ class UndoRedoManager:
         if self.current_index < len(self.history) - 1:
             self.history = self.history[:self.current_index + 1]
             self.metadata_history = self.metadata_history[:self.current_index + 1]
+
         snapshot = self.snapshot_manager.create_snapshot()
-        snapshot_meta = self._create_metadata(snapshot, len(self.history), custom_metadata)
+
+        snapshot_dict = pickle.loads(snapshot)
+        snapshot_meta = self._create_metadata_from_dict(snapshot_dict, len(self.history), custom_metadata)
+
         self.history.append(snapshot)
         self.metadata_history.append(snapshot_meta)
         self.current_index += 1
@@ -90,8 +94,7 @@ class UndoRedoManager:
         if self.on_state_change:
             self.on_state_change(self.current_index, len(self.history))
 
-    def _create_metadata(self, snapshot_bytes: bytes, index: int, custom_data: Dict[str, Any]) -> SnapshotMetadata:
-        snapshot = pickle.loads(snapshot_bytes)  # Deserialize first
+    def _create_metadata_from_dict(self, snapshot: dict, index: int, custom_data: Dict[str, Any]) -> SnapshotMetadata:
         body_count = len(snapshot.get('bodies', []))
         total_mass = sum(b.get('mass', 0) for b in snapshot.get('bodies', []))
 
@@ -104,7 +107,7 @@ class UndoRedoManager:
         custom_data = custom_data or {}
         custom_data['script_count'] = script_count
 
-        return SnapshotMetadata(index, datetime.now(), body_count, total_mass, custom_data)
+        return SnapshotMetadata(index, datetime.now(), body_count, total_mass, script_count, custom_data)
 
     def undo(self) -> bool:
         if self.current_index > 0:

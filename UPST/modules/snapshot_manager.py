@@ -1,5 +1,8 @@
+import os
 import pickle
 import uuid
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import pymunk
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
@@ -7,11 +10,55 @@ from UPST.utils import surface_to_bytes, bytes_to_surface
 
 
 class SnapshotManager:
+    AUTOSAVE_PATH = "autosave.space"
+
     def __init__(self, physics_manager, camera):
         self.physics_manager = physics_manager
         self.camera = camera
+        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._autosave_lock = threading.Lock()
+        self._try_load_autosave()
 
-    def create_snapshot(self):
+    def _try_load_autosave(self):
+        if not os.path.isfile(self.AUTOSAVE_PATH):
+            return
+        try:
+            with open(self.AUTOSAVE_PATH, "rb") as f:
+                data = f.read()
+            self.load_snapshot(data)
+            Debug.log_success("Autosave loaded from root directory.", category="SnapshotManager")
+        except Exception as e:
+            Debug.log_error(f"Failed to load autosave: {e}", category="SnapshotManager")
+    def _write_snapshot_background(self, data):
+        if not self._autosave_lock.acquire(blocking=False):
+            return
+        try:
+            snapshot_bytes = pickle.dumps(data)
+            with open(self.AUTOSAVE_PATH, "wb") as f:
+                f.write(snapshot_bytes)
+            Debug.log_success("Autosave written to root directory.", category="SnapshotManager")
+        except Exception as e:
+            Debug.log_error(f"Autosave write failed: {e}", category="SnapshotManager")
+        finally:
+            self._autosave_lock.release()
+
+    def capture_snapshot_data(self) -> dict:
+        return self._collect_snapshot_data()
+
+    def create_snapshot(self) -> bytes:
+        data = self.capture_snapshot_data()
+
+        #TODO:сделать запись только последнего снапшота
+        self.save_autosave_background()
+
+        return pickle.dumps(data)
+
+    def save_autosave_background(self):
+        data = self.capture_snapshot_data()
+        self._executor.submit(self._write_snapshot_background, data)
+
+    #TODO: Исправить перезапись тяжелых изображений и кода, проверять наличие перед записью
+    def _collect_snapshot_data(self):
         data = {
             "iterations": int(self.physics_manager.space.iterations),
             "sim_freq": int(self.physics_manager.simulation_frequency),
@@ -83,18 +130,18 @@ class SnapshotManager:
                     continue
                 cd = {"type": c.__class__.__name__, "a": body_map[c.a], "b": body_map[c.b]}
                 if isinstance(c, pymunk.PinJoint):
-                    cd.update({"anchor_a": c.anchor_a, "anchor_b": c.anchor_b})
+                    cd.update({"anchor_a": tuple(c.anchor_a), "anchor_b": tuple(c.anchor_b)})
                 elif isinstance(c, pymunk.PivotJoint):
-                    cd["anchor"] = c.anchor_a
+                    cd["anchor"] = tuple(c.anchor_a)
                 elif isinstance(c, pymunk.DampedSpring):
-                    cd.update({"anchor_a": c.anchor_a, "anchor_b": c.anchor_b, "rest_length": float(c.rest_length),
+                    cd.update({"anchor_a": tuple(c.anchor_a), "anchor_b": tuple(c.anchor_b), "rest_length": float(c.rest_length),
                                "stiffness": float(c.stiffness), "damping": float(c.damping)})
                 elif isinstance(c, pymunk.SimpleMotor):
                     cd["rate"] = float(c.rate)
                 elif isinstance(c, pymunk.GearJoint):
                     cd.update({"phase": float(c.phase), "ratio": float(c.ratio)})
                 elif isinstance(c, pymunk.SlideJoint):
-                    cd.update({"anchor_a": c.anchor_a, "anchor_b": c.anchor_b, "min": float(c.min), "max": float(c.max)})
+                    cd.update({"anchor_a": tuple(c.anchor_a), "anchor_b": tuple(c.anchor_b), "min": float(c.min), "max": float(c.max)})
                 elif isinstance(c, pymunk.RotaryLimitJoint):
                     cd.update({"min": float(c.min), "max": float(c.max)})
                 constraints_data.append(cd)
@@ -118,7 +165,7 @@ class SnapshotManager:
                 "static_lines": static_lines_data,
             })
 
-        return pickle.dumps(data)
+        return data
 
     def load_snapshot(self, snapshot_bytes):
         data = pickle.loads(snapshot_bytes)
@@ -231,4 +278,4 @@ class SnapshotManager:
                         cache[tex_bytes] = surf
 
         self.physics_manager.script_manager.deserialize_from_save(data.get("scripts", {}), body_uuid_map)
-        Debug.log_succes(message="Snapshot restored.", category="SnapshotManager")
+        Debug.log_success("Snapshot restored.", category="SnapshotManager")
