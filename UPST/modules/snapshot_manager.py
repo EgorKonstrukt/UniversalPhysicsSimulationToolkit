@@ -49,12 +49,11 @@ class SnapshotManager:
         data = self.capture_snapshot_data()
 
         #TODO:сделать запись только последнего снапшота
-        self.save_autosave_background()
+        self.save_autosave_background(data)
 
         return pickle.dumps(data)
 
-    def save_autosave_background(self):
-        data = self.capture_snapshot_data()
+    def save_autosave_background(self, data):
         self._executor.submit(self._write_snapshot_background, data)
 
     #TODO: Исправить перезапись тяжелых изображений и кода, проверять наличие перед записью
