@@ -591,18 +591,22 @@ class GizmosManager:
     def draw_debug_gizmos(self):
         if not config.debug.gizmos:
             return
-        stats = self.get_stats()
-        if stats:
-            self.draw_text(
-                (config.app.screen_width - 500, 50),
-                f"Gizmos: {stats.get('drawn_gizmos', 0)}/{stats.get('total_gizmos', 0)}"
-                f"\nculled: f{stats.get('culled_frustum', 0)} d{stats.get('culled_distance', 0)} o{stats.get('culled_occlusion', 0)}",
-                'white',
-                font_size=20,
-                world_space=False,
-                duration=0.1,
-                font_world_space=False
-            )
+        st = self.get_stats()
+        if not st:
+            return
+        d, t = st['drawn_gizmos'], st['total_gizmos']
+        f, ds = st['culled_frustum'], st['culled_distance']
+        x, y = config.app.screen_width - 520, 40
+        lines = [
+            f"Gizmos: {d}/{t}",
+            f"Frustum cull: {f}",
+            f"Distance cull: {ds}",
+            f"Active: {len(self.gizmos)}",
+            f"Persistent: {len(self.persistent_gizmos)}",
+            f"Unique: {len(self.unique_gizmos)}"
+        ]
+        for i, ln in enumerate(lines):
+            self.draw_text((x, y + i * 22), ln, 'white', font_size=18, world_space=False, duration=0.1)
 
     def __del__(self):
         if hasattr(self, '_executor'):
