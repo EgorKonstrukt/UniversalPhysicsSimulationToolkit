@@ -51,11 +51,11 @@ class AdjustablePIDController:
             Gizmos.draw_button(
                 position=(offset_x, offset_y), text=f"{sign}",
                 on_click=self._make_adjuster(param, delta), width=50, height=50,
-                font_size=32, font_world_space=True, world_space=True
+                font_size=32, font_world_space=True, world_space=True, duration=-1
             )
         Gizmos.draw_text(position=(x, y - 40),
                          text=f"{label} P: {self.kp:.2f} I: {self.ki:.2f} D: {self.kd:.2f}",
-                         color=(255, 255, 255), world_space=True)
+                         color=(255, 255, 255), world_space=True, duration=-1)
 
 target_pos = pymunk.Vec2d(400, 300)
 target_angle = 0.0
@@ -96,9 +96,9 @@ def update(dt):
     body.apply_force_at_world_point((fx * 10, fy * 10), pos)
     body.torque += torque * 10
 
-    Gizmos.draw_point(target_pos, color=(0, 255, 0), duration=0.1)
-    Gizmos.draw_point(pos, color=(255, 0, 0), duration=0.1)
-    Gizmos.draw_line(pos, pos + pymunk.Vec2d(30, 0).rotated(body.angle), color=(255, 255, 0), duration=0.1)
+    Gizmos.draw_point(target_pos, color=(0, 255, 0), duration=-1)
+    Gizmos.draw_point(pos, color=(255, 0, 0), duration=-1)
+    Gizmos.draw_line(pos, pos + pymunk.Vec2d(30, 0).rotated(body.angle), color=(255, 255, 0), duration=-1)
 
     if _plotter_window and _plotter_window.is_open():
         _plotter_window.add_data("X Error", abs(target_pos.x - pos.x), "Position")
