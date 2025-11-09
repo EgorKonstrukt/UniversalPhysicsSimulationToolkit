@@ -13,7 +13,6 @@ import pymunk
 import tkinter as tk
 from tkinter import filedialog
 from UPST.gui.script_editor_window import ScriptEditorWindow
-
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera,
                  input_handler, screen, font, tool_manager=None, network_manager=None, app=None):
@@ -58,14 +57,12 @@ class UIManager:
         ])
         self.active_color_picker = None
         self.color_picker_for_shape = None
-
-        self._script_editor = None
-
+        self.script_editor = None
     def show_inline_script_editor(self, script=None, owner=None):
-        if hasattr(self, '_script_editor') and self._script_editor and self._script_editor.is_alive():
-            self._script_editor.window.kill()
-        self._script_editor = ScriptEditorWindow(
-            rect=pygame.Rect(150, 100, 550, 450),
+        if hasattr(self, '_script_editor') and self.script_editor and self.script_editor.is_alive():
+            self.script_editor.window.kill()
+        self.script_editor = ScriptEditorWindow(
+            rect=pygame.Rect(150, 100, 550, 750),
             manager=self.manager,
             physics_manager=self.physics_manager,
             physics_debug_manager=self.physics_debug_manager,
@@ -73,7 +70,7 @@ class UIManager:
             script=script,
             app=self.app
         )
-
+        return self.script_editor
     def _create_color_controls(self, parent_window, obj_prefix):
         panel = UIPanel(relative_rect=pygame.Rect(5, 100, 200, 60), manager=self.manager, container=parent_window)
         pick_btn = UIButton(relative_rect=pygame.Rect(5, 5, 100, 25), text="Pick Color", manager=self.manager,
@@ -88,8 +85,6 @@ class UIManager:
         setattr(self, f"{obj_prefix}_color_button", pick_btn)
         setattr(self, f"{obj_prefix}_color_random_checkbox", rand_cb)
         setattr(self, f"{obj_prefix}_color_random_image", checkbox_img)
-
-
     def init_network_menu(self):
         if self.network_manager is not None and self.network_menu is None:
             self.network_menu = NetworkMenu(ui_manager=self.manager,
@@ -97,10 +92,8 @@ class UIManager:
                                             title="Network")
     def set_physics_debug_manager(self, physics_debug_manager):
         self.physics_debug_manager = physics_debug_manager
-
     def set_plotter(self, plotter):
         self.plotter = plotter
-
     def create_all_elements(self):
         self.create_force_field_buttons()
         self.create_console()
@@ -113,7 +106,6 @@ class UIManager:
         self.create_physics_debug_settings_window()
         self.create_plotter_window()
         self.create_script_window()
-
     def update_script_list(self):
         if not self.script_window or not hasattr(self.physics_manager, 'script_manager'):
             return
@@ -128,14 +120,12 @@ class UIManager:
             items.append(display)
             self._script_item_map[display] = s
         self.script_list.set_item_list(items)
-
     def stop_selected_script(self):
         selected = self.script_list.get_single_selection()
         if selected and selected in self._script_item_map:
             script = self._script_item_map[selected]
             self.physics_manager.script_manager.remove_script(script)
             self.update_script_list()
-
     def create_script_window(self):
         self.script_window = pygame_gui.elements.UIWindow(
             pygame.Rect(50, 50, 400, 500),
@@ -167,7 +157,6 @@ class UIManager:
             manager=self.manager,
             container=self.script_window
         )
-
     def create_force_field_buttons(self):
         self.force_field_buttons = []
         self.force_field_icons = []
@@ -180,14 +169,11 @@ class UIManager:
                            image_surface=pygame.image.load(f"sprites/gui/force_field/{path}"), manager=self.manager)
             self.force_field_buttons.append(button)
             self.force_field_icons.append(icon)
-
     def create_console(self):
         self.console_window = UIConsoleWindow(
             pygame.Rect(config.app.screen_width - 800, config.app.screen_height - 300, 500, 310),
             manager=self.manager)
-
     def create_settings_window(self):
-
         self.settings_window = pygame_gui.elements.UIWindow(
             pygame.Rect(200, config.app.screen_height - 300, 400, 200), manager=self.manager,
             window_display_title="Settings")
@@ -227,13 +213,11 @@ class UIManager:
         )
         UILabel(relative_rect=pygame.Rect(5, 90, 200, 20),
                 text="Draw Center of Mass", container=self.settings_window, manager=self.manager)
-
     def create_physics_debug_settings_window(self):
         self.physics_debug_window = pygame_gui.elements.UIWindow(
             pygame.Rect(config.app.screen_width - 450, 10, 400, 600), manager=self.manager,
             window_display_title="Physics Debug Settings")
         self.physics_debug_window.hide()
-
         y_offset = 10
         self.debug_setting_checkboxes = {}
         # for attr_name in dir(PhysicsDebugSettings):
@@ -250,7 +234,6 @@ class UIManager:
         #                         text=display_name, container=self.physics_debug_window, manager=self.manager)
         #         self.debug_setting_checkboxes[attr_name] = checkbox
         #         y_offset += 25
-
         self.toggle_all_debug_button = UIButton(
             relative_rect=pygame.Rect(5, y_offset, 150, 30),
             text="Toggle All Debug",
@@ -258,27 +241,23 @@ class UIManager:
             manager=self.manager
         )
         y_offset += 35
-
         self.clear_debug_history_button = UIButton(
             relative_rect=pygame.Rect(5, y_offset, 150, 30),
             text="Clear Debug History",
             container=self.physics_debug_window,
             manager=self.manager
         )
-
     def create_plotter_window(self):
         self.plotter_window = pygame_gui.elements.UIWindow(
             pygame.Rect(50, 50, 600, 400), manager=self.manager,
             window_display_title="Physics Plotter")
         self.plotter_window.hide()
-
         self.plotter_surface_element = UIImage(
             relative_rect=pygame.Rect(10, 10, 580, 300),
             image_surface=pygame.Surface((580, 300), pygame.SRCALPHA),
             container=self.plotter_window,
             manager=self.manager
         )
-
         self.plotter_dropdown = UIDropDownMenu(
             options_list=['Select Parameter'],
             starting_option='Select Parameter',
@@ -286,21 +265,18 @@ class UIManager:
             container=self.plotter_window,
             manager=self.manager
         )
-
         self.plotter_add_button = UIButton(
             relative_rect=pygame.Rect(170, 320, 80, 30),
             text='Add Plot',
             container=self.plotter_window,
             manager=self.manager
         )
-
         self.plotter_clear_button = UIButton(
             relative_rect=pygame.Rect(260, 320, 80, 30),
             text='Clear Plots',
             container=self.plotter_window,
             manager=self.manager
         )
-
     def create_force_field_settings(self):
         self.strength_slider = UIHorizontalSlider(relative_rect=pygame.Rect(400, 10, 200, 20), start_value=500,
                                                   value_range=(0, 5000), manager=self.manager)
@@ -311,7 +287,6 @@ class UIManager:
         self.text_label_radius = UILabel(relative_rect=pygame.Rect(400, 40, 200, 50), text=f"Force Field Radius: {500}",
                                          manager=self.manager)
         self.hide_force_field_settings()
-
     def create_utility_buttons(self):
         self.save_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 10, 125, 40), text="Save World",
                                     manager=self.manager)
@@ -321,7 +296,6 @@ class UIManager:
                                           text="Delete All", manager=self.manager)
         self.toggle_debug_window_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 110, 125, 40), text="Debug Settings", manager=self.manager)
         self.toggle_plotter_window_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 160, 125, 40), text="Plotter", manager=self.manager)
-
         self.toggle_script_window_button = UIButton(
             relative_rect=pygame.Rect(config.app.screen_width - 135, 210, 125, 40),
             text="Scripts",
@@ -332,14 +306,12 @@ class UIManager:
                                   image_surface=pygame.image.load("sprites/gui/pause.png").convert_alpha(),
                                   manager=self.manager)
         self.pause_icon.hide()
-
     def _create_object_window(self, title, img_path):
         window = pygame_gui.elements.UIWindow(pygame.Rect(200, 10, 400, 300), manager=self.manager,
                                               window_display_title=title)
         UIImage(relative_rect=pygame.Rect(215, 5, 50, 50), image_surface=pygame.image.load(img_path), container=window,
                 manager=self.manager)
         return window
-
     def _create_common_object_inputs(self, window):
         inputs = {}
         inputs['friction_label'] = UILabel(relative_rect=pygame.Rect(5, 55, 80, 20), text="Friction:", container=window,
@@ -351,7 +323,6 @@ class UIManager:
         inputs['elasticity_entry'] = UITextEntryLine(initial_text="0.5", relative_rect=pygame.Rect(90, 75, 105, 20),
                                                      container=window, manager=self.manager)
         return inputs
-
     def _create_color_panel(self, parent_window, obj_prefix):
         color_panel = UIPanel(relative_rect=pygame.Rect(5, 100, parent_window.get_relative_rect().width - 45, 130),
                               manager=self.manager, container=parent_window)
@@ -373,7 +344,6 @@ class UIManager:
         setattr(self, f"{obj_prefix}_color_sliders", (red_slider, green_slider, blue_slider))
         setattr(self, f"{obj_prefix}_color_mode_button", random_button)
         setattr(self, f"{obj_prefix}_color_mode_checkbox_image", checkbox_image)
-
     def create_object_settings_windows(self):
         self.window_rectangle = self._create_object_window("Rectangle Settings", "sprites/gui/spawn/rectangle.png")
         self.rect_inputs = self._create_common_object_inputs(self.window_rectangle)
@@ -388,7 +358,6 @@ class UIManager:
                                                            relative_rect=pygame.Rect(30, 30, 100, 20),
                                                            container=self.window_rectangle, manager=self.manager)
         self._create_color_controls(self.window_rectangle, "rectangle")
-
         self.window_circle = self._create_object_window("Circle Settings", "sprites/gui/spawn/circle.png")
         self.circle_inputs = self._create_common_object_inputs(self.window_circle)
         self.circle_inputs['radius_label'] = UILabel(relative_rect=pygame.Rect(10, 10, 20, 20), text="R:",
@@ -397,7 +366,6 @@ class UIManager:
                                                              relative_rect=pygame.Rect(30, 10, 100, 20),
                                                              container=self.window_circle, manager=self.manager)
         self._create_color_controls(self.window_circle, "circle")
-
         self.window_triangle = self._create_object_window("Triangle Settings", "sprites/gui/spawn/triangle.png")
         self.triangle_inputs = self._create_common_object_inputs(self.window_triangle)
         self.triangle_inputs['size_label'] = UILabel(relative_rect=pygame.Rect(10, 10, 50, 20), text="Size:",
@@ -406,7 +374,6 @@ class UIManager:
                                                              relative_rect=pygame.Rect(60, 10, 100, 20),
                                                              container=self.window_triangle, manager=self.manager)
         self._create_color_controls(self.window_triangle, "triangle")
-
         self.window_polyhedron = self._create_object_window("Polyhedron Settings", "sprites/gui/spawn/polyhedron.png")
         self.poly_inputs = self._create_common_object_inputs(self.window_polyhedron)
         self.poly_inputs['size_label'] = UILabel(relative_rect=pygame.Rect(10, 10, 50, 20), text="Size:",
@@ -418,7 +385,6 @@ class UIManager:
         self.poly_inputs['faces_entry'] = UITextEntryLine(initial_text="6", relative_rect=pygame.Rect(60, 30, 100, 20),
                                                           container=self.window_polyhedron, manager=self.manager)
         self._create_color_controls(self.window_polyhedron, "polyhedron")
-
     def toggle_color_mode(self, shape_type):
         attr = f"{shape_type}_color_random"
         current = getattr(self, attr)
@@ -427,7 +393,6 @@ class UIManager:
         img_path = "sprites/gui/checkbox_true.png" if new else "sprites/gui/checkbox_false.png"
         img_element = getattr(self, f"{shape_type}_color_random_image")
         img_element.set_image(pygame.image.load(img_path))
-
     def open_color_picker(self, shape_type):
         if self.active_color_picker:
             self.active_color_picker.kill()
@@ -439,7 +404,6 @@ class UIManager:
             window_title=f"Pick Color for {shape_type.title()}"
         )
         self.color_picker_for_shape = shape_type
-
     def process_event(self, event, game_app):
         if event.type == pygame.USEREVENT:
             if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
@@ -466,32 +430,47 @@ class UIManager:
         if self.network_menu:
             self.network_menu.process_event(event)
         self.context_menu.process_event(event)
-        if self._script_editor:
-            self._script_editor.process_event(event)
-
+        if self.script_editor:
+            self.script_editor.process_event(event)
     def _on_resize(self):
-        self.manager.set_window_resolution((config.app.screen_width, config.app.screen_height))
+        screen_w, screen_h = config.app.screen_width, config.app.screen_height
+        self.manager.set_window_resolution((screen_w, screen_h))
         for i, (button, icon) in enumerate(zip(self.force_field_buttons, self.force_field_icons)):
-            pos = (config.app.screen_width - 135, config.app.screen_height - 500 + 51 * i)
+            pos = (screen_w - 135, screen_h - 500 + 51 * i)
             button.set_position(pos)
             icon.set_position((pos[0] - 50, pos[1] + 1))
-
-        self.console_window.set_position((config.app.screen_width - 800, config.app.screen_height - 300))
-        self.settings_window.set_position((200, config.app.screen_height - 300))
-        self.physics_debug_window.set_position((config.app.screen_width - 450, 10))
+        self.console_window.set_position((screen_w - 800, screen_h - 300))
+        self.settings_window.set_position((200, screen_h - 300))
+        self.physics_debug_window.set_position((screen_w - 450, 10))
         self.plotter_window.set_position((50, 50))
-        self.save_button.set_position((config.app.screen_width - 135, 10))
-        self.load_button.set_position((config.app.screen_width - 135, 60))
-        self.toggle_debug_window_button.set_position((config.app.screen_width - 135, 110))
-        self.toggle_plotter_window_button.set_position((config.app.screen_width - 135, 160))
-        self.delete_all_button.set_position((200, config.app.screen_height - 50))
-        self.toggle_script_window_button.set_position((config.app.screen_width - 135, 210))
-
+        self.save_button.set_position((screen_w - 135, 10))
+        self.load_button.set_position((screen_w - 135, 60))
+        self.toggle_debug_window_button.set_position((screen_w - 135, 110))
+        self.toggle_plotter_window_button.set_position((screen_w - 135, 160))
+        self.delete_all_button.set_position((200, screen_h - 50))
+        self.toggle_script_window_button.set_position((screen_w - 135, 210))
+        self.pause_icon.set_position((screen_w - 450, 10))
+        self._update_window_scaling(self.script_window, 0.4, 0.5)
+        self._update_window_scaling(self.settings_window, 0.4, 0.2)
+        self._update_window_scaling(self.physics_debug_window, 0.4, 0.6)
+        self._update_window_scaling(self.plotter_window, 0.6, 0.4)
+        self._update_window_scaling(self.window_rectangle, 0.4, 0.3)
+        self._update_window_scaling(self.window_circle, 0.4, 0.3)
+        self._update_window_scaling(self.window_triangle, 0.4, 0.3)
+        self._update_window_scaling(self.window_polyhedron, 0.4, 0.3)
+        self._update_window_scaling(self.console_window, 0.5, 0.31)
+    def _update_window_scaling(self, window, width_ratio, height_ratio):
+        if not window:
+            return
+        new_w = int(config.app.screen_width * width_ratio)
+        new_h = int(config.app.screen_height * height_ratio)
+        current_pos = window.get_position()
+        window.set_dimensions((new_w, new_h))
+        window.set_position(current_pos)
     def handle_button_press(self, event, game_app):
         if event.ui_element in self.tool_buttons:
             synthesizer.play_frequency(1030, duration=0.03, waveform='sine')
             self.handle_tool_button_select(event.ui_element, game_app)
-
         elif event.ui_element == self.new_script_btn:
             target = self.script_target_dropdown.selected_option
             owner = None
@@ -507,7 +486,6 @@ class UIManager:
             self.stop_selected_script()
         elif event.ui_element == self.refresh_scripts_btn:
             self.update_script_list()
-            
         elif event.ui_element in self.force_field_buttons:
             self.selected_force_field_button_text = event.ui_element.text
             self.show_force_field_settings()
@@ -561,7 +539,6 @@ class UIManager:
         elif event.ui_element == self.plotter_clear_button:
             if self.plotter:
                 self.plotter.clear_data()
-
         elif event.ui_element == self.toggle_script_window_button:
             self.script_window.show() if not self.script_window.visible else self.script_window.hide()
         elif event.ui_element == self.refresh_scripts_button:
@@ -569,8 +546,7 @@ class UIManager:
         elif event.ui_element == self.stop_script_button:
             self.stop_selected_script()
         elif event.ui_element == self.open_script_editor_button:
-            self.open_script_editor()
-
+            self.show_inline_script_editor()
         else:
             for setting_name, checkbox in self.debug_setting_checkboxes.items():
                 if event.ui_element == checkbox:
@@ -580,7 +556,6 @@ class UIManager:
                             toggle_method()
                             self.update_debug_checkboxes()
                     break
-
     def update_debug_checkboxes(self):
         if self.physics_debug_manager:
             settings = config.physics_debug
@@ -588,7 +563,6 @@ class UIManager:
                 current_state = getattr(settings, attr_name, False)
                 image_path = "sprites/gui/checkbox_true.png" if current_state else "sprites/gui/checkbox_false.png"
                 checkbox.set_image(pygame.image.load(image_path))
-
     def update_plotter_dropdown(self):
         if self.physics_debug_manager and self.physics_debug_manager.selected_body:
             # Define available parameters to plot
@@ -611,7 +585,6 @@ class UIManager:
         else:
             self.plotter_dropdown.add_options(['No object selected'])
             self.plotter_dropdown.set_text('No object selected')
-
     def toggle_color_mode(self, shape_type):
         attr = f"{shape_type}_color_random"
         current = getattr(self, attr)
@@ -620,7 +593,6 @@ class UIManager:
         img_path = "sprites/gui/checkbox_true.png" if new else "sprites/gui/checkbox_false.png"
         img_element = getattr(self, f"{shape_type}_color_random_image")
         img_element.set_image(pygame.image.load(img_path))
-
     def handle_slider_move(self, event, game_app):
         if event.ui_element == self.strength_slider:
             game_app.force_field_manager.strength = int(event.value)
@@ -628,7 +600,6 @@ class UIManager:
         elif event.ui_element == self.radius_slider:
             game_app.force_field_manager.radius = int(event.value)
             self.text_label_radius.set_text(f"Force Field Radius: {game_app.force_field_manager.radius}")
-
     def handle_tool_button_select(self, button, game_app):
         self.hide_all_object_windows()
         game_app.input_handler.current_tool = button.text
@@ -643,20 +614,17 @@ class UIManager:
             window_to_show = tool_map[button.text]
             if window_to_show:
                 window_to_show.show()
-
     @profile("ui_update")
     def update(self, time_delta, clock):
-
         self.manager.update(time_delta)
         self.context_menu.update(time_delta, clock)
         if self.plotter:
             self.plotter_surface_element.set_image(self.plotter.get_surface())
         if self.script_window and self.script_window.alive():
             self.update_script_list()
-
+            self.script_editor
     @profile("ui_draw")
     def draw(self, screen):
-
         def auto_scale_unit(value):
             """Преобразует значение в наиболее подходящую единицу измерения"""
             if value >= 100:
@@ -665,9 +633,7 @@ class UIManager:
                 return f"{value:.2f} cm"
             else:
                 return f"{value * 10:.2f} mm"
-
         self.manager.draw_ui(screen)
-
         if self.input_handler.preview_shape:
             shape_info = self.input_handler.preview_shape
             font = self.font
@@ -677,7 +643,6 @@ class UIManager:
             line_height = 16
             texts = []
             pos = self.camera.world_to_screen(shape_info["position"])
-
             if shape_info["type"] == "circle":
                 radius = shape_info["radius"] * self.camera.target_scaling
                 pygame.draw.circle(self.screen, shape_info["color"], pos, int(radius), 2)
@@ -689,7 +654,6 @@ class UIManager:
                     f"Area: {auto_scale_unit(area)}",
                     f"Circumference: {auto_scale_unit(perimeter)}"
                 ]
-
             elif shape_info["type"] == "rect":
                 center = pos
                 width = shape_info["width"] * self.camera.target_scaling
@@ -705,7 +669,6 @@ class UIManager:
                     f"Area: {auto_scale_unit(area)}",
                     f"Perimeter: {auto_scale_unit(perimeter)}"
                 ]
-
             elif shape_info["type"] == "triangle":
                 center = pos
                 width = shape_info["width"] * self.camera.target_scaling
@@ -727,27 +690,21 @@ class UIManager:
                     f"Area: {auto_scale_unit(area)}",
                     f"Perimeter: {auto_scale_unit(perimeter)}"
                 ]
-
             if texts:
                 text_surfaces = [font.render(text, True, text_color) for text in texts]
                 total_height = len(texts) * line_height
                 text_width = max(s.get_width() for s in text_surfaces)
-
                 text_pos = (pos[0] + 20, pos[1] - total_height)
-
                 bg_rect = pygame.Rect(text_pos[0], text_pos[1], text_width + padding * 2, total_height + padding * 2)
                 text_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
                 text_surface.fill(bg_color)
                 self.screen.blit(text_surface, bg_rect.topleft)
-
                 for i, surface in enumerate(text_surfaces):
                     x = bg_rect.x + padding
                     y = bg_rect.y + padding + i * line_height
                     self.screen.blit(surface, (x, y))
-
     def open_context_menu(self, position, clicked_object):
         self.context_menu.show_menu(position, clicked_object)
-
     def open_properties_window(self, obj):
         print(f"Opening properties for object: {obj}")
         self.properties_window = pygame_gui.elements.UIWindow(
@@ -755,34 +712,26 @@ class UIManager:
             window_display_title=f"Properties: {obj.body.mass:.2f}kg")
         UILabel(relative_rect=pygame.Rect(10, 10, 280, 20), text=f"Mass: {obj.body.mass:.2f}kg", container=self.properties_window, manager=self.manager)
         UILabel(relative_rect=pygame.Rect(10, 30, 280, 20), text=f"Velocity: {obj.body.velocity.length:.2f}m/s", container=self.properties_window, manager=self.manager)
-
     def hide_all_object_windows(self):
         self.window_rectangle.hide()
         self.window_circle.hide()
         self.window_triangle.hide()
         self.window_polyhedron.hide()
-
     def show_force_field_settings(self):
         self.strength_slider.show()
         self.radius_slider.show()
         self.text_label_radius.show()
         self.text_label_strength.show()
-
     def hide_force_field_settings(self):
         self.strength_slider.hide()
         self.radius_slider.hide()
         self.text_label_radius.hide()
         self.text_label_strength.hide()
-
     def toggle_pause_icon(self, show):
         if show:
             self.pause_icon.show()
         else:
             self.pause_icon.hide()
-
     def resize(self, new_width, new_height):
         config.app.screen_width = new_width
         config.app.screen_height = new_height
-
-
-

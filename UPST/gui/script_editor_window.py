@@ -44,23 +44,30 @@ class ScriptEditorWindow:
         self.manager.set_visual_debug_mode(False)
 
     def _create_ui(self):
-        self.layout = {'label_w': 80, 'input_x_offset': 90, 'row_h': 30, 'start_y': 10, 'btn_h': 28, 'code_min_h': 200,
-                       'btn_row_h': 35, 'status_h': 20, 'margin': 10, 'checkbox_h': 20, 'checkbox_label_offset': 25}
         self._update_layout_for_window()
         self._create_elements()
 
     def _update_layout_for_window(self):
-        win_w = self.window.get_container().get_size()[0]
-        win_h = self.window.get_container().get_size()[1]
+        win_w, win_h = self.window.get_container().get_size()
+        self.layout = {
+            'margin': int(win_w * 0.02),
+            'label_w': int(win_w * 0.15),
+            'input_x_offset': int(win_w * 0.20),
+            'row_h': int(win_h * 0.06),
+            'btn_h': int(win_h * 0.05),
+            'code_min_h': int(win_h * 0.30),
+            'btn_row_h': int(win_h * 0.06),
+            'status_h': int(win_h * 0.03),
+            'checkbox_h': int(win_h * 0.04),
+            'checkbox_label_offset': int(win_w * 0.05)
+        }
         self.layout['input_w'] = win_w - self.layout['input_x_offset'] - self.layout['margin']
-        self.layout['code_h'] = max(self.layout['code_min_h'], win_h - 200)
-        self.layout['btn_row_y'] = self.layout['start_y'] + 2 * self.layout['row_h'] + 5 + self.layout['code_h'] + \
-                                   self.layout['checkbox_h'] + 10
+        self.layout['code_h'] = max(self.layout['code_min_h'], win_h - int(win_h * 0.40))
 
     def _create_elements(self):
         self._clear_elements()
-        y = self.layout['start_y']
-        UILabel(relative_rect=pygame.Rect(self.layout['margin'], y, self.layout['label_w'], 25), text="Target:",
+        y = self.layout['margin']
+        UILabel(relative_rect=pygame.Rect(self.layout['margin'], y, self.layout['label_w'], int(self.layout['row_h']*0.8)), text="Target:",
                 manager=self.manager, container=self.window, object_id=ObjectID(class_id='@label'))
         options = ["World"]
         if self.owner is not None:
@@ -69,32 +76,31 @@ class ScriptEditorWindow:
             options.append(str(self.physics_debug_manager.selected_body))
         self.target_dropdown = UIDropDownMenu(options_list=options, starting_option=options[0],
                                               relative_rect=pygame.Rect(self.layout['input_x_offset'], y,
-                                                                        self.layout['input_w'], 25),
+                                                                        self.layout['input_w'], int(self.layout['row_h']*0.8)),
                                               manager=self.manager, container=self.window,
                                               object_id=ObjectID(class_id='@dropdown'))
         y += self.layout['row_h']
-        UILabel(relative_rect=pygame.Rect(self.layout['margin'], y, self.layout['label_w'], 25), text="Name:",
+        UILabel(relative_rect=pygame.Rect(self.layout['margin'], y, self.layout['label_w'], int(self.layout['row_h']*0.8)), text="Name:",
                 manager=self.manager, container=self.window, object_id=ObjectID(class_id='@label'))
         self.name_input = UITextEntryLine(
-            relative_rect=pygame.Rect(self.layout['input_x_offset'], y, self.layout['input_w'], 25),
+            relative_rect=pygame.Rect(self.layout['input_x_offset'], y, self.layout['input_w'], int(self.layout['row_h']*0.8)),
             manager=self.manager, container=self.window, object_id=ObjectID(class_id='@name_input'))
-        y += self.layout['row_h'] + 5
-        UILabel(relative_rect=pygame.Rect(self.layout['margin'], y, self.layout['label_w'], 25), text="Code:",
+        y += self.layout['row_h'] + int(self.layout['margin']*0.5)
+        UILabel(relative_rect=pygame.Rect(self.layout['margin'], y, self.layout['label_w'], int(self.layout['row_h']*0.8)), text="Code:",
                 manager=self.manager, container=self.window, object_id=ObjectID(class_id='@label'))
-        y += 25
+        y += int(self.layout['row_h']*0.8)
         self.code_box = UITextEntryBox(relative_rect=pygame.Rect(self.layout['margin'], y,
-                                                                 self.layout['input_w'] + self.layout[
-                                                                     'input_x_offset'] - self.layout['margin'],
+                                                                 self.layout['input_w'] + self.layout['input_x_offset'] - self.layout['margin'],
                                                                  self.layout['code_h']), manager=self.manager,
                                        container=self.window, object_id=ObjectID(class_id='@script_code_box'))
-        y += self.layout['code_h'] + 10
+        y += self.layout['code_h'] + self.layout['margin']
         self.threaded_checkbox = UICheckBox(
             relative_rect=pygame.Rect(self.layout['margin'], y, self.layout['checkbox_h'], self.layout['checkbox_h']),
             text="", manager=self.manager, container=self.window, object_id=ObjectID(class_id='@checkbox'))
-        UILabel(relative_rect=pygame.Rect(self.layout['margin'] + self.layout['checkbox_label_offset'], y, 200,
+        UILabel(relative_rect=pygame.Rect(self.layout['margin'] + self.layout['checkbox_label_offset'], y, int(self.layout['input_w']*0.6),
                                           self.layout['checkbox_h']), text="Run in background thread",
                 manager=self.manager, container=self.window, object_id=ObjectID(class_id='@label'))
-        y += self.layout['checkbox_h'] + 5
+        y += self.layout['checkbox_h'] + int(self.layout['margin']*0.5)
         btn_defs = [("Load from File", self.load_btn_cb, 0.02, "#load_btn", 0.18),
                     ("Insert Stub", self.insert_stub_cb, 0.22, "#stub_btn", 0.14),
                     ("Save to File", self.save_btn_cb, 0.38, "#save_btn", 0.14),
@@ -107,7 +113,7 @@ class ScriptEditorWindow:
                            manager=self.manager, container=self.window, object_id=ObjectID(object_id=obj_id))
             setattr(self, f'btn_{i}', btn)
         self.status_label = UILabel(
-            relative_rect=pygame.Rect(self.layout['margin'], y + self.layout['btn_h'] + 5, self.layout['input_w'],
+            relative_rect=pygame.Rect(self.layout['margin'], y + self.layout['btn_h'] + int(self.layout['margin']*0.5), self.layout['input_w'],
                                       self.layout['status_h']), text="Ready", manager=self.manager,
             container=self.window, object_id=ObjectID(class_id='@status_label'))
         self.code_box.on_text_changed = self._on_text_changed
@@ -128,13 +134,8 @@ class ScriptEditorWindow:
     def _on_resize(self):
         if not self.window:
             return
-        container = self.window.get_container()
-        new_width, new_height = container.get_size()
         self._update_layout_for_window()
         self._create_elements()
-
-    def on_window_resize(self):
-        self._on_resize()
 
     def load_btn_cb(self):
         self.load_script_from_file()
@@ -147,6 +148,8 @@ class ScriptEditorWindow:
         stub = "\ndef start():\n    # Called when script starts\n    pass\n"
         stub += "def update(dt):\n    # Called every frame with delta time\n    pass\n"
         stub += "def stop():\n    # Called when script stops\n    pass\n"
+        stub += "def save_state():\n    # Save data to save file \n    pass\n"
+        stub += "def load_state():\n    # Load data from save file \n    pass\n"
         if current.strip(): stub = "\n" + stub
         self.code_box.set_text(current + stub)
         self.update_status("Stub inserted")

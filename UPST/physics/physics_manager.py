@@ -161,6 +161,8 @@ class PhysicsManager:
             for body in list(self.space.bodies):
                 if body is self.static_body:
                     continue
+                if body:
+                    self.script_manager.remove_scripts_by_owner(body)
                 self.space.remove(body, *body.shapes)
                 Debug.log_info(f"Body {body.__hash__()} and its shapes removed.", "Physics")
             for line in list(self.static_lines):
