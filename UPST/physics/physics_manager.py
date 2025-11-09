@@ -21,6 +21,7 @@ class PhysicsManager:
             self.static_body = self.space.static_body
             self.simulation_frequency = int(config.physics.simulation_frequency)
             self.running_physics = True
+            self.running_scripts = True
             self.static_lines = []
             self._fixed_dt = 1.0 / max(1, self.simulation_frequency)
             self._accumulator = 0.0
@@ -40,7 +41,8 @@ class PhysicsManager:
 
     def update_scripts(self, dt: float):
         try:
-            self.script_manager.update_all(dt)
+            if self.running_scripts and self.running_physics:
+                self.script_manager.update_all(dt)
         except Exception as e:
             Debug.log_error(f"Error in update_scripts: {e}", "Physics")
 
@@ -218,6 +220,19 @@ class PhysicsManager:
         except Exception as e:
             Debug.log_error(f"Error in remove_body: {e}", "Physics")
 
+    def set_simulation_paused(self, paused: bool):
+        try:
+            self.running_physics = bool(paused)
+            Debug.log_info(f"Physics simulation {'paused' if self.running_physics else 'resumed'} via set_simulation_paused.", "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in set_simulation_paused: {e}", "Physics")
+
+    def toggle_pause(self):
+        try:
+            self.running_physics = not self.running_physics
+            Debug.log_info(f"Physics simulation {'paused' if self.running_physics else 'resumed'} via toggle_pause.", "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in toggle_pause: {e}", "Physics")
     def set_simulation_frequency(self, hz: int):
         try:
             hz = int(max(1, hz))

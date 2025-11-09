@@ -25,6 +25,7 @@ class SnapshotManager:
             with open(config.app.autosave_path, "rb") as f:
                 data = f.read()
             self.load_snapshot(data)
+            self.physics_manager.set_simulation_paused(paused=False)
             Debug.log_success("Autosave loaded from root directory.", category="SnapshotManager")
         except Exception as e:
             Debug.log_error(f"Failed to load autosave: {e}", category="SnapshotManager")
