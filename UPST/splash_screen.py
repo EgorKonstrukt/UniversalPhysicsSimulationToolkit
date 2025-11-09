@@ -33,7 +33,7 @@ class SplashScreen:
             except Exception:
                 pass
 
-        label = tk.Label(self.root, text="Loading UPST...", fg="#0af", bg="black", font=("Segoe UI", 16, "bold"))
+        label = tk.Label(self.root, text="Loading UPST...", fg="#0af", bg="black", font=("Segoe UI", 16))
         label.pack()
 
         progress = ttk.Progressbar(self.root, mode="indeterminate", length=300)

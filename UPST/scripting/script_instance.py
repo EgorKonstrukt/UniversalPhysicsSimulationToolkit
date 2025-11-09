@@ -2,7 +2,7 @@ import threading
 import time
 import traceback
 import sys
-from typing import Optional, Any, Callable, TypeVar, Dict
+from typing import Optional, Any, Callable, TypeVar, Dict, List, Tuple, Union, Set
 
 import pygame
 import pymunk
@@ -15,6 +15,9 @@ from UPST.modules.profiler import Profiler, profile
 from UPST.sound.sound_synthesizer import synthesizer
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos
+from UPST.gui.plotter_window import PlotterWindow
+
+
 
 try:
     import numpy as np
@@ -84,7 +87,17 @@ class ScriptInstance:
             "set_bg_fps": self.set_bg_fps,
             "threaded": threaded,
             "np": np,
-            "njit": njit
+            "njit": njit,
+            "Optional": Optional,
+            "Any": Any,
+            "Callable": Callable,
+            "TypeVar": TypeVar,
+            "Dict": Dict,
+            "List": List,
+            "Tuple": Tuple,
+            "Union": Union,
+            "Set": Set,
+            "PlotterWindow": PlotterWindow,
         }
 
         try:
@@ -289,7 +302,17 @@ class ScriptInstance:
             "set_bg_fps": self.set_bg_fps,
             "threaded": threaded,
             "np": np,
-            "njit": njit
+            "njit": njit,
+            "Optional": Optional,
+            "Any": Any,
+            "Callable": Callable,
+            "TypeVar": TypeVar,
+            "Dict": Dict,
+            "List": List,
+            "Tuple": Tuple,
+            "Union": Union,
+            "Set": Set,
+            "PlotterWindow": PlotterWindow(manager=self.app.ui_manager),
         }
 
     def _update_functions_from_namespace(self, namespace):

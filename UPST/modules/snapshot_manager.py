@@ -10,7 +10,6 @@ from UPST.utils import surface_to_bytes, bytes_to_surface
 
 
 class SnapshotManager:
-    AUTOSAVE_PATH = "autosave.space"
 
     def __init__(self, physics_manager, camera):
         self.physics_manager = physics_manager
@@ -20,10 +19,10 @@ class SnapshotManager:
         self._try_load_autosave()
 
     def _try_load_autosave(self):
-        if not os.path.isfile(self.AUTOSAVE_PATH):
+        if not os.path.isfile(config.app.autosave_path):
             return
         try:
-            with open(self.AUTOSAVE_PATH, "rb") as f:
+            with open(config.app.autosave_path, "rb") as f:
                 data = f.read()
             self.load_snapshot(data)
             Debug.log_success("Autosave loaded from root directory.", category="SnapshotManager")
@@ -34,7 +33,7 @@ class SnapshotManager:
             return
         try:
             snapshot_bytes = pickle.dumps(data)
-            with open(self.AUTOSAVE_PATH, "wb") as f:
+            with open(config.app.autosave_path, "wb") as f:
                 f.write(snapshot_bytes)
             Debug.log_success("Autosave written to root directory.", category="SnapshotManager")
         except Exception as e:

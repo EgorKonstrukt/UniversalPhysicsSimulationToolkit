@@ -218,6 +218,7 @@ class TextureEditorConfig:
 @dataclass
 class AppConfig:
     config_default_path: str = "config.json"
+    autosave_path: str = "autosave.space"
     screen_width: int = 1920
     screen_height: int = 1080
     fullscreen: bool = False

@@ -2,6 +2,9 @@ import time
 import pymunk
 from typing import Callable, Tuple
 
+
+_plotter_window: Optional[PlotterWindow] = None
+
 class AdjustablePIDController:
     def __init__(self, kp=1.0, ki=0.0, kd=0.0):
         self.kp = kp
@@ -58,7 +61,8 @@ target_pos = pymunk.Vec2d(400, 300)
 target_angle = 0.0
 pid_x = AdjustablePIDController(1.0, 0.1, 0.01)
 pid_y = AdjustablePIDController(1.0, 0.1, 0.01)
-pid_angle = AdjustablePIDController(5.0, 0.0, 0.5)
+pid_angle = AdjustablePIDController(5.0,
+                                    0.0, 0.5)
 last_time = time.perf_counter()
 
 def save_state():
@@ -74,11 +78,13 @@ def load_state(state):
     pid_angle.load(state.get("pid_angle", {}))
 
 def start():
-    global body
+    global body, _plotter_window
     body = owner
+    if app and hasattr(app, 'ui_manager'):
+        _plotter_window = PlotterWindow(manager=app.ui_manager, position=(200, 100), size=(640, 360))
 
 def update(dt):
-    global last_time
+    global last_time, _plotter_window
     now = time.perf_counter()
     actual_dt = now - last_time or 1e-6
     last_time = now
@@ -93,6 +99,12 @@ def update(dt):
     Gizmos.draw_point(target_pos, color=(0, 255, 0), duration=0.1)
     Gizmos.draw_point(pos, color=(255, 0, 0), duration=0.1)
     Gizmos.draw_line(pos, pos + pymunk.Vec2d(30, 0).rotated(body.angle), color=(255, 255, 0), duration=0.1)
+
+    if _plotter_window and _plotter_window.is_open():
+        _plotter_window.add_data("X Error", abs(target_pos.x - pos.x), "Position")
+        _plotter_window.add_data("Y Error", abs(target_pos.y - pos.y), "Position")
+        _plotter_window.add_data("Angle Error", abs(target_angle - body.angle), "Angle")
+        _plotter_window.update(dt)
 
     pid_x.draw_ui(pos=(100, 100), label="X")
     pid_y.draw_ui(pos=(100, 320), label="Y")
