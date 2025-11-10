@@ -14,7 +14,7 @@ from UPST.modules.camera import Camera
 from UPST.modules.profiler import Profiler, profile
 from UPST.sound.sound_synthesizer import synthesizer
 from UPST.debug.debug_manager import Debug
-from UPST.gizmos.gizmos_manager import Gizmos
+from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
 from UPST.gui.plotter_window import PlotterWindow
 
 
@@ -214,6 +214,12 @@ class ScriptInstance:
     def stop(self):
         if not self.running:
             return
+        if getattr(self, 'preserve_gizmos', True):
+            gizmos_mgr = get_gizmos()
+            if gizmos_mgr:
+                persistent_temp = [g for g in gizmos_mgr.gizmos if g.duration == -1]
+                gizmos_mgr.persistent_gizmos.extend(persistent_temp)
+                gizmos_mgr.gizmos[:] = [g for g in gizmos_mgr.gizmos if g.duration != -1]
         self.running = False
         self._stop_event.set()
         if self.thread and self.thread.is_alive():
@@ -229,6 +235,7 @@ class ScriptInstance:
                 self._stop_fn()
         except Exception:
             Debug.log_exception(f"Script '{self.name}' stop() error: {traceback.format_exc()}", "Scripting")
+
     def get_serializable_state(self) -> dict:
         if self._save_state_fn:
             try:

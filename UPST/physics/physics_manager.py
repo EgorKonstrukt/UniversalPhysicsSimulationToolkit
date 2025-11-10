@@ -2,7 +2,7 @@ from UPST.config import config
 import math
 import pymunk
 from UPST.debug.debug_manager import Debug
-from UPST.gizmos.gizmos_manager import Gizmos
+from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
 from UPST.scripting.script_manager import ScriptManager
 
 class PhysicsManager:
@@ -174,6 +174,11 @@ class PhysicsManager:
             for constraint in list(self.space.constraints):
                 self.space.remove(constraint)
                 Debug.log_info(f"Constraint {constraint.__hash__()} removed.", "Physics")
+            gizmos_mgr = get_gizmos()
+            if gizmos_mgr:
+                gizmos_mgr.clear()
+                gizmos_mgr.clear_persistent()
+                gizmos_mgr.clear_unique()
         except Exception as e:
             Debug.log_error(f"Error in delete_all: {e}", "Physics")
 
