@@ -21,9 +21,10 @@ class ContextMenu:
         self.clicked_object = None
         self.properties_window = None
         self.script_window = None
-        self.create_menu()
 
     def create_menu(self):
+        if hasattr(self, 'context_menu') and self.context_menu:
+            self.context_menu.kill()
         self.context_menu = UIPanel(
             relative_rect=pygame.Rect(0, 0, 260, 420),
             manager=self.manager,
@@ -31,7 +32,6 @@ class ContextMenu:
             margins={'left': 5, 'right': 5, 'top': 5, 'bottom': 5},
             object_id=pygame_gui.core.ObjectID(object_id='#context_menu_panel', class_id='@context_menu')
         )
-
 
         menu_items = [
             'Delete Object',
@@ -59,6 +59,8 @@ class ContextMenu:
         )
         self.context_menu_list.focus()
 
+
+
     def open_script_management(self):
         if self.script_window and self.script_window.alive(): self.script_window.kill()
         rect = pygame.Rect(100, 100, 400, 300)
@@ -67,11 +69,13 @@ class ContextMenu:
 
     def show_menu(self, position, clicked_object):
         self.clicked_object = clicked_object
+        self.create_menu()
         x, y = position
         max_x, max_y = pygame.display.get_surface().get_size()
         rect = self.context_menu.rect
         x = min(x, max_x - rect.width)
         y = min(y, max_y - rect.height)
+
         self.context_menu.set_position((x, y))
         self.context_menu.show()
 
@@ -85,6 +89,7 @@ class ContextMenu:
         if event.type == pygame.USEREVENT and event.user_type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
             if event.ui_element == self.context_menu_list:
                 self.handle_selection(event.text)
+                self.context_menu_list.kill()
                 self.context_menu.hide()
 
 

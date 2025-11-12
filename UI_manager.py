@@ -59,7 +59,7 @@ class UIManager:
         self.color_picker_for_shape = None
         self.script_editor = None
     def show_inline_script_editor(self, script=None, owner=None):
-        if hasattr(self, '_script_editor') and self.script_editor and self.script_editor.is_alive():
+        if hasattr(self, '_script_editor') and self.script_editor:
             self.script_editor.window.kill()
         self.script_editor = ScriptEditorWindow(
             rect=pygame.Rect(150, 100, 550, 750),
@@ -70,7 +70,7 @@ class UIManager:
             script=script,
             app=self.app
         )
-        return self.script_editor
+        # return self.script_editor
     def _create_color_controls(self, parent_window, obj_prefix):
         panel = UIPanel(relative_rect=pygame.Rect(5, 100, 200, 60), manager=self.manager, container=parent_window)
         pick_btn = UIButton(relative_rect=pygame.Rect(5, 5, 100, 25), text="Pick Color", manager=self.manager,
