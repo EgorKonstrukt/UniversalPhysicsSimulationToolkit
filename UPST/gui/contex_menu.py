@@ -17,21 +17,19 @@ class ContextMenu:
         self.manager = manager
         self.ui_manager = ui_manager
         self.context_menu = None
-        self.context_menu_list = None
+        self.context_menu_buttons = []
         self.clicked_object = None
         self.properties_window = None
         self.script_window = None
+        self.button_height = 30
+        self.button_spacing = -4
 
     def create_menu(self):
         if hasattr(self, 'context_menu') and self.context_menu:
             self.context_menu.kill()
-        self.context_menu = UIPanel(
-            relative_rect=pygame.Rect(0, 0, 260, 420),
-            manager=self.manager,
-            visible=False,
-            margins={'left': 5, 'right': 5, 'top': 5, 'bottom': 5},
-            object_id=pygame_gui.core.ObjectID(object_id='#context_menu_panel', class_id='@context_menu')
-        )
+        for btn in self.context_menu_buttons:
+            btn.kill()
+        self.context_menu_buttons.clear()
 
         menu_items = [
             'Delete Object',
@@ -49,23 +47,32 @@ class ContextMenu:
             'Script Management',
         ]
 
-        self.context_menu_list = UISelectionList(
-            relative_rect=pygame.Rect(0, 0, 250, 400),
-            item_list=menu_items,
-            container=self.context_menu,
+        total_height = len(menu_items) * (self.button_height + self.button_spacing) - self.button_spacing
+        panel_height = total_height + 8
+
+        self.context_menu = UIPanel(
+            relative_rect=pygame.Rect(0, 0, 260, panel_height),
             manager=self.manager,
-            allow_double_clicks=False,
-            object_id=pygame_gui.core.ObjectID(object_id='#context_menu_list', class_id='@context_menu')
+            visible=False,
+            margins={'left': 0, 'right': 0, 'top': 0, 'bottom': 0},
+            object_id=pygame_gui.core.ObjectID(object_id='#context_menu_panel', class_id='@context_menu')
         )
-        self.context_menu_list.focus()
 
-
+        for i, item in enumerate(menu_items):
+            btn_y = 4 + i * (self.button_height + self.button_spacing)
+            btn = UIButton(
+                relative_rect=pygame.Rect(4, btn_y, 252, self.button_height),
+                text=item,
+                manager=self.manager,
+                container=self.context_menu,
+                object_id=pygame_gui.core.ObjectID(object_id=f'#context_btn_{i}', class_id='@context_button')
+            )
+            self.context_menu_buttons.append(btn)
 
     def open_script_management(self):
         if self.script_window and self.script_window.alive(): self.script_window.kill()
         rect = pygame.Rect(100, 100, 400, 300)
         self.script_window = ScriptManagementWindow(rect, self.manager, self.ui_manager.physics_manager.script_manager)
-
 
     def show_menu(self, position, clicked_object):
         self.clicked_object = clicked_object
@@ -75,7 +82,6 @@ class ContextMenu:
         rect = self.context_menu.rect
         x = min(x, max_x - rect.width)
         y = min(y, max_y - rect.height)
-
         self.context_menu.set_position((x, y))
         self.context_menu.show()
 
@@ -86,11 +92,27 @@ class ContextMenu:
         if self.properties_window:
             self.properties_window.process_event(event)
 
-        if event.type == pygame.USEREVENT and event.user_type == pygame_gui.UI_SELECTION_LIST_NEW_SELECTION:
-            if event.ui_element == self.context_menu_list:
-                self.handle_selection(event.text)
-                self.context_menu_list.kill()
-                self.context_menu.hide()
+        if event.type == pygame.USEREVENT and event.user_type == pygame_gui.UI_BUTTON_PRESSED:
+            for i, btn in enumerate(self.context_menu_buttons):
+                if event.ui_element == btn:
+                    menu_items = [
+                        'Delete Object',
+                        'Properties',
+                        'Duplicate',
+                        'Freeze/Unfreeze',
+                        'Set Texture',
+                        'Reset Position',
+                        'Reset Rotation',
+                        'Make Static',
+                        'Make Dynamic',
+                        'Select for Debug',
+                        'Run Python Script',
+                        'Edit Script',
+                        'Script Management',
+                    ]
+                    self.handle_selection(menu_items[i])
+                    self.hide()
+                    break
 
 
     def handle_selection(self, selection):
