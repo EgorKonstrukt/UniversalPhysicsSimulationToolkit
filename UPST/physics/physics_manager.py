@@ -228,6 +228,9 @@ class PhysicsManager:
     def set_simulation_paused(self, paused: bool):
         try:
             self.running_physics = bool(paused)
+            g = get_gizmos()
+            if g: g.simulation_paused = bool(paused)
+            print(g.simulation_paused)
             Debug.log_info(f"Physics simulation {'paused' if self.running_physics else 'resumed'} via set_simulation_paused.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in set_simulation_paused: {e}", "Physics")
@@ -235,6 +238,8 @@ class PhysicsManager:
     def toggle_pause(self):
         try:
             self.running_physics = not self.running_physics
+            g = get_gizmos()
+            if g: g.simulation_paused = True
             Debug.log_info(f"Physics simulation {'paused' if self.running_physics else 'resumed'} via toggle_pause.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in toggle_pause: {e}", "Physics")

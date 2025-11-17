@@ -78,7 +78,7 @@ class ContextMenu:
         self.context_menu = UIWindow(
             rect=pygame.Rect(0, 0, 260, window_height),
             manager=self.manager,
-            window_display_title=str(self.clicked_object),
+            window_display_title=str(self.clicked_object.__class__.__name__),
             object_id=pygame_gui.core.ObjectID(object_id='#context_menu_window', class_id='@context_menu'),
             resizable=False
         )

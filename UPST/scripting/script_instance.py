@@ -193,6 +193,9 @@ class ScriptInstance:
         self.running = True
         self._stop_event.clear()
         self._last_bg_time = time.perf_counter()
+        gizmos_mgr = get_gizmos()
+        if gizmos_mgr:
+            gizmos_mgr.scripts_paused = False
         try:
             if self._start_fn:
                 self._start_fn()
@@ -217,9 +220,11 @@ class ScriptInstance:
         if getattr(self, 'preserve_gizmos', True):
             gizmos_mgr = get_gizmos()
             if gizmos_mgr:
-                persistent_temp = [g for g in gizmos_mgr.gizmos if g.duration == -1]
-                gizmos_mgr.persistent_gizmos.extend(persistent_temp)
-                gizmos_mgr.gizmos[:] = [g for g in gizmos_mgr.gizmos if g.duration != -1]
+                gizmos_mgr.scripts_paused = True
+            # if gizmos_mgr:
+            #     persistent_temp = [g for g in gizmos_mgr.gizmos if g.duration == -1]
+            #     gizmos_mgr.persistent_gizmos.extend(persistent_temp)
+            #     gizmos_mgr.gizmos[:] = [g for g in gizmos_mgr.gizmos if g.duration != -1]
         self.running = False
         self._stop_event.set()
         if self.thread and self.thread.is_alive():
