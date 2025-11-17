@@ -633,6 +633,7 @@ class UIManager:
                 return f"{value:.2f} cm"
             else:
                 return f"{value * 10:.2f} mm"
+        self.context_menu.draw_menu_line(screen, self.camera)
         self.manager.draw_ui(screen)
         if self.input_handler.preview_shape:
             shape_info = self.input_handler.preview_shape

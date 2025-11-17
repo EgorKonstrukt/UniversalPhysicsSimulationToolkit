@@ -1,6 +1,6 @@
 import pygame_gui
 from pygame_gui.elements import UIDropDownMenu, UIHorizontalSlider, UILabel, UIButton, UITextEntryLine, UIImage, \
-    UIPanel, UITextBox, UISelectionList
+    UIPanel, UITextBox, UISelectionList, UIWindow
 from pygame_gui.windows import UIConsoleWindow
 import pygame
 import pymunk
@@ -11,6 +11,7 @@ from UPST.gui.texture_window import TextureWindow
 import tkinter as tk
 from tkinter import simpledialog, messagebox
 from UPST.gui.script_management_window import ScriptManagementWindow
+from UPST.network.network_manager import Color
 
 
 class ConfigOption:
@@ -31,14 +32,13 @@ class ContextMenu:
         self.clicked_object = None
         self.properties_window = None
         self.script_window = None
-        self.button_height = 30
-        self.button_spacing = -4
         self.submenu_window = None
         self.submenu_buttons = []
         self.menu_structure = self._build_menu_structure()
         self.hover_start_time = {}
-        self.hover_delay = 0.5
         self.hovered_button = None
+        self.menu_line_start_pos = None
+        self.last_object_pos = None
 
     def _build_menu_structure(self):
         return [
@@ -72,23 +72,25 @@ class ContextMenu:
         self.context_menu_buttons.clear()
 
         menu_items = [opt.name for opt in self.menu_structure]
-        total_height = len(menu_items) * (self.button_height + self.button_spacing) - self.button_spacing
-        panel_height = total_height + 8
+        total_height = len(menu_items) * (config.context_menu.button_height + config.context_menu.button_spacing) - config.context_menu.button_spacing
+        window_height = total_height + 28
 
-        self.context_menu = UIPanel(
-            relative_rect=pygame.Rect(0, 0, 260, panel_height),
+        self.context_menu = UIWindow(
+            rect=pygame.Rect(0, 0, 260, window_height),
             manager=self.manager,
-            visible=False,
-            margins={'left': 0, 'right': 0, 'top': 0, 'bottom': 0},
-            object_id=pygame_gui.core.ObjectID(object_id='#context_menu_panel', class_id='@context_menu')
+            window_display_title=str(self.clicked_object),
+            object_id=pygame_gui.core.ObjectID(object_id='#context_menu_window', class_id='@context_menu'),
+            resizable=False
         )
+        self.context_menu.set_blocking(False)
+        self.context_menu.border_colour= pygame.Color(255, 255, 255)
 
         for i, item in enumerate(menu_items):
-            btn_y = 4 + i * (self.button_height + self.button_spacing)
+            btn_y = 4 + i * (config.context_menu.button_height + config.context_menu.button_spacing)
             has_children = bool(self.menu_structure[i].children)
             text = f"{item} >" if has_children else item
             btn = UIButton(
-                relative_rect=pygame.Rect(4, btn_y, 252, self.button_height),
+                relative_rect=pygame.Rect(4, btn_y, 248, config.context_menu.button_height),
                 text=text,
                 manager=self.manager,
                 container=self.context_menu,
@@ -107,11 +109,18 @@ class ContextMenu:
         self.create_menu()
         x, y = position
         max_x, max_y = pygame.display.get_surface().get_size()
-        rect = self.context_menu.rect
+        rect = self.context_menu.get_abs_rect()
         x = min(x, max_x - rect.width)
         y = min(y, max_y - rect.height)
         self.context_menu.set_position((x, y))
         self.context_menu.show()
+
+        if self.clicked_object and hasattr(self.clicked_object, 'position'):
+            self.menu_line_start_pos = self.clicked_object.position
+            self.last_object_pos = self.clicked_object.position
+        else:
+            self.menu_line_start_pos = None
+            self.last_object_pos = None
 
     def hide(self):
         if self.context_menu:
@@ -122,6 +131,8 @@ class ContextMenu:
         self.submenu_buttons.clear()
         self.hover_start_time.clear()
         self.hovered_button = None
+        self.menu_line_start_pos = None
+        self.last_object_pos = None
 
     def is_point_inside_menu(self, pos):
         if not self.context_menu or not self.context_menu.visible:
@@ -136,28 +147,30 @@ class ContextMenu:
     def _show_submenu(self, submenu_options, position):
         self.hide_submenu()
         max_x, max_y = pygame.display.get_surface().get_size()
-        submenu_height = len(submenu_options) * (self.button_height + self.button_spacing) - self.button_spacing + 8
+        submenu_height = len(submenu_options) * (config.context_menu.button_height + config.context_menu.button_spacing) - config.context_menu.button_spacing + 28
         submenu_width = 200
 
         x, y = position
         x = min(x, max_x - submenu_width)
         y = min(y, max_y - submenu_height)
 
-        self.submenu_window = UIPanel(
-            relative_rect=pygame.Rect(x, y, submenu_width, submenu_height),
+        self.submenu_window = UIWindow(
+            rect=pygame.Rect(x, y, submenu_width, submenu_height),
             manager=self.manager,
-            visible=True,
-            margins={'left': 0, 'right': 0, 'top': 0, 'bottom': 0},
-            object_id=pygame_gui.core.ObjectID(object_id='#submenu_panel', class_id='@submenu')
+            window_display_title="",
+            object_id=pygame_gui.core.ObjectID(object_id='#submenu_window', class_id='@submenu'),
+            resizable=False
         )
+        self.submenu_window.set_blocking(False)
+
 
         self.submenu_buttons = []
         for i, opt in enumerate(submenu_options):
-            btn_y = 4 + i * (self.button_height + self.button_spacing)
+            btn_y = 4 + i * (config.context_menu.button_height + config.context_menu.button_spacing)
             has_children = bool(opt.children)
             text = f"{opt.name} >" if has_children else opt.name
             btn = UIButton(
-                relative_rect=pygame.Rect(4, btn_y, submenu_width - 8, self.button_height),
+                relative_rect=pygame.Rect(4, btn_y, submenu_width - 16, config.context_menu.button_height),
                 text=text,
                 manager=self.manager,
                 container=self.submenu_window,
@@ -241,13 +254,33 @@ class ContextMenu:
                 self.hover_start_time[btn_id] = pygame.time.get_ticks()
             else:
                 elapsed = (pygame.time.get_ticks() - self.hover_start_time[btn_id]) / 1000.0
-                if elapsed >= self.hover_delay and option.children:
+                if elapsed >= config.context_menu.hover_delay and option.children:
                     menu_rect = btn.get_abs_rect()
                     submenu_pos = (menu_rect.right, menu_rect.top)
                     self._show_submenu(option.children, submenu_pos)
                     self.hover_start_time.clear()
         else:
             self.hover_start_time.clear()
+
+        # Update line start position if object moved
+        if self.clicked_object and self.menu_line_start_pos and hasattr(self.clicked_object, 'position'):
+            current_pos = self.clicked_object.position
+            if self.last_object_pos != current_pos:
+                self.menu_line_start_pos = current_pos
+                self.last_object_pos = current_pos
+
+    def draw_menu_line(self, screen, camera):
+        if not self.menu_line_start_pos or not self.context_menu or not self.context_menu.visible:
+            return
+
+        start_world = self.menu_line_start_pos
+        menu_rect = self.context_menu.get_abs_rect()
+        menu_center = (menu_rect.centerx, menu_rect.centery)
+
+        start_screen = camera.world_to_screen(start_world)
+        end_screen = menu_center
+
+        pygame.draw.line(screen, (255, 255, 255), start_screen, end_screen, 2)
 
     def _execute_option(self, option):
         if not self.clicked_object and option.name not in ("Run Python Script", "Script Management"):

@@ -5,6 +5,12 @@ from typing import Any, Dict, Tuple, List, Type, Optional, get_type_hints
 import json
 
 @dataclass
+class ContextMenuConfig:
+    button_height = 30
+    button_spacing = -4
+    hover_delay = 0.25
+
+@dataclass
 class MultithreadingConfig:
     gizmos_threaded: bool = True
     gizmos_max_workers: int = 1
@@ -272,6 +278,7 @@ class Config:
     snapshot: "SnapshotConfig"
     texture_editor: "TextureEditorConfig"
     save_load: "SaveLoadConfig"
+    context_menu: "ContextMenuConfig"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -360,6 +367,7 @@ Config.register("multithreading", MultithreadingConfig)
 Config.register("snapshot", SnapshotConfig)
 Config.register("texture_editor", TextureEditorConfig)
 Config.register("save_load", SaveLoadConfig)
+Config.register("context_menu", ContextMenuConfig)
 
 def grid_to_dict_custom(self, d: Dict) -> Dict:
     d["default_colors"] = asdict(self.default_colors)
