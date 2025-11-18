@@ -2,10 +2,16 @@ import pygame
 import math
 import pymunk
 import time
+import random
+import os
+
+from pymunk import Vec2d
+
 from UPST.config import config
 from UPST.utils import bytes_to_surface
 from UPST.modules.texture_processor import TextureProcessor, TextureState
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
+from UPST.modules.cloud_manager import CloudManager, CloudRenderer
 
 
 class Renderer:
@@ -26,12 +32,22 @@ class Renderer:
         self.texture_cache_access_order = []
         self.last_texture_update = 0
         self.texture_update_interval = 0.1
+        self.min_cloud_px = 32
+        self.clouds = CloudManager(folder="sprites/background", cell_size=3000, clouds_per_cell=2)
+        self.cloud_renderer = CloudRenderer(screen, camera, self.clouds, self.min_cloud_px)
+
+
+    def set_clouds_folder(self, folder):
+        self.clouds.set_folder(folder)
+
 
     def draw(self):
+        dt = self.app.clock.get_time() / 1000.0
         start_time = pygame.time.get_ticks()
         theme = config.world.themes[config.world.current_theme]
-        self.grid_manager.draw(self.screen)
         self.screen.fill(theme.background_color)
+        self.cloud_renderer.draw()
+        self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw_debug_gizmos()
         draw_opts = self.camera.get_draw_options(self.screen)
         self.physics_manager.space.debug_draw(draw_opts)
@@ -48,10 +64,8 @@ class Renderer:
         self._draw_cursor_icon()
         self.app.debug_manager.draw_all_debug_info(self.screen, self.physics_manager, self.camera)
         if self.script_system: self._draw_script_info()
-
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
-
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
 
     def _get_texture(self, path):
