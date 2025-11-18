@@ -15,7 +15,8 @@ from UPST.network.network_manager import Color
 
 
 class ConfigOption:
-    def __init__(self, name, value=None, options=None, handler=None, children=None, is_checkbox=False, get_state=None, set_state=None):
+    def __init__(self, name, value=None, options=None, handler=None, children=None,
+                 is_checkbox=False, get_state=None, set_state=None, icon=None):
         self.name = name
         self.value = value
         self.options = options
@@ -24,6 +25,8 @@ class ConfigOption:
         self.is_checkbox = is_checkbox
         self.get_state = get_state
         self.set_state = set_state
+        self.icon = icon
+
 
 
 
@@ -45,40 +48,56 @@ class ContextMenu:
         self.last_object_pos = None
 
     def _build_menu_structure(self):
-        return [
-            ConfigOption("Delete Object", handler=self.delete_object),
-            ConfigOption("Properties", handler=self.open_properties_window),
-            ConfigOption("Duplicate", handler=self.duplicate_object),
-            ConfigOption("Freeze/Unfreeze", handler=self.toggle_freeze_object),
-            ConfigOption("Set Texture", handler=self.open_texture_window),
-            ConfigOption("Reset", children=[
-                ConfigOption("Reset Position", handler=self.reset_position),
-                ConfigOption("Reset Rotation", handler=self.reset_rotation)
-            ]),
-            ConfigOption("Body Type", children=[
-                ConfigOption("Make Static", handler=self.make_static),
-                ConfigOption("Make Dynamic", handler=self.make_dynamic)
-            ]),
-            ConfigOption("Select for Debug", handler=self.select_for_debug),
-            ConfigOption("Camera", children=[
-                ConfigOption("Follow This Object", handler=self.set_camera_target),
-                ConfigOption(
-                    name="Rotate with object",
-                    is_checkbox=True,
-                    get_state=lambda: self.ui_manager.camera.rotate_with_target,
-                    set_state=lambda val: setattr(self.ui_manager.camera, 'rotate_with_target', val)
-                )
+        if self.clicked_object is None:  # Меню для мира
+            return [
+                ConfigOption("Scripts", children=[
+                    ConfigOption("Run Python Script",
+                                 handler=lambda: self.ui_manager.show_inline_script_editor(owner=None),
+                                 icon="sprites/gui/erase.png"),
+                    ConfigOption("Script Management",
+                                 handler=self.open_script_management)
+                ],
+                                 icon="sprites/gui/python.png"),
+                ConfigOption("Center to Scene", handler=self.center_to_scene)
+            ]
+        else:  # Меню для объектов (Body)
+            return [
+                ConfigOption("Erase", handler=self.delete_object,
+                             icon="sprites/gui/erase.png"),
+                ConfigOption("Properties", handler=self.open_properties_window, icon="sprites/gui/settings.png"),
+                ConfigOption("Duplicate", handler=self.duplicate_object, icon="sprites/gui/clone.png"),
+                ConfigOption("Freeze/Unfreeze", handler=self.toggle_freeze_object, icon="sprites/gui/glue.png"),
+                ConfigOption("Set Texture", handler=self.open_texture_window, icon="sprites/gui/texture.png"),
+                ConfigOption("Reset", children=[
+                    ConfigOption("Reset Position", handler=self.reset_position),
+                    ConfigOption("Reset Rotation", handler=self.reset_rotation)
+                ]),
+                ConfigOption("Body Type", children=[
+                    ConfigOption("Make Static", handler=self.make_static),
+                    ConfigOption("Make Dynamic", handler=self.make_dynamic)
+                ]),
+                ConfigOption("Select for Debug", handler=self.select_for_debug),
+                ConfigOption("Camera", children=[
+                    ConfigOption("Follow This Object", handler=self.set_camera_target),
+                    ConfigOption(
+                        name="Rotate with object",
+                        is_checkbox=True,
+                        get_state=lambda: self.ui_manager.camera.rotate_with_target,
+                        set_state=lambda val: setattr(self.ui_manager.camera, 'rotate_with_target', val)
+                    )
+                ]),
+                ConfigOption("Scripts", children=[
+                    ConfigOption("Run Python Script",
+                                 handler=lambda: self.ui_manager.show_inline_script_editor(owner=self.clicked_object)),
+                    ConfigOption("Edit Script", handler=self.edit_script),
+                    ConfigOption("Script Management", handler=self.open_script_management)
+                ],
+                                 icon="sprites/gui/python.png")
+            ]
 
-            ]),
-
-            ConfigOption("Scripts", children=[
-                ConfigOption("Run Python Script",
-                             handler=lambda: self.ui_manager.show_inline_script_editor(owner=self.clicked_object)),
-                ConfigOption("Edit Script", handler=self.edit_script),
-                ConfigOption("Script Management", handler=self.open_script_management)
-            ])
-
-        ]
+    def center_to_scene(self):
+        if self.ui_manager.camera:
+            self.ui_manager.camera.center_to_scene()
 
     def set_camera_target(self):
         cam = self.ui_manager.camera
@@ -114,26 +133,40 @@ class ContextMenu:
         self.context_menu.border_colour= pygame.Color(255, 255, 255)
 
         for i, item in enumerate(menu_items):
+            opt = self.menu_structure[i]
             btn_y = 4 + i * (config.context_menu.button_height + config.context_menu.button_spacing)
-            has_children = bool(self.menu_structure[i].children)
-            text = f"{item} >" if has_children else item
+            text = f"{item} >" if opt.children else item
             btn = UIButton(
                 relative_rect=pygame.Rect(4, btn_y, 248, config.context_menu.button_height),
                 text=text,
                 manager=self.manager,
                 container=self.context_menu,
-                object_id=pygame_gui.core.ObjectID(object_id=f'#context_btn_{i}', class_id='@context_button'),
-                anchors={'left': 'left', 'right': 'left', 'top': 'top', 'bottom': 'top'}
+                object_id=pygame_gui.core.ObjectID(object_id=f'#context_btn_{i}', class_id='@context_button')
             )
-            self.context_menu_buttons.append((btn, self.menu_structure[i]))
+            if opt.icon:
+                if isinstance(opt.icon, str):
+                    img_surf = pygame.image.load(opt.icon).convert_alpha()
+                else:
+                    img_surf = opt.icon
+                UIImage(
+                    relative_rect=pygame.Rect(8, btn_y + 2,
+                                              config.context_menu.button_height-5,
+                                              config.context_menu.button_height-5),
+                    image_surface=img_surf,
+                    manager=self.manager,
+                    container=self.context_menu
+                )
+            self.context_menu_buttons.append((btn, opt))
 
     def open_script_management(self):
         if self.script_window and self.script_window.alive(): self.script_window.kill()
         rect = pygame.Rect(100, 100, 400, 300)
         self.script_window = ScriptManagementWindow(rect, self.manager, self.ui_manager.physics_manager.script_manager)
 
+
     def show_menu(self, position, clicked_object):
         self.clicked_object = clicked_object
+        self.menu_structure = self._build_menu_structure()
         self.create_menu()
         x, y = position
         max_x, max_y = pygame.display.get_surface().get_size()
@@ -142,13 +175,8 @@ class ContextMenu:
         y = min(y, max_y - rect.height)
         self.context_menu.set_position((x, y))
         self.context_menu.show()
-
-        if self.clicked_object and hasattr(self.clicked_object, 'position'):
-            self.menu_line_start_pos = self.clicked_object.position
-            self.last_object_pos = self.clicked_object.position
-        else:
-            self.menu_line_start_pos = None
-            self.last_object_pos = None
+        self.menu_line_start_pos = getattr(self.clicked_object, 'position', None)
+        self.last_object_pos = self.menu_line_start_pos
 
     def hide(self):
         if self.context_menu:
@@ -177,14 +205,14 @@ class ContextMenu:
         max_x, max_y = pygame.display.get_surface().get_size()
         submenu_height = len(submenu_options) * (
                 config.context_menu.button_height + config.context_menu.button_spacing) - config.context_menu.button_spacing + 28
-        submenu_width = 200
+        submenu_width = 250
         x, y = position
         x = min(x, max_x - submenu_width)
         y = min(y, max_y - submenu_height)
         self.submenu_window = UIWindow(
             rect=pygame.Rect(x, y, submenu_width, submenu_height),
             manager=self.manager,
-            window_display_title="",
+            window_display_title=str(self.clicked_object.__class__.__name__),
             object_id=pygame_gui.core.ObjectID(object_id='#submenu_window', class_id='@submenu'),
             resizable=False
         )
@@ -196,7 +224,7 @@ class ContextMenu:
             text = f"{opt.name} >" if has_children else opt.name
             if getattr(opt, 'is_checkbox', False):
                 cb = UICheckBox(
-                    relative_rect=pygame.Rect(4, btn_y, submenu_width - 16, config.context_menu.button_height),
+                    relative_rect=pygame.Rect(4, btn_y, config.context_menu.button_height, config.context_menu.button_height),
                     text=opt.name,
                     manager=self.manager,
                     container=self.submenu_window,
