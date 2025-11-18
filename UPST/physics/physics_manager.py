@@ -204,7 +204,6 @@ class PhysicsManager:
                     Debug.log_error(f"Error applying air friction on body {b.__hash__()}: {e}", "Physics")
     def update(self, rotation):
         try:
-            self.set_gravity_mode("camera", rotation)
             self.step(1.0 / max(1, self.simulation_frequency))
         except Exception as e:
             Debug.log_error(f"Error in update: {e}", "Physics")
