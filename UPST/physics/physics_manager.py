@@ -27,6 +27,9 @@ class PhysicsManager:
             self._accumulator = 0.0
             self._ccd_bodies = set()
             self._angular_damping = 0.0
+            self.air_friction_linear = 0.0100
+            self.air_friction_quadratic = 0.00100
+            self.air_friction_multiplier = 1.0
             self.theme = config.world.themes.get(self.app.world_theme)
             self.script_manager = ScriptManager(app=self.app)
             if not self.theme:
@@ -70,6 +73,7 @@ class PhysicsManager:
             self._accumulator += max(0.0, float(dt))
             prev_pos = {b: b.position for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}
             while self._accumulator >= self._fixed_dt:
+                self._apply_air_friction()
                 self.space.step(self._fixed_dt)
                 if self._angular_damping > 0.0:
                     k = max(0.0, min(1.0, 1.0 - self._angular_damping))
@@ -101,6 +105,19 @@ class PhysicsManager:
                 self._accumulator -= self._fixed_dt
         except Exception as e:
             Debug.log_error(f"Error in physics step: {e}", "Physics")
+
+    def _apply_air_friction(self):
+        for body in self.space.bodies:
+            if body.body_type == pymunk.Body.DYNAMIC:
+                v = body.velocity
+                v_mag = v.length
+                if v_mag > 0:
+                    v_norm = v.normalized()
+                    linear_term = self.air_friction_linear * v_mag
+                    quadratic_term = self.air_friction_quadratic * v_mag * v_mag
+                    total_drag = self.air_friction_multiplier * (linear_term + quadratic_term)
+                    drag_force = -total_drag * v_norm
+                    body.apply_force_at_local_point(drag_force)
 
     def update(self, rotation):
         try:
@@ -267,6 +284,15 @@ class PhysicsManager:
             Debug.log_info(f"Damping set: linear={self.space.damping}, angular={self._angular_damping}", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in set_damping: {e}", "Physics")
+
+    def set_air_friction_params(self, linear: float, quadratic: float, multiplier: float):
+        try:
+            self.air_friction_linear = max(0.0, float(linear))
+            self.air_friction_quadratic = max(0.0, float(quadratic))
+            self.air_friction_multiplier = max(0.0, float(multiplier))
+            Debug.log_info(f"Air friction params set: linear={self.air_friction_linear}, quadratic={self.air_friction_quadratic}, multiplier={self.air_friction_multiplier}", "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in set_air_friction_params: {e}", "Physics")
 
     def set_sleep_time_threshold(self, seconds: float):
         try:
