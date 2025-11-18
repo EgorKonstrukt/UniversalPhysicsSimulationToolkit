@@ -5,7 +5,7 @@ from UPST.modules.profiler import profile
 
 class CloudManager:
     def __init__(self, folder="clouds", cell_size=2048, clouds_per_cell=6, seed=12345,
-                 scale_quant=0.05, scaled_cache_limit=400, max_px=512, fade_duration=1.0):
+                 scale_quant=0.05, scaled_cache_limit=400, max_px=512, fade_duration=0.0):
         self.folder = folder
         self.cell_size = cell_size
         self.per_cell = clouds_per_cell
@@ -82,19 +82,26 @@ class CloudManager:
         sim_speed = 1.0
         if self.physics_manager:
             base_freq = self.physics_manager.simulation_frequency
-            sim_speed = (base_freq / 60.0)*self.physics_manager.simulation_speed_multiplier if base_freq > 0 else 1.0
+            sim_speed = (base_freq / 60.0) * self.physics_manager.simulation_speed_multiplier if base_freq > 0 else 1.0
         for cx in range(cx0, cx1 + 1):
             for cy in range(cy0, cy1 + 1):
                 key = (cx, cy)
                 if key not in self.cells: self._make_cell(cx, cy)
-                for tup in self.cells[key]:
+                lst = self.cells[key]
+                for i, tup in enumerate(lst):
                     tx, bx, by, depth, scale, base_speed, angle, phase, spawn_time = tup
                     speed = base_speed * sim_speed
-                    wx = (bx + speed * t) % cs + cx * cs
+                    elapsed = max(0.0, t - spawn_time)
+                    wx = bx + speed * elapsed
                     wy = by
+                    cam_x = cam.position.x
+                    if wx > cam_x + sw * 2:
+                        new_bx = cam_x - sw * 2 - random.random() * cs
+                        new_spawn = t
+                        lst[i] = (tx, new_bx, by, depth, scale, base_speed, angle, phase, new_spawn)
+                        wx = new_bx
                     raw = (t - spawn_time) / fd
-                    if raw != raw: alpha = 1.0
-                    else: alpha = max(0.0, min(1.0, float(raw)))
+                    alpha = 1.0 if raw != raw else max(0.0, min(1.0, float(raw)))
                     yield tx, wx, wy, depth, scale, angle, alpha
 
     def _evict_if_needed(self):
@@ -149,7 +156,7 @@ class CloudRenderer:
     @profile("Cloud Renderer", "Renderer")
     def draw(self):
         sw, sh = self.screen.get_size()
-        cx_screen, cy_screen = sw * 0.5, sh * 0.5
+        cx_screen, cy_screen = sw * 1.3, sh * 1.3
         cam_scale = max(0.01, self.camera.scaling)
         get_tex = self.clouds.get_scaled_texture
         cam_w2s = self.camera.world_to_screen

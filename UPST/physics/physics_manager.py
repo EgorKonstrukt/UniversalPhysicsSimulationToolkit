@@ -31,6 +31,7 @@ class PhysicsManager:
             self.air_friction_linear = 0.0100
             self.air_friction_quadratic = 0.00100
             self.air_friction_multiplier = 1.0
+            self.air_density = 1.225
             self.theme = config.world.themes.get(self.app.world_theme)
             self.script_manager = ScriptManager(app=self.app)
             if not self.theme:
@@ -108,19 +109,99 @@ class PhysicsManager:
         except Exception as e:
             Debug.log_error(f"Error in physics step: {e}", "Physics")
 
-    def _apply_air_friction(self):
-        for body in self.space.bodies:
-            if body.body_type == pymunk.Body.DYNAMIC:
-                v = body.velocity
-                v_mag = v.length
-                if v_mag > 0:
-                    v_norm = v.normalized()
-                    linear_term = self.air_friction_linear * v_mag
-                    quadratic_term = self.air_friction_quadratic * v_mag * v_mag
-                    total_drag = self.air_friction_multiplier * (linear_term + quadratic_term)
-                    drag_force = -total_drag * v_norm
-                    body.apply_force_at_local_point(drag_force)
+    def _shape_proj_area_and_cd(self, s, b, vel_unit):
+        try:
+            if hasattr(s, "cross_sectional_area") and getattr(s, "cross_sectional_area") is not None:
+                A = float(s.cross_sectional_area)
+            else:
+                if isinstance(s, pymunk.Circle):
+                    r = float(s.radius)
+                    span = 2.0 * r
+                    A = span
+                elif isinstance(s, pymunk.Segment):
+                    a = pymunk.Vec2d(*s.a)
+                    c = pymunk.Vec2d(*s.b)
+                    world_a = b.position + a.rotated(b.angle)
+                    world_c = b.position + c.rotated(b.angle)
+                    span = (world_c - world_a).dot(vel_unit.perpendicular()) if vel_unit.length > 0 else (
+                                world_c - world_a).length
+                    span = abs(span)
+                    thickness = getattr(s, "radius", 0.5)
+                    A = max(0.001, span * (thickness * 2.0))
+                elif isinstance(s, pymunk.Poly):
+                    verts = [pymunk.Vec2d(*v) for v in s.get_vertices()]
+                    if not verts:
+                        A = 0.0
+                    else:
+                        pts = [b.position + v.rotated(b.angle) for v in verts]
+                        projs = [p.dot(vel_unit.perpendicular()) for p in pts]
+                        A = max(projs) - min(projs)
+                        A = abs(A)
+                        if A < 1e-4:
+                            sm = 0.0
+                            for i in range(len(verts)):
+                                x1, y1 = verts[i].x, verts[i].y
+                                x2, y2 = verts[(i + 1) % len(verts)].x, verts[(i + 1) % len(verts)].y
+                                sm += x1 * y2 - x2 * y1
+                            poly_area = abs(sm) * 0.5
+                            A = max(0.001, poly_area ** 0.5)
+                else:
+                    A = 0.001
+            if hasattr(s, "drag_coeff") and getattr(s, "drag_coeff") is not None:
+                Cd = float(s.drag_coeff)
+            else:
+                if isinstance(s, pymunk.Circle):
+                    Cd = 0.47
+                elif isinstance(s, pymunk.Segment):
+                    Cd = 1.2
+                elif isinstance(s, pymunk.Poly):
+                    Cd = 1.0
+                else:
+                    Cd = 1.0
+            return max(0.0, float(A)), max(0.0, float(Cd))
+        except Exception:
+            return 0.0, 1.0
 
+    def _apply_air_friction(self):
+        for b in self.space.bodies:
+            if b.body_type != pymunk.Body.DYNAMIC: continue
+            for s in b.shapes:
+                try:
+                    if getattr(s, "sensor", False): continue
+                    if hasattr(s, "offset"):
+                        off = pymunk.Vec2d(*s.offset)
+                    elif isinstance(s, pymunk.Segment):
+                        a = pymunk.Vec2d(*s.a);
+                        c = pymunk.Vec2d(*s.b);
+                        off = (a + c) * 0.5
+                    elif isinstance(s, pymunk.Poly):
+                        try:
+                            verts = [pymunk.Vec2d(*v) for v in s.get_vertices()]
+                            if len(verts) == 0:
+                                off = pymunk.Vec2d(0, 0)
+                            else:
+                                sm = pymunk.Vec2d(0, 0)
+                                for v in verts: sm += v
+                                off = sm / len(verts)
+                        except Exception:
+                            off = pymunk.Vec2d(0, 0)
+                    else:
+                        off = pymunk.Vec2d(0, 0)
+                    wp = b.position + off.rotated(b.angle)
+                    r = wp - b.position
+                    ang = pymunk.Vec2d(-b.angular_velocity * r.y, b.angular_velocity * r.x)
+                    vp = b.velocity + ang
+                    vm = vp.length
+                    if vm <= 1e-9: continue
+                    vel_unit = vp / vm
+                    A, Cd = self._shape_proj_area_and_cd(s, b, vel_unit)
+                    lin = -self.air_friction_multiplier * self.air_friction_linear * A * vp
+                    quad = -self.air_friction_multiplier * (
+                                0.5 * self.air_density * Cd * A * vm) * vel_unit * self.air_friction_quadratic
+                    f = lin + quad
+                    b.apply_force_at_world_point(f, wp)
+                except Exception as e:
+                    Debug.log_error(f"Error applying air friction on body {b.__hash__()}: {e}", "Physics")
     def update(self, rotation):
         try:
             self.set_gravity_mode("camera", rotation)
@@ -326,7 +407,7 @@ class PhysicsManager:
 
     def set_gravity_mode(self, mode: str = "world", camera_rotation: float = None, g: tuple = None):
         try:
-            base_g = pymunk.Vec2d(*((0, 900) if g is None else g))
+            base_g = pymunk.Vec2d(*((0, 981) if g is None else g))
             if mode == "camera" and camera_rotation is not None:
                 rot = pymunk.Transform.rotation(camera_rotation)
                 gv = rot @ base_g

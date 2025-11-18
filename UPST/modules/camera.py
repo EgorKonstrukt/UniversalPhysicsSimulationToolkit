@@ -275,4 +275,4 @@ class Camera:
 
     @property
     def position(self):
-        return (-self.translation.tx, -self.translation.ty)
+        return Vec2d(-self.translation.tx, -self.translation.ty)
