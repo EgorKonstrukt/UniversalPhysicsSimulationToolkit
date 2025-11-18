@@ -5,7 +5,7 @@ from UPST.modules.profiler import profile
 
 class CloudManager:
     def __init__(self, folder="clouds", cell_size=2048, clouds_per_cell=6, seed=12345,
-                 scale_quant=0.05, scaled_cache_limit=400, max_px=512):
+                 scale_quant=0.05, scaled_cache_limit=400, max_px=512, fade_duration=1.0):
         self.folder = folder
         self.cell_size = cell_size
         self.per_cell = clouds_per_cell
@@ -18,6 +18,7 @@ class CloudManager:
         self.scale_quant = scale_quant
         self.cache_limit = scaled_cache_limit
         self.max_px = max_px
+        self.fade_duration = fade_duration
         self._load_textures(folder)
 
     def _load_textures(self, folder):
@@ -51,10 +52,11 @@ class CloudManager:
             ry = (rnd.random() - 0.5) * cs
             depth = rnd.uniform(0.25, 1.0)
             scale = rnd.uniform(0.6, 1.6)
-            speed = rnd.uniform(15.0, 100.0)
+            speed = rnd.uniform(15.0, 125.0)
             angle = 0.0
             phase = rnd.random() * 1000.0
-            lst.append((tx, base_x0 + rx, cy * cs + ry, depth, scale, speed, angle, phase))
+            spawn_time = time.time() - self.start_t
+            lst.append((tx, base_x0 + rx, cy * cs + ry, depth, scale, speed, angle, phase, spawn_time))
         self.cells[(cx, cy)] = lst
         return lst
 
@@ -72,15 +74,21 @@ class CloudManager:
         cx0, cy0, cx1, cy1 = self._visible_cell_bounds(cam, sw, sh)
         t = time.time() - self.start_t
         cs = self.cell_size
+        fd = max(1e-6, float(self.fade_duration))
         for cx in range(cx0, cx1 + 1):
             for cy in range(cy0, cy1 + 1):
                 key = (cx, cy)
                 if key not in self.cells: self._make_cell(cx, cy)
                 for tup in self.cells[key]:
-                    tx, bx, by, depth, scale, speed, angle, phase = tup
+                    tx, bx, by, depth, scale, speed, angle, phase, spawn_time = tup
+                    # плавный сдвиг по X (циклически в пределах ячейки) и абсолютная позиция
                     wx = (bx + speed * t) % cs + cx * cs
                     wy = by
-                    yield tx, wx, wy, depth, scale, angle
+                    # alpha: 0..1, защитный clamp
+                    raw = (t - spawn_time) / fd
+                    if raw != raw: alpha = 1.0
+                    else: alpha = max(0.0, min(1.0, float(raw)))
+                    yield tx, wx, wy, depth, scale, angle, alpha
 
     def _evict_if_needed(self):
         while len(self.scaled_order) > self.cache_limit:
@@ -136,10 +144,9 @@ class CloudRenderer:
         sw, sh = self.screen.get_size()
         cx_screen, cy_screen = sw * 0.5, sh * 0.5
         cam_scale = max(0.01, self.camera.scaling)
-        t0 = time.time()
         get_tex = self.clouds.get_scaled_texture
         cam_w2s = self.camera.world_to_screen
-        for tx, wx, wy, depth, scale, angle in self.clouds.iter_visible_clouds(self.camera, sw, sh):
+        for tx, wx, wy, depth, scale, angle, alpha in self.clouds.iter_visible_clouds(self.camera, sw, sh):
             if not tx: continue
             final_scale = scale * cam_scale
             w, h = tx.get_size()
@@ -150,4 +157,17 @@ class CloudRenderer:
             screen_x = cx_screen + (scr[0] - cx_screen) * depth
             screen_y = cy_screen + (scr[1] - cy_screen) * depth
             sx, sy = s.get_size()
-            self.screen.blit(s, (screen_x - sx * 0.5, screen_y - sy * 0.5))
+            # безопасная обработка alpha: привести к int в [0,255], защититься от NaN/None/вне диапазона
+            try:
+                a_val = float(alpha)
+            except Exception:
+                a_val = 1.0
+            if math.isnan(a_val): a_val = 1.0
+            a_int = max(0, min(255, int(round(255.0 * a_val))))
+            if a_int == 0: continue
+            if a_int >= 255:
+                self.screen.blit(s, (screen_x - sx * 0.5, screen_y - sy * 0.5))
+            else:
+                temp = s.copy()
+                temp.fill((255, 255, 255, a_int), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(temp, (screen_x - sx * 0.5, screen_y - sy * 0.5))

@@ -62,10 +62,6 @@ class InputHandler:
                 self.key_f_hold_start_time = pygame.time.get_ticks()
             elif event.key == pygame.K_z:
                 ctrl_pressed = pygame.key.get_mods() & pygame.KMOD_CTRL
-            elif event.key == pygame.K_SPACE:
-                synthesizer.play_frequency(830, duration=0.04, waveform='sine')
-                self.app.physics_manager.toggle_pause()
-                self.app.ui_manager.toggle_pause_icon(not self.app.physics_manager.running_physics)
             elif event.key == pygame.K_b:
                 synthesizer.play_frequency(150, duration=0.1, waveform='sine')
                 self.creating_static_line = True

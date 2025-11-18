@@ -9,6 +9,7 @@ from UPST.modules.profiler import profile
 import math
 from UPST.gui.contex_menu import ContextMenu
 from UPST.network.network_menu import NetworkMenu
+from UPST.gui.bottom_bar import BottomBar
 import pymunk
 import tkinter as tk
 from tkinter import filedialog
@@ -58,6 +59,8 @@ class UIManager:
         self.active_color_picker = None
         self.color_picker_for_shape = None
         self.script_editor = None
+        self.bottom_bar = BottomBar(screen_width, screen_height, self.manager, physics_manager=self.physics_manager)
+
     def show_inline_script_editor(self, script=None, owner=None):
         if hasattr(self, '_script_editor') and self.script_editor:
             self.script_editor.window.kill()
@@ -432,6 +435,8 @@ class UIManager:
         self.context_menu.process_event(event)
         if self.script_editor:
             self.script_editor.process_event(event)
+        if self.bottom_bar:
+            self.bottom_bar.process_event(event)
     def _on_resize(self):
         screen_w, screen_h = config.app.screen_width, config.app.screen_height
         self.manager.set_window_resolution((screen_w, screen_h))
@@ -728,11 +733,6 @@ class UIManager:
         self.radius_slider.hide()
         self.text_label_radius.hide()
         self.text_label_strength.hide()
-    def toggle_pause_icon(self, show):
-        if show:
-            self.pause_icon.show()
-        else:
-            self.pause_icon.hide()
     def resize(self, new_width, new_height):
         config.app.screen_width = new_width
         config.app.screen_height = new_height
