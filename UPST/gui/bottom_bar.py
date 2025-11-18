@@ -2,9 +2,9 @@ import pygame
 import pygame_gui
 from pygame_gui.elements import UIButton, UIPanel, UIImage
 
-from UPST.gui.simulation_speed_window import SimulationSpeedWindow
+from UPST.gui.windows.simulation_speed_window import SimulationSpeedWindow
 from UPST.modules.undo_redo_manager import get_undo_redo
-from UPST.gui.air_friction_window import AirFrictionWindow
+from UPST.gui.windows.air_friction_window import AirFrictionWindow
 from UPST.config import config
 
 class BottomBar:

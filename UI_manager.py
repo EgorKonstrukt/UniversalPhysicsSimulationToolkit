@@ -11,10 +11,7 @@ from UPST.gui.contex_menu import ContextMenu
 from UPST.network.network_menu import NetworkMenu
 from UPST.gui.bottom_bar import BottomBar
 from UPST.gui.top_left_bar import TopLeftBar
-import pymunk
-import tkinter as tk
-from tkinter import filedialog
-from UPST.gui.script_editor_window import ScriptEditorWindow
+from UPST.gui.windows.script_editor_window import ScriptEditorWindow
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera,
                  input_handler, screen, font, tool_manager=None, network_manager=None, app=None):

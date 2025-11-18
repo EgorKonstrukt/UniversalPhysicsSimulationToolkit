@@ -1,7 +1,7 @@
 import pygame
 import pygame_gui
 from typing import Optional
-from .plotter import Plotter
+from UPST.gui.plotter import Plotter
 
 class PlotterWindow:
     def __init__(self, manager: pygame_gui.UIManager, position: tuple = (10, 10), size: tuple = (600, 400), window_title: str = "PID Plotter"):

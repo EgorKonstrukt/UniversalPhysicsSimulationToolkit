@@ -1,7 +1,6 @@
 import threading
 import time
 import traceback
-import sys
 from typing import Optional, Any, Callable, TypeVar, Dict, List, Tuple, Union, Set
 
 import pygame
@@ -11,11 +10,11 @@ import random
 
 from UPST.config import config
 from UPST.modules.camera import Camera
-from UPST.modules.profiler import Profiler, profile
+from UPST.modules.profiler import profile
 from UPST.sound.sound_synthesizer import synthesizer
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
-from UPST.gui.plotter_window import PlotterWindow
+from UPST.gui.windows.plotter_window import PlotterWindow
 
 
 

@@ -1,17 +1,12 @@
 import pygame_gui
-from pygame_gui.elements import UIDropDownMenu, UIHorizontalSlider, UILabel, UIButton, UITextEntryLine, UIImage, \
-    UIPanel, UITextBox, UISelectionList, UIWindow, UICheckBox
-from pygame_gui.windows import UIConsoleWindow
+from pygame_gui.elements import UIButton, UIImage, \
+    UIWindow, UICheckBox
 import pygame
 import pymunk
-import math
 from UPST.config import config
-from UPST.gui.properties_window import PropertiesWindow
-from UPST.gui.texture_window import TextureWindow
-import tkinter as tk
-from tkinter import simpledialog, messagebox
-from UPST.gui.script_management_window import ScriptManagementWindow
-from UPST.network.network_manager import Color
+from UPST.gui.windows.properties_window import PropertiesWindow
+from UPST.gui.windows.texture_window import TextureWindow
+from UPST.gui.windows.script_management_window import ScriptManagementWindow
 
 
 class ConfigOption:
