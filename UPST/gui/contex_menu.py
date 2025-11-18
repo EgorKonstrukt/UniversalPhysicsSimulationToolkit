@@ -1,6 +1,6 @@
 import pygame_gui
 from pygame_gui.elements import UIDropDownMenu, UIHorizontalSlider, UILabel, UIButton, UITextEntryLine, UIImage, \
-    UIPanel, UITextBox, UISelectionList, UIWindow
+    UIPanel, UITextBox, UISelectionList, UIWindow, UICheckBox
 from pygame_gui.windows import UIConsoleWindow
 import pygame
 import pymunk
@@ -15,12 +15,16 @@ from UPST.network.network_manager import Color
 
 
 class ConfigOption:
-    def __init__(self, name, value=None, options=None, handler=None, children=None):
+    def __init__(self, name, value=None, options=None, handler=None, children=None, is_checkbox=False, get_state=None, set_state=None):
         self.name = name
         self.value = value
         self.options = options
         self.handler = handler
         self.children = children or []
+        self.is_checkbox = is_checkbox
+        self.get_state = get_state
+        self.set_state = set_state
+
 
 
 class ContextMenu:
@@ -56,13 +60,37 @@ class ContextMenu:
                 ConfigOption("Make Dynamic", handler=self.make_dynamic)
             ]),
             ConfigOption("Select for Debug", handler=self.select_for_debug),
+            ConfigOption("Camera", children=[
+                ConfigOption("Follow This Object", handler=self.set_camera_target),
+                ConfigOption(
+                    name="Rotate with object",
+                    is_checkbox=True,
+                    get_state=lambda: self.ui_manager.camera.rotate_with_target,
+                    set_state=lambda val: setattr(self.ui_manager.camera, 'rotate_with_target', val)
+                )
+
+            ]),
+
             ConfigOption("Scripts", children=[
                 ConfigOption("Run Python Script",
                              handler=lambda: self.ui_manager.show_inline_script_editor(owner=self.clicked_object)),
                 ConfigOption("Edit Script", handler=self.edit_script),
                 ConfigOption("Script Management", handler=self.open_script_management)
             ])
+
         ]
+
+    def set_camera_target(self):
+        cam = self.ui_manager.camera
+        pos = self.clicked_object.position if hasattr(self.clicked_object, 'position') else None
+        if pos:
+            cam.set_tracking_target(pos)
+            cam.tracking_target = self.clicked_object
+            cam.tracking_enabled = True
+
+    def toggle_camera_rotation(self):
+        cam = self.ui_manager.camera
+        cam.rotate_with_target = not cam.rotate_with_target
 
     def create_menu(self):
         if hasattr(self, 'context_menu') and self.context_menu:
@@ -147,13 +175,12 @@ class ContextMenu:
     def _show_submenu(self, submenu_options, position):
         self.hide_submenu()
         max_x, max_y = pygame.display.get_surface().get_size()
-        submenu_height = len(submenu_options) * (config.context_menu.button_height + config.context_menu.button_spacing) - config.context_menu.button_spacing + 28
+        submenu_height = len(submenu_options) * (
+                config.context_menu.button_height + config.context_menu.button_spacing) - config.context_menu.button_spacing + 28
         submenu_width = 200
-
         x, y = position
         x = min(x, max_x - submenu_width)
         y = min(y, max_y - submenu_height)
-
         self.submenu_window = UIWindow(
             rect=pygame.Rect(x, y, submenu_width, submenu_height),
             manager=self.manager,
@@ -162,22 +189,33 @@ class ContextMenu:
             resizable=False
         )
         self.submenu_window.set_blocking(False)
-
-
         self.submenu_buttons = []
         for i, opt in enumerate(submenu_options):
             btn_y = 4 + i * (config.context_menu.button_height + config.context_menu.button_spacing)
             has_children = bool(opt.children)
             text = f"{opt.name} >" if has_children else opt.name
-            btn = UIButton(
-                relative_rect=pygame.Rect(4, btn_y, submenu_width - 16, config.context_menu.button_height),
-                text=text,
-                manager=self.manager,
-                container=self.submenu_window,
-                object_id=pygame_gui.core.ObjectID(object_id=f'#submenu_btn_{i}', class_id='@submenu_button'),
-                anchors={'left': 'left', 'right': 'left', 'top': 'top', 'bottom': 'top'}
-            )
-            self.submenu_buttons.append((btn, opt))
+            if getattr(opt, 'is_checkbox', False):
+                cb = UICheckBox(
+                    relative_rect=pygame.Rect(4, btn_y, submenu_width - 16, config.context_menu.button_height),
+                    text=opt.name,
+                    manager=self.manager,
+                    container=self.submenu_window,
+                    object_id=pygame_gui.core.ObjectID(object_id=f'#cb_{i}', class_id='@submenu_checkbox')
+                )
+                # Инициализация состояния
+                if getattr(opt, 'get_state', None):
+                    cb.set_state(opt.get_state())
+
+                self.submenu_buttons.append((cb, opt))
+            else:
+                btn = UIButton(
+                    relative_rect=pygame.Rect(4, btn_y, submenu_width - 16, config.context_menu.button_height),
+                    text=text,
+                    manager=self.manager,
+                    container=self.submenu_window,
+                    object_id=pygame_gui.core.ObjectID(object_id=f'#submenu_btn_{i}', class_id='@submenu_button')
+                )
+                self.submenu_buttons.append((btn, opt))
 
     def hide_submenu(self):
         if self.submenu_window:
@@ -238,6 +276,16 @@ class ContextMenu:
                 for btn, option in self.submenu_buttons:
                     if btn.get_abs_rect().collidepoint(mouse_pos):
                         self.hovered_button = (btn, option)
+                        break
+        if event.type == pygame.USEREVENT:
+            if event.user_type in (pygame_gui.UI_CHECK_BOX_CHECKED, pygame_gui.UI_CHECK_BOX_UNCHECKED):
+                for cb, opt in self.submenu_buttons:
+                    if event.ui_element == cb and getattr(opt, 'is_checkbox', False):
+                        # Обновляем состояние объекта
+                        if opt.set_state:
+                            opt.set_state(cb.checked)
+                        # Обновляем визуальный чекбокс, чтобы синхронизировать
+                        cb.set_state(cb.checked)
                         break
 
         return False

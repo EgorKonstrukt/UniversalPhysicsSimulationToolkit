@@ -40,6 +40,7 @@ class Camera:
         self.pan_sensitivity = 1.0
         self.tracking_enabled = False
         self.tracking_target = None
+        self.rotate_with_target = False
         self.tracking_smoothness = 0.05
         self.tracking_offset = Vec2d(0, 0)
         self.tracking_deadzone = 5.0
@@ -50,6 +51,8 @@ class Camera:
         self.anim_duration = 0.25
         self.anim_start_tx = Vec2d(0, 0)
         self.anim_target_tx = Vec2d(0, 0)
+        self.track_vel = Vec2d(0, 0)
+        self.track_smooth = 0.25
 
     def ease_in_out_expo(self, t):
         if t == 0:
@@ -96,22 +99,40 @@ class Camera:
                 new_tx = self.anim_start_tx.x + (self.anim_target_tx.x - self.anim_start_tx.x) * eased
                 new_ty = self.anim_start_tx.y + (self.anim_target_tx.y - self.anim_start_tx.y) * eased
                 self.translation = pymunk.Transform.translation(new_tx, new_ty)
+        if self.tracking_enabled and self.tracking_target and self.rotate_with_target:
+            if hasattr(self.tracking_target, "angle"):
+                self.rotation = -float(self.tracking_target.angle)
 
     def _update_tracking(self):
-        if not self.tracking_target:
-            return
-        target_x, target_y = self.tracking_target
-        desired_screen_x = self.screen_width / 2 + self.tracking_offset.x
-        desired_screen_y = self.screen_height / 2 + self.tracking_offset.y
-        current_screen_pos = self.world_to_screen_simple(target_x, target_y)
-        dx = desired_screen_x - current_screen_pos[0]
-        dy = desired_screen_y - current_screen_pos[1]
-        distance = (dx * dx + dy * dy) ** 0.5
-        if distance < self.tracking_deadzone:
-            return
-        move_x = dx * self.tracking_smoothness / self.scaling
-        move_y = dy * self.tracking_smoothness / self.scaling
-        self.translation = self.translation.translated(move_x, move_y)
+        tgt = self.tracking_target
+        if not tgt: return
+        if hasattr(tgt, 'position'):
+            wx, wy = tgt.position
+        else:
+            wx, wy = tgt
+        half_w = self.screen_width * 0.5
+        half_h = self.screen_height * 0.5
+        cam_x = self.translation.tx
+        cam_y = self.translation.ty
+        des_x = -(wx - half_w)
+        des_y = -(wy - half_h)
+        dt = 1 / 60
+        st = self.track_smooth
+        om = 2 / st
+        x = om * dt
+        e = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
+        dx = cam_x - des_x
+        dy = cam_y - des_y
+        tvx = self.track_vel.x + om * dx
+        tvy = self.track_vel.y + om * dy
+        tvx *= dt
+        tvy *= dt
+        new_vx = (self.track_vel.x - om * tvx) * e
+        new_vy = (self.track_vel.y - om * tvy) * e
+        self.track_vel = Vec2d(new_vx, new_vy)
+        nx = des_x + (dx + tvx) * e
+        ny = des_y + (dy + tvy) * e
+        self.translation = pymunk.Transform.translation(nx, ny)
 
     def world_to_screen_simple(self, world_x, world_y):
         screen_x = (world_x - self.translation.tx) * self.scaling + self.screen_width / 2
