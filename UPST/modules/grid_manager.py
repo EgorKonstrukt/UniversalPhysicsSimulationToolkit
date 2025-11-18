@@ -50,7 +50,7 @@ class GridManager:
         self._was_grabbed = False
         self._was_visible = False
         self._snapping_active = False
-        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._executor = ThreadPoolExecutor(max_workers=config.multithreading.grid_max_workers)
 
     def toggle_grid(self):
         self.enabled = not self.enabled

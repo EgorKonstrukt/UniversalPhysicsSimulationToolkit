@@ -21,7 +21,6 @@ class GizmoType(Enum):
     TEXT = "text"
     BUTTON = "button"
 
-
 @dataclass
 class GizmoData:
     gizmo_type: GizmoType
@@ -53,7 +52,6 @@ class GizmoData:
     _adjusted_screen_pos: Optional[Tuple[int, int]] = None
     on_click: Optional[Callable[[], None]] = None
     unique_id: Optional[str] = None
-
 
 def _process_gizmo_chunk(args):
     gizmos_chunk, cam_pos, cam_scale, screen_size, cull_margin, distance_culling_enabled = args
@@ -97,7 +95,6 @@ def _process_gizmo_chunk(args):
         visible.append((g, screen_pos, screen_size_val))
     return visible
 
-
 def _resolve_text_collisions_parallel(text_entries, screen_size):
     if not text_entries:
         return []
@@ -131,7 +128,6 @@ def _resolve_text_collisions_parallel(text_entries, screen_size):
             occupied.append(rect)
     return result
 
-
 class GizmosManager:
     def __init__(self, camera, screen):
         self.camera = camera
@@ -160,7 +156,7 @@ class GizmosManager:
         self._alpha_surface_frame: Dict[int, int] = {}
         self._frame_id = 0
 
-        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._executor = ThreadPoolExecutor(max_workers=config.multithreading.gizmos_max_workers)
         self._prepared_data = None
 
     def handle_event(self, event: pygame.event.Event):
@@ -415,7 +411,6 @@ class GizmosManager:
             surface.blit(txt_surf, txt_rect)
             stop_profiling("BUTTON")
 
-
     def clear(self):
         self.gizmos.clear()
 
@@ -512,7 +507,6 @@ class GizmosManager:
                 for i in range(thickness):
                     pygame.gfxdraw.rectangle(surface, (x - i, y - i, w + 2 * i, h + 2 * i), color)
 
-
     def draw_point(self, position, color='white', size=3.0, duration=0.1, layer=0, world_space=True, cull_distance=-1.0,
                    cull_bounds=None):
         g = GizmoData(gizmo_type=GizmoType.POINT, position=position,
@@ -603,7 +597,8 @@ class GizmosManager:
             f"Distance cull: {ds}",
             f"Active: {len(self.gizmos)}",
             f"Persistent: {len(self.persistent_gizmos)}",
-            f"Unique: {len(self.unique_gizmos)}"
+            f"Unique: {len(self.unique_gizmos)}",
+            f"Threads: {str(config.multithreading.gizmos_max_workers)}"
         ]
         for i, ln in enumerate(lines):
             self.draw_text((x, y + i * 22), ln, 'white', font_size=18, world_space=False, duration=0.1)
@@ -612,15 +607,11 @@ class GizmosManager:
         if hasattr(self, '_executor'):
             self._executor.shutdown(wait=False)
 
-
 _gizmos_instance: Optional[GizmosManager] = None
-
 
 def get_gizmos(): return _gizmos_instance
 
-
 def set_gizmos(gizmos_manager): global _gizmos_instance; _gizmos_instance = gizmos_manager
-
 
 class Gizmos:
     @staticmethod
