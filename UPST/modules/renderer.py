@@ -34,12 +34,11 @@ class Renderer:
         self.texture_update_interval = 0.1
         self.min_cloud_px = 32
         self.clouds = CloudManager(folder="sprites/background", cell_size=3000, clouds_per_cell=2)
+        self.clouds.set_physics_manager(physics_manager)
         self.cloud_renderer = CloudRenderer(screen, camera, self.clouds, self.min_cloud_px)
-
 
     def set_clouds_folder(self, folder):
         self.clouds.set_folder(folder)
-
 
     def draw(self):
         dt = self.app.clock.get_time() / 1000.0

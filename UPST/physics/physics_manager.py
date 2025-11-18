@@ -20,6 +20,7 @@ class PhysicsManager:
             self.space.collision_bias = pow(1.0 - 0.1, 60.0)
             self.static_body = self.space.static_body
             self.simulation_frequency = int(config.physics.simulation_frequency)
+            self.simulation_speed_multiplier = 1.0
             self.running_physics = True
             self.running_scripts = True
             self.static_lines = []
@@ -70,11 +71,12 @@ class PhysicsManager:
         try:
             if not self.running_physics:
                 return
-            self._accumulator += max(0.0, float(dt))
+            effective_dt = self._fixed_dt * self.simulation_speed_multiplier
+            self._accumulator += max(0.0, float(dt) * self.simulation_speed_multiplier)
             prev_pos = {b: b.position for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}
-            while self._accumulator >= self._fixed_dt:
+            while self._accumulator >= effective_dt:
                 self._apply_air_friction()
-                self.space.step(self._fixed_dt)
+                self.space.step(effective_dt)
                 if self._angular_damping > 0.0:
                     k = max(0.0, min(1.0, 1.0 - self._angular_damping))
                     for b in self.space.bodies:
@@ -102,7 +104,7 @@ class PhysicsManager:
                         vt = v - vn
                         b.velocity = vt - vn * max(0.0, min(1.0, e))
                 prev_pos = {b: b.position for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}
-                self._accumulator -= self._fixed_dt
+                self._accumulator -= effective_dt
         except Exception as e:
             Debug.log_error(f"Error in physics step: {e}", "Physics")
 
@@ -268,6 +270,13 @@ class PhysicsManager:
             Debug.log_info(f"Simulation frequency set to {hz} Hz", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in set_simulation_frequency: {e}", "Physics")
+
+    def set_simulation_speed_multiplier(self, multiplier: float):
+        try:
+            self.simulation_speed_multiplier = max(0.1, float(multiplier))
+            Debug.log_info(f"Simulation speed multiplier set to {self.simulation_speed_multiplier}x", "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in set_simulation_speed_multiplier: {e}", "Physics")
 
     def set_iterations(self, iters: int):
         try:

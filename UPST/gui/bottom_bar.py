@@ -1,15 +1,18 @@
 import pygame
 import pygame_gui
 from pygame_gui.elements import UIButton, UIPanel, UIImage
+
+from UPST.gui.simulation_speed_window import SimulationSpeedWindow
 from UPST.modules.undo_redo_manager import get_undo_redo
 from UPST.gui.air_friction_window import AirFrictionWindow
-
+from UPST.config import config
 
 class BottomBar:
     def __init__(self, screen_width, screen_height, ui_manager, physics_manager, bar_width=400, bar_height=60):
         self.ui_manager = ui_manager
         self.physics_manager = physics_manager
         self.air_window = None
+        self.speed_window = None
         self.bar_width = bar_width
         self.bar_height = bar_height
         self.button_width = 50
@@ -162,11 +165,16 @@ class BottomBar:
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             mouse_pos = pygame.mouse.get_pos()
-            if self.buttons['air'].get_abs_rect().collidepoint(mouse_pos):
+            if self.buttons['pause'].get_abs_rect().collidepoint(mouse_pos):
+                self._open_simulation_speed_window()
+            elif self.buttons['air'].get_abs_rect().collidepoint(mouse_pos):
                 self._open_air_friction_window()
 
         if self.air_window:
             if self.air_window.process_event(event):
+                return
+        if self.speed_window:
+            if self.speed_window.process_event(event):
                 return
 
     def _open_air_friction_window(self):
@@ -181,15 +189,27 @@ class BottomBar:
                 }
             )
 
+    def _open_simulation_speed_window(self):
+        if not self.speed_window or not self.speed_window.is_alive():
+            current_freq = self.physics_manager.simulation_frequency
+            current_multiplier = getattr(self.physics_manager, 'simulation_speed_multiplier', 1.0)
+            self.speed_window = SimulationSpeedWindow(
+                ui_manager=self.ui_manager,
+                physics_manager=self.physics_manager,
+                initial_speed=current_freq,
+                initial_multiplier=current_multiplier,
+                initial_iterations=self.physics_manager.space.iterations
+            )
+
     def _on_grid_toggled(self):
-        pass
+        config.grid.is_visible = not self.states['grid']
 
     def _on_air_friction_toggled(self):
         linear_damping = 0.1 if self.states['air'] else 1.0
         self.physics_manager.set_damping(linear=linear_damping)
 
     def _on_gravity_toggled(self):
-        g = (0, 900) if self.states['gravity'] else (0, 0)
+        g = (0, 981) if self.states['gravity'] else (0, 0)
         self.physics_manager.set_gravity_mode(g=g)
 
     def _on_undo_pressed(self):

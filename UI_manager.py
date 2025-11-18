@@ -60,8 +60,15 @@ class UIManager:
         self.active_color_picker = None
         self.color_picker_for_shape = None
         self.script_editor = None
-        self.bottom_bar = BottomBar(screen_width, screen_height, self.manager, physics_manager=self.physics_manager)
-        self.top_left_bar = TopLeftBar(screen_width, screen_height, self.manager)
+        self.bottom_bar = BottomBar(config.app.screen_width,
+                                    config.app.screen_height,
+                                    self.manager,
+                                    physics_manager=self.physics_manager)
+        self.top_left_bar = TopLeftBar(config.app.screen_width,
+                                       config.app.screen_height,
+                                       self.manager,
+                                       app=self.app,
+                                       physics_manager=self.physics_manager)
 
     def show_inline_script_editor(self, script=None, owner=None):
         if hasattr(self, '_script_editor') and self.script_editor:
@@ -105,63 +112,11 @@ class UIManager:
         self.create_settings_window()
         self.create_force_field_settings()
         self.create_object_settings_windows()
-        self.create_utility_buttons()
         self.create_pause_icon()
         self.context_menu = ContextMenu(self.manager, self)
         self.create_physics_debug_settings_window()
         self.create_plotter_window()
-        self.create_script_window()
-    def update_script_list(self):
-        if not self.script_window or not hasattr(self.physics_manager, 'script_manager'):
-            return
-        scripts = self.physics_manager.script_manager.get_all_scripts()
-        items = []
-        self._script_item_map = {}
-        for i, s in enumerate(scripts):
-            owner_desc = "World" if s.owner is None else f"Body@{id(s.owner)}"
-            status = "R" if s.running else "S"
-            threaded_mark = "T" if s.threaded else "M"
-            display = f"[{threaded_mark}{status}] {s.name} — {owner_desc}"
-            items.append(display)
-            self._script_item_map[display] = s
-        self.script_list.set_item_list(items)
-    def stop_selected_script(self):
-        selected = self.script_list.get_single_selection()
-        if selected and selected in self._script_item_map:
-            script = self._script_item_map[selected]
-            self.physics_manager.script_manager.remove_script(script)
-            self.update_script_list()
-    def create_script_window(self):
-        self.script_window = pygame_gui.elements.UIWindow(
-            pygame.Rect(50, 50, 400, 500),
-            manager=self.manager,
-            window_display_title="Script Manager",
-            visible=False
-        )
-        self.script_list = pygame_gui.elements.UISelectionList(
-            relative_rect=pygame.Rect(10, 50, 370, 350),
-            item_list=[],
-            manager=self.manager,
-            container=self.script_window
-        )
-        self.refresh_scripts_button = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect(10, 410, 120, 30),
-            text="Refresh",
-            manager=self.manager,
-            container=self.script_window
-        )
-        self.stop_script_button = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect(140, 410, 120, 30),
-            text="Stop Selected",
-            manager=self.manager,
-            container=self.script_window
-        )
-        self.open_script_editor_button = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect(270, 410, 110, 30),
-            text="New Script",
-            manager=self.manager,
-            container=self.script_window
-        )
+
     def create_force_field_buttons(self):
         self.force_field_buttons = []
         self.force_field_icons = []
@@ -225,20 +180,7 @@ class UIManager:
         self.physics_debug_window.hide()
         y_offset = 10
         self.debug_setting_checkboxes = {}
-        # for attr_name in dir(PhysicsDebugSettings):
-        #     if not attr_name.startswith('__') and isinstance(getattr(PhysicsDebugSettings, attr_name), bool):
-        #         display_name = attr_name.replace('show_', '').replace('_', ' ').title()
-        #         checkbox = UIButton(
-        #             relative_rect=pygame.Rect(5, y_offset, 20, 20),
-        #             text="",
-        #             container=self.physics_debug_window,
-        #             tool_tip_text=f"Toggle {display_name}",
-        #             manager=self.manager
-        #         )
-        #         label = UILabel(relative_rect=pygame.Rect(30, y_offset, 250, 20),
-        #                         text=display_name, container=self.physics_debug_window, manager=self.manager)
-        #         self.debug_setting_checkboxes[attr_name] = checkbox
-        #         y_offset += 25
+
         self.toggle_all_debug_button = UIButton(
             relative_rect=pygame.Rect(5, y_offset, 150, 30),
             text="Toggle All Debug",
@@ -292,20 +234,7 @@ class UIManager:
         self.text_label_radius = UILabel(relative_rect=pygame.Rect(400, 40, 200, 50), text=f"Force Field Radius: {500}",
                                          manager=self.manager)
         self.hide_force_field_settings()
-    def create_utility_buttons(self):
-        self.save_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 10, 125, 40), text="Save World",
-                                    manager=self.manager)
-        self.load_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 60, 125, 40), text="Load World",
-                                    manager=self.manager)
-        self.delete_all_button = UIButton(relative_rect=pygame.Rect(200, config.app.screen_height - 50, 125, 40),
-                                          text="Delete All", manager=self.manager)
-        self.toggle_debug_window_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 110, 125, 40), text="Debug Settings", manager=self.manager)
-        self.toggle_plotter_window_button = UIButton(relative_rect=pygame.Rect(config.app.screen_width - 135, 160, 125, 40), text="Plotter", manager=self.manager)
-        self.toggle_script_window_button = UIButton(
-            relative_rect=pygame.Rect(config.app.screen_width - 135, 210, 125, 40),
-            text="Scripts",
-            manager=self.manager
-        )
+
     def create_pause_icon(self):
         self.pause_icon = UIImage(relative_rect=pygame.Rect(config.app.screen_width - 450, 10, 50, 50),
                                   image_surface=pygame.image.load("sprites/gui/pause.png").convert_alpha(),
@@ -452,12 +381,6 @@ class UIManager:
         self.settings_window.set_position((200, screen_h - 300))
         self.physics_debug_window.set_position((screen_w - 450, 10))
         self.plotter_window.set_position((50, 50))
-        self.save_button.set_position((screen_w - 135, 10))
-        self.load_button.set_position((screen_w - 135, 60))
-        self.toggle_debug_window_button.set_position((screen_w - 135, 110))
-        self.toggle_plotter_window_button.set_position((screen_w - 135, 160))
-        self.delete_all_button.set_position((200, screen_h - 50))
-        self.toggle_script_window_button.set_position((screen_w - 135, 210))
         self.pause_icon.set_position((screen_w - 450, 10))
         # self._update_window_scaling(self.script_window, 0.4, 0.5)
         # self._update_window_scaling(self.settings_window, 0.4, 0.2)
@@ -486,27 +409,11 @@ class UIManager:
             if target == "Selected Object" and self.physics_debug_manager and self.physics_debug_manager.selected_body:
                 owner = self.physics_debug_manager.selected_body
             self.show_inline_script_editor(owner=owner)
-        elif event.ui_element == self.edit_script_btn:
-            selected = self.script_list.get_single_selection()
-            if selected and selected in self._script_item_map:
-                script = self._script_item_map[selected]
-                self.show_inline_script_editor(script=script)
-        elif event.ui_element == self.stop_script_btn:
-            self.stop_selected_script()
-        elif event.ui_element == self.refresh_scripts_btn:
-            self.update_script_list()
+
         elif event.ui_element in self.force_field_buttons:
             self.selected_force_field_button_text = event.ui_element.text
             self.show_force_field_settings()
-        elif event.ui_element == self.save_button:
-            synthesizer.play_frequency(100, duration=0.2, waveform='sine')
-            game_app.save_load_manager.save_world()
-        elif event.ui_element == self.load_button:
-            synthesizer.play_frequency(100, duration=0.2, waveform='sine')
-            game_app.save_load_manager.load_world()
-        elif event.ui_element == self.delete_all_button:
-            synthesizer.play_frequency(1530, duration=0.05, waveform='sine')
-            self.physics_manager.delete_all()
+
         elif event.ui_element == getattr(self, 'rectangle_color_button', None):
             if not self.rectangle_color_random:
                 self.open_color_picker('rectangle')
@@ -529,10 +436,6 @@ class UIManager:
             self.toggle_color_mode('triangle')
         elif event.ui_element == getattr(self, 'polyhedron_color_random_checkbox', None):
             self.toggle_color_mode('polyhedron')
-        elif event.ui_element == self.toggle_debug_window_button:
-            self.physics_debug_window.show() if not self.physics_debug_window.visible else self.physics_debug_window.hide()
-        elif event.ui_element == self.toggle_plotter_window_button:
-            self.plotter_window.show() if not self.plotter_window.visible else self.plotter_window.hide()
         elif event.ui_element == self.toggle_all_debug_button:
             if self.physics_debug_manager:
                 self.physics_debug_manager.toggle_all_debug()
@@ -548,14 +451,6 @@ class UIManager:
         elif event.ui_element == self.plotter_clear_button:
             if self.plotter:
                 self.plotter.clear_data()
-        elif event.ui_element == self.toggle_script_window_button:
-            self.script_window.show() if not self.script_window.visible else self.script_window.hide()
-        elif event.ui_element == self.refresh_scripts_button:
-            self.update_script_list()
-        elif event.ui_element == self.stop_script_button:
-            self.stop_selected_script()
-        elif event.ui_element == self.open_script_editor_button:
-            self.show_inline_script_editor()
         else:
             for setting_name, checkbox in self.debug_setting_checkboxes.items():
                 if event.ui_element == checkbox:
@@ -629,9 +524,6 @@ class UIManager:
         self.context_menu.update(time_delta, clock)
         if self.plotter:
             self.plotter_surface_element.set_image(self.plotter.get_surface())
-        if self.script_window and self.script_window.alive():
-            self.update_script_list()
-            self.script_editor
     @profile("ui_draw")
     def draw(self, screen):
         def auto_scale_unit(value):

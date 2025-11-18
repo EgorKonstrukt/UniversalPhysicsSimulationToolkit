@@ -1,11 +1,13 @@
 import pygame
 import pygame_gui
 from pygame_gui.elements import UIButton, UIPanel, UIImage
-
+from UPST.sound.sound_synthesizer import synthesizer
 
 class TopLeftBar:
-    def __init__(self, screen_width, screen_height, ui_manager, bar_width=300, bar_height=41):
+    def __init__(self, screen_width, screen_height, ui_manager, bar_width=300, bar_height=41, app=None, physics_manager=None):
         self.ui_manager = ui_manager
+        self.app = app
+        self.physics_manager = physics_manager
         self.bar_width = bar_width
         self.bar_height = bar_height
         self.button_width = 35
@@ -116,12 +118,15 @@ class TopLeftBar:
                 self._on_about_pressed()
 
     def _on_new_scene_pressed(self):
-        pass
+        self.physics_manager.delete_all()
 
     def _on_open_scene_pressed(self):
-        pass
+        synthesizer.play_frequency(100, duration=0.2, waveform='sine')
+        self.app.save_load_manager.load_world()
 
     def _on_save_scene_pressed(self):
+        synthesizer.play_frequency(100, duration=0.2, waveform='sine')
+        self.app.save_load_manager.save_world()
         pass
 
     def _on_profiler_pressed(self):

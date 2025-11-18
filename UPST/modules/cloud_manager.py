@@ -19,7 +19,11 @@ class CloudManager:
         self.cache_limit = scaled_cache_limit
         self.max_px = max_px
         self.fade_duration = fade_duration
+        self.physics_manager = None
         self._load_textures(folder)
+
+    def set_physics_manager(self, physics_manager):
+        self.physics_manager = physics_manager
 
     def _load_textures(self, folder):
         self.textures = []
@@ -52,11 +56,11 @@ class CloudManager:
             ry = (rnd.random() - 0.5) * cs
             depth = rnd.uniform(0.25, 1.0)
             scale = rnd.uniform(0.6, 1.6)
-            speed = rnd.uniform(15.0, 125.0)
+            base_speed = rnd.uniform(15.0, 125.0)
             angle = 0.0
             phase = rnd.random() * 1000.0
             spawn_time = time.time() - self.start_t
-            lst.append((tx, base_x0 + rx, cy * cs + ry, depth, scale, speed, angle, phase, spawn_time))
+            lst.append((tx, base_x0 + rx, cy * cs + ry, depth, scale, base_speed, angle, phase, spawn_time))
         self.cells[(cx, cy)] = lst
         return lst
 
@@ -75,16 +79,19 @@ class CloudManager:
         t = time.time() - self.start_t
         cs = self.cell_size
         fd = max(1e-6, float(self.fade_duration))
+        sim_speed = 1.0
+        if self.physics_manager:
+            base_freq = self.physics_manager.simulation_frequency
+            sim_speed = (base_freq / 60.0)*self.physics_manager.simulation_speed_multiplier if base_freq > 0 else 1.0
         for cx in range(cx0, cx1 + 1):
             for cy in range(cy0, cy1 + 1):
                 key = (cx, cy)
                 if key not in self.cells: self._make_cell(cx, cy)
                 for tup in self.cells[key]:
-                    tx, bx, by, depth, scale, speed, angle, phase, spawn_time = tup
-                    # плавный сдвиг по X (циклически в пределах ячейки) и абсолютная позиция
+                    tx, bx, by, depth, scale, base_speed, angle, phase, spawn_time = tup
+                    speed = base_speed * sim_speed
                     wx = (bx + speed * t) % cs + cx * cs
                     wy = by
-                    # alpha: 0..1, защитный clamp
                     raw = (t - spawn_time) / fd
                     if raw != raw: alpha = 1.0
                     else: alpha = max(0.0, min(1.0, float(raw)))
@@ -157,7 +164,6 @@ class CloudRenderer:
             screen_x = cx_screen + (scr[0] - cx_screen) * depth
             screen_y = cy_screen + (scr[1] - cy_screen) * depth
             sx, sy = s.get_size()
-            # безопасная обработка alpha: привести к int в [0,255], защититься от NaN/None/вне диапазона
             try:
                 a_val = float(alpha)
             except Exception:
