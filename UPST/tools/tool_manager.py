@@ -13,7 +13,7 @@ class ToolManager:
         self.tools = {}
         self._register_tools()
     def create_tool_buttons(self):
-        spawn_panel = UIPanel(relative_rect=pygame.Rect(5, 5, 200, 640), manager=self.ui_manager.manager)
+        spawn_panel = UIPanel(relative_rect=pygame.Rect(5, 50, 200, 640), manager=self.ui_manager.manager)
         section_y = 0
         def add_section_label(text, y):
             UILabel(relative_rect=pygame.Rect(0, y, 190, 25), text=f"-- {text} --", manager=self.ui_manager.manager, container=spawn_panel)
