@@ -83,6 +83,8 @@ class CloudManager:
         if self.physics_manager:
             base_freq = self.physics_manager.simulation_frequency
             sim_speed = (base_freq / 60.0) * self.physics_manager.simulation_speed_multiplier if base_freq > 0 else 1.0
+        rightmost_edge = (cx1 + 1) * cs
+        leftmost_edge = cx0 * cs
         for cx in range(cx0, cx1 + 1):
             for cy in range(cy0, cy1 + 1):
                 key = (cx, cy)
@@ -94,9 +96,8 @@ class CloudManager:
                     elapsed = max(0.0, t - spawn_time)
                     wx = bx + speed * elapsed
                     wy = by
-                    cam_x = cam.position.x
-                    if wx > cam_x + sw * 2:
-                        new_bx = cam_x - sw * 2 - random.random() * cs
+                    if wx > rightmost_edge:
+                        new_bx = leftmost_edge - random.random() * cs
                         new_spawn = t
                         lst[i] = (tx, new_bx, by, depth, scale, base_speed, angle, phase, new_spawn)
                         wx = new_bx
@@ -156,31 +157,28 @@ class CloudRenderer:
     @profile("Cloud Renderer", "Renderer")
     def draw(self):
         sw, sh = self.screen.get_size()
-        cx_screen, cy_screen = sw * 1.3, sh * 1.3
         cam_scale = max(0.01, self.camera.scaling)
         get_tex = self.clouds.get_scaled_texture
         cam_w2s = self.camera.world_to_screen
         for tx, wx, wy, depth, scale, angle, alpha in self.clouds.iter_visible_clouds(self.camera, sw, sh):
             if not tx: continue
+            screen_pos = cam_w2s((wx, wy))
+            screen_x, screen_y = screen_pos
             final_scale = scale * cam_scale
             w, h = tx.get_size()
             if w * final_scale < self.min_px or h * final_scale < self.min_px: continue
             s = get_tex(tx, final_scale, angle, max_px=self.clouds.max_px)
             if not s: continue
-            scr = cam_w2s((wx, wy))
-            screen_x = cx_screen + (scr[0] - cx_screen) * depth
-            screen_y = cy_screen + (scr[1] - cy_screen) * depth
             sx, sy = s.get_size()
-            try:
-                a_val = float(alpha)
-            except Exception:
-                a_val = 1.0
-            if math.isnan(a_val): a_val = 1.0
+            a_val = float(alpha) if not math.isnan(alpha) else 1.0
             a_int = max(0, min(255, int(round(255.0 * a_val))))
             if a_int == 0: continue
+            adjusted_x = screen_x - sx * 0.5
+            adjusted_y = screen_y - sy * 0.5
+            if adjusted_x + sx < 0 or adjusted_x > sw: continue
             if a_int >= 255:
-                self.screen.blit(s, (screen_x - sx * 0.5, screen_y - sy * 0.5))
+                self.screen.blit(s, (adjusted_x, adjusted_y))
             else:
                 temp = s.copy()
                 temp.fill((255, 255, 255, a_int), special_flags=pygame.BLEND_RGBA_MULT)
-                self.screen.blit(temp, (screen_x - sx * 0.5, screen_y - sy * 0.5))
+                self.screen.blit(temp, (adjusted_x, adjusted_y))

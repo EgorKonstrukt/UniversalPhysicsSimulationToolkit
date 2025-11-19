@@ -4,6 +4,7 @@ import pymunk
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
 from UPST.scripting.script_manager import ScriptManager
+from UPST.modules.undo_redo_manager import get_undo_redo
 
 class PhysicsManager:
     def __init__(self, game_app, undo_redo_manager):
@@ -34,6 +35,7 @@ class PhysicsManager:
             self.air_density = 1.225
             self.theme = config.world.themes.get(self.app.world_theme)
             self.script_manager = ScriptManager(app=self.app)
+
             if not self.theme:
                 Debug.log_warning(f"Theme '{self.app.world_theme}' not found, defaulting to Classic.", "Physics")
                 self.theme = config.world.themes["Classic"]
@@ -211,6 +213,7 @@ class PhysicsManager:
     def toggle_pause(self):
         try:
             self.running_physics = not self.running_physics
+            # self.undo_redo_manager.take_snapshot()
             Debug.log_info(f"Physics simulation {'paused' if not self.running_physics else 'unpaused'}.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in toggle_pause: {e}", "Physics")
@@ -334,14 +337,6 @@ class PhysicsManager:
         except Exception as e:
             Debug.log_error(f"Error in set_simulation_paused: {e}", "Physics")
 
-    def toggle_pause(self):
-        try:
-            self.running_physics = not self.running_physics
-            g = get_gizmos()
-            if g: g.simulation_paused = True
-            Debug.log_info(f"Physics simulation {'paused' if self.running_physics else 'resumed'} via toggle_pause.", "Physics")
-        except Exception as e:
-            Debug.log_error(f"Error in toggle_pause: {e}", "Physics")
     def set_simulation_frequency(self, hz: int):
         try:
             hz = int(max(1, hz))

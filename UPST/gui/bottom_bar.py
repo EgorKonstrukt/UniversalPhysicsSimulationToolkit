@@ -205,9 +205,8 @@ class BottomBar:
         config.grid.is_visible = not self.states['grid']
 
     def _on_air_friction_toggled(self):
+        self.physics_manager.air_friction_multiplier = 0.0
         pass
-        # linear_damping = 0.1 if self.states['air'] else 1.0
-        # self.physics_manager.set_damping(linear=linear_damping)
 
     def _on_gravity_toggled(self):
 
