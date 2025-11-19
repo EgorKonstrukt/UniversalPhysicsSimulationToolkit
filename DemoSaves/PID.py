@@ -2,6 +2,7 @@ import time
 import pymunk
 from typing import Callable, Tuple
 
+
 class AdjustablePIDController:
     def __init__(self, kp=1.0, ki=0.0, kd=0.0):
         self.kp = kp
@@ -71,10 +72,13 @@ class AdjustablePIDController:
                          color=(255, 255, 0) if abs(self.last_error) < 10 else (255, 64, 64),
                          world_space=True)
 
+
 target_pos = pymunk.Vec2d(400, 300)
 pid_x = AdjustablePIDController(1.0, 0.1, 0.01)
 pid_y = AdjustablePIDController(1.0, 0.1, 0.01)
 last_time = time.perf_counter()
+plotter = None
+
 
 def save_state():
     return {
@@ -82,14 +86,18 @@ def save_state():
         "pid_y": pid_y.save()
     }
 
+
 def load_state(state):
     pid_x.load(state.get("pid_x", {}))
     pid_y.load(state.get("pid_y", {}))
 
+
 def start():
-    global body
+    global body, plotter
     body = owner
-    self.preserve_gizmos = True
+    plotter = PlotterWindow(position=(700, 10), size=(600, 400), window_title="PID Error Plotter")
+    plotter.show()
+
 
 def update(dt):
     global last_time
@@ -107,3 +115,14 @@ def update(dt):
 
     pid_x.draw_ui(pos=(100, 100), label="X")
     pid_y.draw_ui(pos=(100, 320), label="Y")
+
+    if plotter:
+        plotter.add_data("X Error", abs(pid_x.last_error), "Error")
+        plotter.add_data("Y Error", abs(pid_y.last_error), "Error")
+        plotter.add_data("X Output", abs(fx), "Output")
+        plotter.add_data("Y Output", abs(fy), "Output")
+
+
+def stop():
+    if plotter:
+        plotter.hide()

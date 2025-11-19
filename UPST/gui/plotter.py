@@ -103,7 +103,7 @@ class Plotter:
         for i, key in enumerate(keys):
             vals = self.data[key]
             avg = sum(vals) / len(vals)
-            txt = f"{key} [{self.groups.get(key, 'ungrouped')}]: {vals[-1]:.2f}ms Avg: {avg:.2f}ms"
+            txt = f"{key} [{self.groups.get(key, 'ungrouped')}]: {vals[-1]:.2f} Avg: {avg:.2f}"
             lbl = self.font.render(txt, True, self._get_color(key))
             bg = pygame.Surface(lbl.get_size())
             bg.fill(self.LABEL_BG_COLOR); bg.set_alpha(200)
@@ -137,7 +137,7 @@ class Plotter:
 
     def _draw_label_split(self, key: str, vals: collections.deque, col: Tuple[int, int, int], y0: float) -> None:
         avg = sum(vals) / len(vals)
-        txt = f"{key} [{self.groups.get(key, 'ungrouped')}]: {vals[-1]:.1f}ms Avg: {avg:.1f}ms"
+        txt = f"{key} [{self.groups.get(key, 'ungrouped')}]: {vals[-1]:.1f} Avg: {avg:.1f}"
         lbl = self.font.render(txt, True, col)
         bg = pygame.Surface(lbl.get_size())
         bg.fill(self.LABEL_BG_COLOR); bg.set_alpha(200)
@@ -151,7 +151,7 @@ class Plotter:
             val = max_y - i * step_val
             y = self.MARGIN_TOP + (i / self.GRID_STEPS) * h
             pygame.draw.line(self.surface, self.GRID_COLOR, (0, y), (self.surface_size[0], y))
-            lbl = self.font.render(f"{val:.1f}ms", True, self.TEXT_COLOR)
+            lbl = self.font.render(f"{val:.1f}", True, self.TEXT_COLOR)
             self.surface.blit(lbl, (self.surface_size[0] - self.GRID_LABEL_X_OFFSET, y - 10))
 
     def get_surface(self) -> pygame.Surface:

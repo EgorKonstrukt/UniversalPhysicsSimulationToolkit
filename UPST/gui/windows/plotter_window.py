@@ -4,7 +4,7 @@ from typing import Optional
 from UPST.gui.plotter import Plotter
 
 class PlotterWindow:
-    def __init__(self, manager: pygame_gui.UIManager, position: tuple = (10, 10), size: tuple = (600, 400), window_title: str = "PID Plotter"):
+    def __init__(self, manager: pygame_gui.UIManager, position: tuple = (10, 10), size: tuple = (600, 400), window_title: str = "Data Plotter"):
         self.manager = manager
         self.position = position
         self.size = size
@@ -35,8 +35,17 @@ class PlotterWindow:
     def hide(self): self.window.hide()
     def is_open(self) -> bool: return self.window is not None and self.window.alive()
 
-    def add_data(self, key: str, value: float, group: str = "PID"): self.plotter.add_data(key, value, group)
+    def add_data(self, key: str, value: float, group: str = "General"): self.plotter.add_data(key, value, group)
     def clear_data(self): self.plotter.clear_data()
+    def set_overlay_mode(self, mode: bool): self.plotter.set_overlay_mode(mode)
+    def set_sort_by_value(self, sort_by_value: bool): self.plotter.set_sort_by_value(sort_by_value)
+    def hide_key(self, key: str): self.plotter.hide_key(key)
+    def show_key(self, key: str): self.plotter.show_key(key)
+    def clear_key(self, key: str): self.plotter.clear_key(key)
+    def set_group_filter(self, group_name: str): self.plotter.set_group_filter(group_name)
+    def get_available_groups(self) -> list: return self.plotter.get_available_groups()
+    def set_group_visibility(self, group_name: str, visible: bool): self.plotter.set_group_visibility(group_name, visible)
+    def is_group_visible(self, group_name: str) -> bool: return self.plotter.is_group_visible(group_name)
 
     def update(self, dt: float):
         if not self.is_open(): return

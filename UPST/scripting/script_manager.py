@@ -93,7 +93,7 @@ class ScriptManager:
         if script in self.scripts or script in self.world_scripts:
             self.remove_script(script)
 
-    def deserialize_from_save(self, data: dict, body_uuid_map: dict):
+    def deserialize_from_save(self, data:dict, body_uuid_map: dict):
         self.stop_all()
         self.scripts.clear()
         self.world_scripts.clear()

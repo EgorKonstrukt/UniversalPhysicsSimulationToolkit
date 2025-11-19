@@ -62,7 +62,8 @@ class ScriptInstance:
             wrapper._is_user_threaded = True
             wrapper._original = fn
             return wrapper
-
+        main_manager = self.app.ui_manager if self.app and hasattr(self.app, 'ui_manager') else config.ui_manager
+        print(main_manager)
         namespace: Dict[str, Any] = {
             "owner": owner,
             "app": app,
@@ -96,7 +97,7 @@ class ScriptInstance:
             "Tuple": Tuple,
             "Union": Union,
             "Set": Set,
-            "PlotterWindow": PlotterWindow,
+            "PlotterWindow": lambda *args, **kwargs: PlotterWindow(main_manager, *args, **kwargs),
         }
 
         try:
@@ -220,10 +221,6 @@ class ScriptInstance:
             gizmos_mgr = get_gizmos()
             if gizmos_mgr:
                 gizmos_mgr.scripts_paused = True
-            # if gizmos_mgr:
-            #     persistent_temp = [g for g in gizmos_mgr.gizmos if g.duration == -1]
-            #     gizmos_mgr.persistent_gizmos.extend(persistent_temp)
-            #     gizmos_mgr.gizmos[:] = [g for g in gizmos_mgr.gizmos if g.duration != -1]
         self.running = False
         self._stop_event.set()
         if self.thread and self.thread.is_alive():
@@ -293,6 +290,8 @@ class ScriptInstance:
             wrapper._original = fn
             return wrapper
 
+        main_manager = self.app.ui_manager if self.app and hasattr(self.app, 'ui_manager') else config.ui_manager
+        print(main_manager)
         return {
             "owner": self.owner,
             "Gizmos": Gizmos,
@@ -323,7 +322,7 @@ class ScriptInstance:
             "Tuple": Tuple,
             "Union": Union,
             "Set": Set,
-            "PlotterWindow": PlotterWindow(manager=self.app.ui_manager),
+            "PlotterWindow": lambda *args, **kwargs: PlotterWindow(main_manager, *args, **kwargs),
         }
 
     def _update_functions_from_namespace(self, namespace):
