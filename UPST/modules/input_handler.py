@@ -88,9 +88,10 @@ class InputHandler:
             return
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                info = self.app.physics_manager.space.point_query_nearest(world_mouse_pos, 0, pymunk.ShapeFilter())
-                if info and info.shape and info.shape.body != self.app.physics_manager.static_body:
-                    self.object_dragging = info.shape.body
+                pass
+                # info = self.app.physics_manager.space.point_query_nearest(world_mouse_pos, 0, pymunk.ShapeFilter())
+                # if info and info.shape and info.shape.body != self.app.physics_manager.static_body:
+                #     self.object_dragging = info.shape.body
             elif event.button == 3:
                 info = self.app.physics_manager.space.point_query_nearest(world_mouse_pos, 0, pymunk.ShapeFilter())
                 clicked_object = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
