@@ -6,7 +6,6 @@ import pygame
 from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
 
-
 class ObjectSpawner:
     """
     Handles the creation of different physics objects.
@@ -16,7 +15,6 @@ class ObjectSpawner:
         self.physics_manager = physics_manager
         self.ui_manager = ui_manager
         self.sound_manager = sound_manager
-
 
     def get_random_color_from_theme(self):
         theme = config.world.themes.get(config.world.current_theme, config.world.themes["Classic"])
@@ -32,9 +30,8 @@ class ObjectSpawner:
         if spawn_method:
             spawn_method(start_pos, end_pos)
             synthesizer.play_frequency(1630, duration=0.03, waveform='sine')
-
         else:
-            self.ui_manager.console_window.add_output_line_to_log(
+            self.ui_manager.console_ui.console_window.add_output_line_to_log(
                 f"Error: Drag spawn method for '{shape_type}' not found")
 
     def spawn_circle_dragged(self, start_pos, end_pos):
@@ -49,7 +46,7 @@ class ObjectSpawner:
         if radius <= 0:
             return
 
-        inputs = self.ui_manager.circle_inputs
+        inputs = self.ui_manager.object_settings_ui.circle_inputs
         mass = radius * math.pi / 10
         moment = pymunk.moment_for_circle(mass, 0, radius)
         body = pymunk.Body(mass, moment)
@@ -87,7 +84,7 @@ class ObjectSpawner:
 
         center = (start + end) / 2
 
-        inputs = self.ui_manager.rect_inputs
+        inputs = self.ui_manager.object_settings_ui.rect_inputs
         mass = (size_x * size_y) / 200
         moment = pymunk.moment_for_box(mass, (size_x * 2, size_y * 2))
         body = pymunk.Body(mass, moment)
@@ -122,7 +119,7 @@ class ObjectSpawner:
         if size <= 0:
             return
 
-        inputs = self.ui_manager.triangle_inputs
+        inputs = self.ui_manager.object_settings_ui.tri_inputs
         points = []
         for i in range(3):
             angle = i * (2 * math.pi / 3)
@@ -161,7 +158,7 @@ class ObjectSpawner:
         if radius <= 0:
             return
 
-        inputs = self.ui_manager.poly_inputs
+        inputs = self.ui_manager.object_settings_ui.poly_inputs
         faces = int(inputs['faces_entry'].get_text())
         points = []
         for i in range(faces):
@@ -201,16 +198,15 @@ class ObjectSpawner:
             if spawn_method:
                 spawn_method(position)
                 synthesizer.play_frequency(1630, duration=0.03, waveform='sine')
-
             else:
-                self.ui_manager.console_window.add_output_line_to_log(f"Error: Unknown spawn tool '{shape_type}'")
+                self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Error: Unknown spawn tool '{shape_type}'")
         except Exception as e:
             synthesizer.play_frequency(630, duration=0.1, waveform='sine')
             traceback.print_exc()
-            self.ui_manager.console_window.add_output_line_to_log(f"Error spawning object: {e}")
+            self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Error spawning object: {e}")
 
     def spawn_circle(self, position):
-        inputs = self.ui_manager.circle_inputs
+        inputs = self.ui_manager.object_settings_ui.circle_inputs
         radius = float(inputs['radius_entry'].get_text())
         mass = radius * math.pi / 10
         moment = pymunk.moment_for_circle(mass, 0, radius)
@@ -231,9 +227,10 @@ class ObjectSpawner:
 
         self.physics_manager.add_body_shape(body, shape)
 
-    def spawn_rectangle(self, position, size):
-        inputs = self.ui_manager.rect_inputs
-        if inputs: size = (float(inputs['size_x_entry'].get_text()), float(inputs['size_y_entry'].get_text()))
+    def spawn_rectangle(self, position, size=None):
+        inputs = self.ui_manager.object_settings_ui.rect_inputs
+        if size is None:
+            size = (float(inputs['size_x_entry'].get_text()), float(inputs['size_y_entry'].get_text()))
         points = [(-size[0], -size[1]), (-size[0], size[1]), (size[0], size[1]), (size[0], -size[1])]
         mass = (size[0] * size[1]) / 200
         moment = pymunk.moment_for_box(mass, (2 * size[0], 2 * size[1]))
@@ -255,7 +252,7 @@ class ObjectSpawner:
         self.physics_manager.add_body_shape(body, shape)
 
     def spawn_triangle(self, position):
-        inputs = self.ui_manager.triangle_inputs
+        inputs = self.ui_manager.object_settings_ui.tri_inputs
         radius = float(inputs['size_entry'].get_text())
         points = []
         for i in range(3):
@@ -279,7 +276,7 @@ class ObjectSpawner:
         self.physics_manager.add_body_shape(body, shape)
 
     def spawn_polyhedron(self, position):
-        inputs = self.ui_manager.poly_inputs
+        inputs = self.ui_manager.object_settings_ui.poly_inputs
         faces = int(inputs['faces_entry'].get_text())
         radius = float(inputs['size_entry'].get_text())
         points = []

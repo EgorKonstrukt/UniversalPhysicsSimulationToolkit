@@ -16,10 +16,11 @@ from UPST.modules.cloud_manager import CloudManager, CloudRenderer
 
 class Renderer:
     def __init__(self, app, screen, camera, physics_manager, gizmos_manager,
-                 grid_manager, input_handler, ui_manager, script_system=None):
+                 grid_manager, input_handler, ui_manager, script_system=None, tool_manager=None):
         self.app = app
         self.screen = screen
         self.camera = camera
+        self.tool_manager = tool_manager
         self.physics_manager = physics_manager
         self.gizmos_manager = gizmos_manager
         self.grid_manager = grid_manager
@@ -32,10 +33,9 @@ class Renderer:
         self.texture_cache_access_order = []
         self.last_texture_update = 0
         self.texture_update_interval = 0.1
-        self.min_cloud_px = 32
         self.clouds = CloudManager(folder="sprites/background", cell_size=3000, clouds_per_cell=2)
         self.clouds.set_physics_manager(physics_manager)
-        self.cloud_renderer = CloudRenderer(screen, camera, self.clouds, self.min_cloud_px)
+        self.cloud_renderer = CloudRenderer(screen, camera, self.clouds, min_px=10)
 
     def set_clouds_folder(self, folder):
         self.clouds.set_folder(folder)
@@ -50,12 +50,15 @@ class Renderer:
         self.gizmos_manager.draw_debug_gizmos()
         draw_opts = self.camera.get_draw_options(self.screen)
         self.physics_manager.space.debug_draw(draw_opts)
-        if self.input_handler.creating_static_line:
-            start = draw_opts.transform @ self.input_handler.static_line_start
-            pygame.draw.line(self.screen, (255, 255, 255), start, pygame.mouse.get_pos(), 5)
-        if self.input_handler.first_joint_body:
-            pos = self.camera.world_to_screen(self.input_handler.first_joint_body.position)
-            pygame.draw.line(self.screen, (255, 255, 0, 150), pos, pygame.mouse.get_pos(), 3)
+        self.tool_manager.laser_processor.update()
+        self.tool_manager.laser_processor.draw(self.screen, self.camera)
+
+        # if self.input_handler.creating_static_line:
+        #     start = draw_opts.transform @ self.input_handler.static_line_start
+        #     pygame.draw.line(self.screen, (255, 255, 255), start, pygame.mouse.get_pos(), 5)
+        # if self.input_handler.first_joint_body:
+        #     pos = self.camera.world_to_screen(self.input_handler.first_joint_body.position)
+        #     pygame.draw.line(self.screen, (255, 255, 0, 150), pos, pygame.mouse.get_pos(), 3)
         self._draw_textured_bodies()
         self.gizmos_manager.draw()
         if self.script_system: self.script_system.draw(self.screen)
@@ -200,12 +203,13 @@ class Renderer:
         return self.texture_cache[key]
 
     def _draw_cursor_icon(self):
-        if self.ui_manager.manager.get_focus_set(): return
-        tool = self.input_handler.current_tool
-        if tool in self.ui_manager.tool_icons:
-            icon = pygame.transform.smoothscale(self.ui_manager.tool_icons[tool], (32, 32))
-            mouse = pygame.mouse.get_pos()
-            self.screen.blit(icon, (mouse[0] + 30, mouse[1] - 20))
+        pass
+        # if self.ui_manager.manager.get_focus_set(): return
+        # tool = self.input_handler.current_tool
+        # if tool in self.ui_manager.tool_icons:
+        #     icon = pygame.transform.smoothscale(self.ui_manager.tool_icons[tool], (32, 32))
+        #     mouse = pygame.mouse.get_pos()
+        #     self.screen.blit(icon, (mouse[0] + 30, mouse[1] - 20))
 
     def _draw_script_info(self):
         if not self.script_system: return

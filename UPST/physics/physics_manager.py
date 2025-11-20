@@ -111,6 +111,47 @@ class PhysicsManager:
         except Exception as e:
             Debug.log_error(f"Error in physics step: {e}", "Physics")
 
+    def remove_shape_body(self, shape):
+        try:
+            Debug.log_info(f"Attempting to remove shape and its body if empty. Shape ID: {shape.__hash__()}.", "Physics")
+            body = shape.body
+            self.space.remove(shape)
+            self.undo_redo_manager.take_snapshot()
+            Debug.log_info(f"Shape {shape.__hash__()} removed from space.", "Physics")
+            if body and not body.shapes:
+                self.script_manager.remove_scripts_by_owner(body)
+                self.space.remove(body)
+                Debug.log_info(f"Body {body.__hash__()} removed as it has no more shapes.", "Physics")
+            else:
+                Debug.log_info(f"Body {body.__hash__()} not removed as it still has shapes.", "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in remove_shape_body: {e}", "Physics")
+
+    def delete_all(self):
+        try:
+            Debug.log_info("Deleting all bodies, shapes, and constraints from physics space.", "Physics")
+            for body in list(self.space.bodies):
+                if body is self.static_body:
+                    continue
+                if body:
+                    self.script_manager.remove_scripts_by_owner(body)
+                self.space.remove(body, *body.shapes)
+                Debug.log_info(f"Body {body.__hash__()} and its shapes removed.", "Physics")
+            for line in list(self.static_lines):
+                self.space.remove(line)
+                Debug.log_info(f"Static line {line.__hash__()} removed.", "Physics")
+            self.static_lines.clear()
+            for constraint in list(self.space.constraints):
+                self.space.remove(constraint)
+                Debug.log_info(f"Constraint {constraint.__hash__()} removed.", "Physics")
+            gizmos_mgr = get_gizmos()
+            if gizmos_mgr:
+                gizmos_mgr.clear()
+                gizmos_mgr.clear_persistent()
+                gizmos_mgr.clear_unique()
+        except Exception as e:
+            Debug.log_error(f"Error in delete_all: {e}", "Physics")
+
     def _shape_proj_area_and_cd(self, s, b, vel_unit):
         try:
             if hasattr(s, "cross_sectional_area") and getattr(s, "cross_sectional_area") is not None:
@@ -164,46 +205,8 @@ class PhysicsManager:
         except Exception:
             return 0.0, 1.0
 
-    def _apply_air_friction(self):
-        for b in self.space.bodies:
-            if b.body_type != pymunk.Body.DYNAMIC: continue
-            for s in b.shapes:
-                try:
-                    if getattr(s, "sensor", False): continue
-                    if hasattr(s, "offset"):
-                        off = pymunk.Vec2d(*s.offset)
-                    elif isinstance(s, pymunk.Segment):
-                        a = pymunk.Vec2d(*s.a);
-                        c = pymunk.Vec2d(*s.b);
-                        off = (a + c) * 0.5
-                    elif isinstance(s, pymunk.Poly):
-                        try:
-                            verts = [pymunk.Vec2d(*v) for v in s.get_vertices()]
-                            if len(verts) == 0:
-                                off = pymunk.Vec2d(0, 0)
-                            else:
-                                sm = pymunk.Vec2d(0, 0)
-                                for v in verts: sm += v
-                                off = sm / len(verts)
-                        except Exception:
-                            off = pymunk.Vec2d(0, 0)
-                    else:
-                        off = pymunk.Vec2d(0, 0)
-                    wp = b.position + off.rotated(b.angle)
-                    r = wp - b.position
-                    ang = pymunk.Vec2d(-b.angular_velocity * r.y, b.angular_velocity * r.x)
-                    vp = b.velocity + ang
-                    vm = vp.length
-                    if vm <= 1e-9: continue
-                    vel_unit = vp / vm
-                    A, Cd = self._shape_proj_area_and_cd(s, b, vel_unit)
-                    lin = -self.air_friction_multiplier * self.air_friction_linear * A * vp
-                    quad = -self.air_friction_multiplier * (
-                                0.5 * self.air_density * Cd * A * vm) * vel_unit * self.air_friction_quadratic
-                    f = lin + quad
-                    b.apply_force_at_world_point(f, wp)
-                except Exception as e:
-                    Debug.log_error(f"Error applying air friction on body {b.__hash__()}: {e}", "Physics")
+
+
     def update(self, rotation):
         try:
             self.step(1.0 / max(1, self.simulation_frequency))
@@ -243,46 +246,7 @@ class PhysicsManager:
         except Exception as e:
             Debug.log_error(f"Error in add_constraint: {e}", "Physics")
 
-    def remove_shape_body(self, shape):
-        try:
-            Debug.log_info(f"Attempting to remove shape and its body if empty. Shape ID: {shape.__hash__()}.", "Physics")
-            body = shape.body
-            self.space.remove(shape)
-            self.undo_redo_manager.take_snapshot()
-            Debug.log_info(f"Shape {shape.__hash__()} removed from space.", "Physics")
-            if body and not body.shapes:
-                self.script_manager.remove_scripts_by_owner(body)
-                self.space.remove(body)
-                Debug.log_info(f"Body {body.__hash__()} removed as it has no more shapes.", "Physics")
-            else:
-                Debug.log_info(f"Body {body.__hash__()} not removed as it still has shapes.", "Physics")
-        except Exception as e:
-            Debug.log_error(f"Error in remove_shape_body: {e}", "Physics")
 
-    def delete_all(self):
-        try:
-            Debug.log_info("Deleting all bodies, shapes, and constraints from physics space.", "Physics")
-            for body in list(self.space.bodies):
-                if body is self.static_body:
-                    continue
-                if body:
-                    self.script_manager.remove_scripts_by_owner(body)
-                self.space.remove(body, *body.shapes)
-                Debug.log_info(f"Body {body.__hash__()} and its shapes removed.", "Physics")
-            for line in list(self.static_lines):
-                self.space.remove(line)
-                Debug.log_info(f"Static line {line.__hash__()} removed.", "Physics")
-            self.static_lines.clear()
-            for constraint in list(self.space.constraints):
-                self.space.remove(constraint)
-                Debug.log_info(f"Constraint {constraint.__hash__()} removed.", "Physics")
-            gizmos_mgr = get_gizmos()
-            if gizmos_mgr:
-                gizmos_mgr.clear()
-                gizmos_mgr.clear_persistent()
-                gizmos_mgr.clear_unique()
-        except Exception as e:
-            Debug.log_error(f"Error in delete_all: {e}", "Physics")
 
     def get_body_at_position(self, position):
         try:
@@ -462,3 +426,44 @@ class PhysicsManager:
                 self._ccd_bodies.discard(body)
         except Exception as e:
             Debug.log_error(f"Error in enable_ccd: {e}", "Physics")
+
+    def _apply_air_friction(self):
+        for b in self.space.bodies:
+            if b.body_type != pymunk.Body.DYNAMIC: continue
+            for s in b.shapes:
+                try:
+                    if getattr(s, "sensor", False): continue
+                    if hasattr(s, "offset"):
+                        off = pymunk.Vec2d(*s.offset)
+                    elif isinstance(s, pymunk.Segment):
+                        a = pymunk.Vec2d(*s.a);
+                        c = pymunk.Vec2d(*s.b);
+                        off = (a + c) * 0.5
+                    elif isinstance(s, pymunk.Poly):
+                        try:
+                            verts = [pymunk.Vec2d(*v) for v in s.get_vertices()]
+                            if len(verts) == 0:
+                                off = pymunk.Vec2d(0, 0)
+                            else:
+                                sm = pymunk.Vec2d(0, 0)
+                                for v in verts: sm += v
+                                off = sm / len(verts)
+                        except Exception:
+                            off = pymunk.Vec2d(0, 0)
+                    else:
+                        off = pymunk.Vec2d(0, 0)
+                    wp = b.position + off.rotated(b.angle)
+                    r = wp - b.position
+                    ang = pymunk.Vec2d(-b.angular_velocity * r.y, b.angular_velocity * r.x)
+                    vp = b.velocity + ang
+                    vm = vp.length
+                    if vm <= 1e-9: continue
+                    vel_unit = vp / vm
+                    A, Cd = self._shape_proj_area_and_cd(s, b, vel_unit)
+                    lin = -self.air_friction_multiplier * self.air_friction_linear * A * vp
+                    quad = -self.air_friction_multiplier * (
+                            0.5 * self.air_density * Cd * A * vm) * vel_unit * self.air_friction_quadratic
+                    f = lin + quad
+                    b.apply_force_at_world_point(f, wp)
+                except Exception as e:
+                    Debug.log_error(f"Error applying air friction on body {b.__hash__()}: {e}", "Physics")

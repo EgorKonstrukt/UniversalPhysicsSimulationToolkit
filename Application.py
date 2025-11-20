@@ -20,13 +20,15 @@ from UPST.gui.plotter import Plotter
 from UPST.modules.profiler import Profiler, profile
 from UPST.modules.save_load_manager import SaveLoadManager
 from UPST.sound.sound_synthesizer import synthesizer
-from UPST.tools.tool_manager import ToolManager
+from UPST.tools import tool_manager
 from UPST.modules.snapshot_manager import SnapshotManager
 from UPST.modules.undo_redo_manager import UndoRedoManager
 from UPST.sound.sound_manager import SoundManager
 from UPST.network.network_manager import NetworkManager
 from UI_manager import UIManager
 from UPST.modules.renderer import Renderer
+
+from UPST.tools.tool_manager import ToolSystem
 
 
 class Application:
@@ -69,13 +71,23 @@ class Application:
             self.physics_manager.create_base_world()
             Debug.log_info("Base world created after undo_redo manager setup.", "Physics")
 
+        self.tool_manager = ToolSystem(physics_manager=self.physics_manager,
+                                       sound_manager=self.sound_manager)
+
         self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
                                     self.physics_manager, self.camera, None, self.screen, self.font,
-                                    network_manager=None, app=self)
+                                    network_manager=None, app=self,
+                                    tool_system=self.tool_manager)
+
         self.input_handler = InputHandler(self, gizmos_manager=self.gizmos_manager,
                                           debug_manager=self.debug_manager,
                                           undo_redo_manager=self.undo_redo_manager,
-                                          ui_manager=self.ui_manager)
+                                          ui_manager=self.ui_manager,
+                                          tool_system=self.tool_manager)
+
+        # Set up the circular dependencies after all managers are created
+        self.tool_manager.set_ui_manager(self.ui_manager)
+        self.tool_manager.set_input_handler(self.input_handler)
         self.ui_manager.input_handler = self.input_handler
         Debug.log("InputHandler initialized successfully", "Init")
 
@@ -86,11 +98,11 @@ class Application:
                                      ui_manager=self.ui_manager,
                                      sound_manager=self.sound_manager)
         Debug.log("ObjectSpawner initialized successfully", "Init")
-        self.tool_manager = ToolManager(physics_manager=self.physics_manager,
-                                        ui_manager=self.ui_manager,
-                                        input_handler=self.input_handler,
-                                        sound_manager=self.sound_manager,
-                                        spawner=self.spawner)
+        # self.tool_manager = ToolManager(physics_manager=self.physics_manager,
+        #                                 ui_manager=self.ui_manager,
+        #                                 input_handler=self.input_handler,
+        #                                 sound_manager=self.sound_manager,
+        #                                 spawner=self.spawner)
         Debug.log("ToolManager initialized successfully", "Init")
         self.tool_manager.create_tool_buttons()
         self.save_load_manager = SaveLoadManager(self.physics_manager, self.camera,
@@ -124,7 +136,7 @@ class Application:
         self.renderer = Renderer(app=self, screen=self.screen, camera=self.camera,
                                  physics_manager=self.physics_manager, gizmos_manager=self.gizmos_manager,
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
-                                 ui_manager=self.ui_manager, script_system=None)
+                                 ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
 
     def setup_screen(self):
         flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE

@@ -20,6 +20,7 @@ class CloudManager:
         self.max_px = max_px
         self.fade_duration = fade_duration
         self.physics_manager = None
+        self.depth_layers = {}
         self._load_textures(folder)
 
     def set_physics_manager(self, physics_manager):
@@ -43,6 +44,7 @@ class CloudManager:
         self.cells.clear()
         self.scaled_tex_cache.clear()
         self.scaled_order.clear()
+        self.depth_layers.clear()
 
     def _make_cell(self, cx, cy):
         seed_val = (cx * 73856093) ^ (cy * 19349663) ^ self.seed
@@ -54,8 +56,8 @@ class CloudManager:
             tx = rnd.choice(self.textures) if self.textures else None
             rx = rnd.random() * cs
             ry = (rnd.random() - 0.5) * cs
-            depth = rnd.uniform(0.25, 1.0)
-            scale = rnd.uniform(0.6, 1.6)
+            depth = rnd.uniform(0.015, 0.5)
+            scale = rnd.uniform(1, 2.6)
             base_speed = rnd.uniform(15.0, 125.0)
             angle = 0.0
             phase = rnd.random() * 1000.0
@@ -85,6 +87,7 @@ class CloudManager:
             sim_speed = (base_freq / 60.0) * self.physics_manager.simulation_speed_multiplier if base_freq > 0 else 1.0
         rightmost_edge = (cx1 + 1) * cs
         leftmost_edge = cx0 * cs
+        visible_clouds = []
         for cx in range(cx0, cx1 + 1):
             for cy in range(cy0, cy1 + 1):
                 key = (cx, cy)
@@ -103,7 +106,8 @@ class CloudManager:
                         wx = new_bx
                     raw = (t - spawn_time) / fd
                     alpha = 1.0 if raw != raw else max(0.0, min(1.0, float(raw)))
-                    yield tx, wx, wy, depth, scale, angle, alpha
+                    visible_clouds.append((tx, wx, wy, depth, scale, angle, alpha))
+        return sorted(visible_clouds, key=lambda x: x[3])
 
     def _evict_if_needed(self):
         while len(self.scaled_order) > self.cache_limit:
@@ -157,14 +161,20 @@ class CloudRenderer:
     @profile("Cloud Renderer", "Renderer")
     def draw(self):
         sw, sh = self.screen.get_size()
+        cam_pos = self.camera.position
         cam_scale = max(0.01, self.camera.scaling)
         get_tex = self.clouds.get_scaled_texture
         cam_w2s = self.camera.world_to_screen
-        for tx, wx, wy, depth, scale, angle, alpha in self.clouds.iter_visible_clouds(self.camera, sw, sh):
+        visible_clouds = self.clouds.iter_visible_clouds(self.camera, sw, sh)
+        for tx, wx, wy, depth, scale, angle, alpha in visible_clouds:
             if not tx: continue
-            screen_pos = cam_w2s((wx, wy))
+            parallax_x = cam_pos[0] * (1.0 - depth)
+            parallax_y = cam_pos[1] * (1.0 - depth)
+            adjusted_wx = (wx - cam_pos[0]) * depth + parallax_x
+            adjusted_wy = (wy - cam_pos[1]) * depth + parallax_y
+            screen_pos = cam_w2s((adjusted_wx, adjusted_wy))
             screen_x, screen_y = screen_pos
-            final_scale = scale * cam_scale
+            final_scale = scale * cam_scale * depth
             w, h = tx.get_size()
             if w * final_scale < self.min_px or h * final_scale < self.min_px: continue
             s = get_tex(tx, final_scale, angle, max_px=self.clouds.max_px)
