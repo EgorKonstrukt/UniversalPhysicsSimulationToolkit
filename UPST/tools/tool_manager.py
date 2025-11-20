@@ -49,7 +49,9 @@ class ToolSystem:
             ExplosionTool(self.pm),
             StaticLineTool(self.pm),
             LaserTool(self.pm, self.laser_processor),
-            DragTool(self.pm)
+            DragTool(self.pm),
+            MoveTool(self.pm),
+            RotateTool(self.pm),
         ]
 
         self._pending_tools = spawn_tools + constraint_tools + special_tools
@@ -121,6 +123,10 @@ class ToolSystem:
         btn.tool_name = "Laser"
         btn = add_tool_btn("Drag", self.tools["Drag"].icon_path)
         btn.tool_name = "Drag"
+        btn = add_tool_btn("Move", self.tools["Move"].icon_path)
+        btn.tool_name = "Move"
+        btn = add_tool_btn("Rotate", self.tools["Rotate"].icon_path)
+        btn.tool_name = "Rotate"
 
 
 class CircleTool(BaseTool):
@@ -811,3 +817,133 @@ class DragTool(BaseTool):
         if self.dragging:self._stop_drag()
 
 
+class MoveTool(BaseTool):
+    name="Move"
+    icon_path="sprites/gui/tools/move.png"
+    def __init__(self,pm):
+        super().__init__(pm)
+        self.tgt=None
+        self.drag=False
+        self.cb_center=None
+        self.cb_no_rot=None
+        self.saved_moi=None
+
+    def create_settings_window(self):
+        win=pygame_gui.elements.UIWindow(
+            rect=pygame.Rect(200,10,260,130),
+            manager=self.ui_manager.manager,
+            window_display_title="Move Settings"
+        )
+        self.cb_center=pygame_gui.elements.UICheckBox(
+            relative_rect=pygame.Rect(10,10,200,20),
+            text="Брать за центр массы",
+            manager=self.ui_manager.manager,
+            container=win
+        )
+        self.cb_no_rot=pygame_gui.elements.UICheckBox(
+            relative_rect=pygame.Rect(10,35,200,20),
+            text="Отключить вращение",
+            manager=self.ui_manager.manager,
+            container=win
+        )
+        self.settings_window=win
+
+    def handle_event(self,event,wpos):
+        if event.type==pygame.MOUSEBUTTONDOWN and event.button==1:
+            info=self.pm.space.point_query_nearest(wpos,0,pymunk.ShapeFilter())
+            body=info.shape.body if info and info.shape and info.shape.body!=self.pm.static_body else None
+            if body:
+                self.tgt=body
+                if self.cb_no_rot.get_state():
+                    self.saved_moi=self.tgt.moment
+                    self.tgt.moment=float("inf")
+                    self.tgt.angular_velocity=0
+                self.drag=True
+        elif event.type==pygame.MOUSEBUTTONUP and event.button==1:
+            if self.drag:self._stop_move()
+        elif event.type==pygame.MOUSEMOTION and self.drag and self.tgt:
+            self._move_to(wpos)
+
+    def _move_to(self,wpos):
+        if self.cb_center.get_state():
+            self.tgt.position=wpos
+        else:
+            v=(wpos-self.tgt.position)*8
+            self.tgt.velocity=v
+
+    def _stop_move(self):
+        if self.cb_no_rot.get_state() and self.saved_moi and self.tgt:
+            self.tgt.moment=self.saved_moi
+        self.saved_moi=None
+        self.drag=False
+        self.tgt=None
+
+    def deactivate(self):
+        if self.drag:self._stop_move()
+
+
+
+class RotateTool(BaseTool):
+    name="Rotate"
+    icon_path="sprites/gui/tools/rotate.png"
+    def __init__(self,pm):
+        super().__init__(pm)
+        self.tgt=None
+        self.drag=False
+        self.cb_center=None
+        self.cb_lock=None
+        self.start_angle=0
+        self.start_vec=None
+
+    def create_settings_window(self):
+        win=pygame_gui.elements.UIWindow(
+            rect=pygame.Rect(200,10,260,130),
+            manager=self.ui_manager.manager,
+            window_display_title="Rotate Settings"
+        )
+        self.cb_center=pygame_gui.elements.UICheckBox(
+            relative_rect=pygame.Rect(10,10,200,20),
+            text="Брать за центр массы",
+            manager=self.ui_manager.manager,
+            container=win
+        )
+        self.cb_lock=pygame_gui.elements.UICheckBox(
+            relative_rect=pygame.Rect(10,35,200,20),
+            text="Отключить вращение",
+            manager=self.ui_manager.manager,
+            container=win
+        )
+        self.settings_window=win
+
+    def handle_event(self,event,wpos):
+        if event.type==pygame.MOUSEBUTTONDOWN and event.button==1:
+            info=self.pm.space.point_query_nearest(wpos,0,pymunk.ShapeFilter())
+            body=info.shape.body if info and info.shape and info.shape.body!=self.pm.static_body else None
+            if body:
+                self.tgt=body
+                self.start_angle=self.tgt.angle
+                self.start_vec=(wpos-self.tgt.position)
+                self.drag=True
+                if self.cb_lock.get_state():
+                    self.tgt.angular_velocity=0
+        elif event.type==pygame.MOUSEBUTTONUP and event.button==1:
+            if self.drag:self._stop_rotate()
+        elif event.type==pygame.MOUSEMOTION and self.drag and self.tgt:
+            self._rotate_to(wpos)
+
+    def _rotate_to(self,wpos):
+        v_now=(wpos-self.tgt.position)
+        if v_now.length<1 or self.start_vec.length<1:return
+        a0=math.atan2(self.start_vec.y,self.start_vec.x)
+        a1=math.atan2(v_now.y,v_now.x)
+        da=a1-a0
+        self.tgt.angle=self.start_angle+da
+        self.tgt.angular_velocity=da*12
+
+    def _stop_rotate(self):
+        if self.cb_lock.get_state():self.tgt.angular_velocity=0
+        self.drag=False
+        self.tgt=None
+
+    def deactivate(self):
+        if self.drag:self._stop_rotate()
