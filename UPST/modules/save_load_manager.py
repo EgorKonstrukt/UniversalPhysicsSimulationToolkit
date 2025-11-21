@@ -121,11 +121,11 @@ class SaveLoadManager:
         try:
             data = self._load_data_with_fallback(fp)
             self._apply_loaded_data(data)
-            self.ui_manager.console_window.add_output_line_to_log("Load successful!")
+            # self.ui_manager.console_window.add_output_line_to_log("Load successful!")
             self.physics_manager.set_simulation_paused(paused=False)
             Debug.log_success(f"Loaded from {fp}", "SaveLoadManager")
         except Exception as e:
-            self.ui_manager.console_window.add_output_line_to_log(f"Load error: {e}")
+            # self.ui_manager.console_window.add_output_line_to_log(f"Load error: {e}")
             Debug.log_exception(f"Load failed for {fp}: {traceback.format_exc()}", "SaveLoadManager")
 
     def _load_data_with_fallback(self, fp):
