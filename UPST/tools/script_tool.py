@@ -8,7 +8,7 @@ import time
 
 class ScriptTool(BaseTool):
     name = "ScriptTool"
-    icon_path = "sprites/gui/tools/script.png"
+    icon_path = "sprites/gui/python.png"
     def __init__(self, pm):
         super().__init__(pm)
         self.scripts = []

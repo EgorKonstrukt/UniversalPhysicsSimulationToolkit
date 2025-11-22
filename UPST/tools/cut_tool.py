@@ -7,7 +7,7 @@ import pygame_gui
 
 class CutTool(BaseTool):
     name = "Cut"
-    icon_path = "sprites/gui/tools/cut.png"
+    icon_path = "sprites/gui/tools/knife.png"
     def __init__(self, pm):
         super().__init__(pm)
         self.start_pos=None
