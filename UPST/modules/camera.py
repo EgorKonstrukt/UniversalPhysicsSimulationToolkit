@@ -64,10 +64,10 @@ class Camera:
         return 0.5 * (2 - pow(2, -20 * t + 10))
 
     def update(self, keys):
-        if self.is_mouse_on_ui():
-            return
         if self.tracking_enabled and self.tracking_target is not None:
             self._update_tracking()
+        if self.is_mouse_on_ui():
+            return
         left = int(keys[pygame.K_LEFT])
         right = int(keys[pygame.K_RIGHT])
         up = int(keys[pygame.K_UP])
