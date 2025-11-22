@@ -5,6 +5,18 @@ from typing import Any, Dict, Tuple, List, Type, Optional, get_type_hints
 import json
 
 @dataclass
+class OpticsConfig:
+    TRANSPARENCY = 0.75
+    N_SAMPLES = 30
+    MAX_WL = 750
+    MIN_WL = 380
+    C_A = 1.514
+    C_B = 0.0042
+    EPS = 1e-6
+    ABSORB_THR = 1e-3
+    ALPHA_EPS = 1e-6
+
+@dataclass
 class ContextMenuConfig:
     button_height = 30
     button_spacing = -4
@@ -279,6 +291,7 @@ class Config:
     texture_editor: "TextureEditorConfig"
     save_load: "SaveLoadConfig"
     context_menu: "ContextMenuConfig"
+    optics: "OpticsConfig"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -368,6 +381,7 @@ Config.register("snapshot", SnapshotConfig)
 Config.register("texture_editor", TextureEditorConfig)
 Config.register("save_load", SaveLoadConfig)
 Config.register("context_menu", ContextMenuConfig)
+Config.register("optics", OpticsConfig)
 
 def grid_to_dict_custom(self, d: Dict) -> Dict:
     d["default_colors"] = asdict(self.default_colors)

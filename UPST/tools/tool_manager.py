@@ -31,6 +31,8 @@ class ToolSystem:
         self._pending_tools = []
         self._register_tools()
 
+    def is_mouse_on_ui(self):
+        return self.ui_manager.manager.get_focus_set()
 
     def set_ui_manager(self, ui_manager):
         self.ui_manager = ui_manager
@@ -86,10 +88,14 @@ class ToolSystem:
         synthesizer.play_frequency(1630, duration=0.03, waveform='sine')
 
     def handle_input(self, world_pos):
+        if self.is_mouse_on_ui:
+            return
         if self.current_tool and hasattr(self.current_tool, 'handle_input'):
             self.current_tool.handle_input(world_pos)
 
     def handle_event(self, event, world_pos):
+        if self.is_mouse_on_ui:
+            return
         if self.current_tool:
             self.current_tool.handle_event(event, world_pos)
 

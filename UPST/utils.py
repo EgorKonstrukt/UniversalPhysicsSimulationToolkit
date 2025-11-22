@@ -36,3 +36,4 @@ def safe_filedialog(func, *args, freeze_watcher=None, **kwargs):
     finally:
         if freeze_watcher:
             freeze_watcher.resume()
+
