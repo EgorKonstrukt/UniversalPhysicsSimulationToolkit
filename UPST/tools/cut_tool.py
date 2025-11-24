@@ -151,70 +151,85 @@ class CutTool(BaseTool):
                     except Exception: pass
             except Exception: pass
             return False
-    def _process_cut(self,a,b,thickness):
-        to_remove_shapes=[]; to_add=[]
+
+    def _process_cut(self, a, b, thickness):
+        bodies_to_remove = set()
+        to_add = []
+
         for shape in list(self.pm.space.shapes):
-            if shape.body==self.pm.static_body: continue
-            if isinstance(shape,pymunk.Segment):
-                p1=shape.a; p2=shape.b
-                if self._seg_seg_intersection(a,b,p1,p2): to_remove_shapes.append(shape)
-            elif isinstance(shape,pymunk.Circle):
-                if self._seg_circle_intersect(a,b,shape.body.position,shape.radius):
-                    if self.remove_circles_cb.get_state():
-                        to_remove_shapes.append(shape)
-                    else:
-                        res=self._split_circle_by_segment(shape,a,b)
+            if shape.body == self.pm.static_body:
+                continue
+            if isinstance(shape, pymunk.Segment):
+                if self._seg_seg_intersection(a, b, shape.a, shape.b):
+                    bodies_to_remove.add(shape.body)
+            elif isinstance(shape, pymunk.Circle):
+                if self._seg_circle_intersect(a, b, shape.body.position, shape.radius):
+                    bodies_to_remove.add(shape.body)
+                    if not self.remove_circles_cb.get_state():
+                        res = self._split_circle_by_segment(shape, a, b)
                         if res:
                             for pts in res:
-                                new=self._create_poly_body(pts,shape)
-                                if new: to_add.append(new)
-                            to_remove_shapes.append(shape)
-                        else:
-                            to_remove_shapes.append(shape)
-            elif isinstance(shape,pymunk.Poly):
-                res=self._split_poly_by_segment(shape,a,b)
+                                new = self._create_poly_body(pts, shape)
+                                if new:
+                                    to_add.append(new)
+            elif isinstance(shape, pymunk.Poly):
+                res = self._split_poly_by_segment(shape, a, b)
                 if res:
-                    p1_pts,p2_pts=res
-                    new1=self._create_poly_body(p1_pts,shape)
-                    new2=self._create_poly_body(p2_pts,shape)
+                    bodies_to_remove.add(shape.body)
+                    p1_pts, p2_pts = res
+                    new1 = self._create_poly_body(p1_pts, shape)
+                    new2 = self._create_poly_body(p2_pts, shape)
                     if new1: to_add.append(new1)
                     if new2: to_add.append(new2)
-                    to_remove_shapes.append(shape)
                 else:
-                    mind=min(self._point_line_dist(v,a,b) for v in self._polygon_world_pts(shape))
-                    if mind<=thickness: to_remove_shapes.append(shape)
+                    mind = min(self._point_line_dist(v, a, b) for v in self._polygon_world_pts(shape))
+                    if mind <= thickness:
+                        bodies_to_remove.add(shape.body)
+
+        for body in bodies_to_remove:
+            if body in self.pm.space.bodies:
+                try:
+                    self.pm.space.remove(body, *body.shapes)
+                except Exception:
+                    pass
+            self.pm.script_manager.remove_scripts_by_owner(body)
+
         for c in list(self.pm.space.constraints):
-            a1=c.a.local_to_world(getattr(c,"anchor_a",(0,0))); a2=c.b.local_to_world(getattr(c,"anchor_b",(0,0)))
-            if self._point_line_dist(a1,a,b)<=thickness or self._point_line_dist(a2,a,b)<=thickness:
-                try: self.pm.space.remove(c)
-                except: pass
-        for sh in to_remove_shapes:
-            try:
-                self._remove_shape_and_maybe_body(sh)
-            except Exception: pass
-        for body,shape in to_add:
-            added=self._safe_add_body_shape(body,shape)
+            if c.a in bodies_to_remove or c.b in bodies_to_remove:
+                try:
+                    self.pm.space.remove(c)
+                except:
+                    pass
+
+        for body, shape in to_add:
+            added = self._safe_add_body_shape(body, shape)
             if not added and self.keep_small_cb and self.keep_small_cb.get_state():
                 try:
                     if body in self.pm.space.bodies:
-                        try: self.pm.space.remove(body)
-                        except Exception: pass
-                except Exception: pass
+                        self.pm.space.remove(body)
+                except:
+                    pass
 
 
-    def handle_event(self,event,world_pos):
-        if event.type==pygame.MOUSEBUTTONDOWN and event.button==1:
-            self.start_pos=world_pos; self._tmp_preview=(world_pos,world_pos)
-        elif event.type==pygame.MOUSEMOTION and self.start_pos:
-            self._tmp_preview=(self.start_pos,world_pos)
-        elif event.type==pygame.MOUSEBUTTONUP and event.button==1 and self.start_pos:
-            a=self.start_pos; b=world_pos
-            try: thickness=float(self.thickness_entry.get_text()) if self.thickness_entry else 4.0
-            except: thickness=4.0
-            self._process_cut(a,b,thickness)
-            self.start_pos=None; self._tmp_preview=None
-            synthesizer.play_frequency(300,duration=0.05,waveform='sine')
+    def handle_event(self, event, world_pos):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.start_pos = world_pos
+            self._tmp_preview = (world_pos, world_pos)
+        elif event.type == pygame.MOUSEMOTION and self.start_pos:
+            self._tmp_preview = (self.start_pos, world_pos)
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.start_pos:
+            a = self.start_pos
+            b = world_pos
+            try:
+                thickness = float(self.thickness_entry.get_text()) if self.thickness_entry else 4.0
+            except:
+                thickness = 4.0
+            self._process_cut(a, b, thickness)
+            self.start_pos = None
+            self._tmp_preview = None
+            synthesizer.play_frequency(300, duration=0.05, waveform='sine')
             self.undo_redo.take_snapshot()
+
 
     def draw_preview(self,screen,camera):
         seg=self._tmp_preview

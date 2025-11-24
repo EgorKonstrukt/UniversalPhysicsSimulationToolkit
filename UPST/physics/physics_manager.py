@@ -133,17 +133,23 @@ class PhysicsManager:
             for body in list(self.space.bodies):
                 if body is self.static_body:
                     continue
-                if body:
+                if body and body in self.space.bodies:
+                    shapes_to_remove = [s for s in body.shapes if s in self.space.shapes]
+                    if shapes_to_remove:
+                        self.space.remove(*shapes_to_remove)
                     self.script_manager.remove_scripts_by_owner(body)
-                self.space.remove(body, *body.shapes)
-                Debug.log_info(f"Body {body.__hash__()} and its shapes removed.", "Physics")
+                    if body in self.space.bodies:
+                        self.space.remove(body)
+                    Debug.log_info(f"Body {body.__hash__()} and its shapes removed.", "Physics")
             for line in list(self.static_lines):
-                self.space.remove(line)
-                Debug.log_info(f"Static line {line.__hash__()} removed.", "Physics")
+                if line in self.space.shapes:
+                    self.space.remove(line)
+                    Debug.log_info(f"Static line {line.__hash__()} removed.", "Physics")
             self.static_lines.clear()
             for constraint in list(self.space.constraints):
-                self.space.remove(constraint)
-                Debug.log_info(f"Constraint {constraint.__hash__()} removed.", "Physics")
+                if constraint in self.space.constraints:
+                    self.space.remove(constraint)
+                    Debug.log_info(f"Constraint {constraint.__hash__()} removed.", "Physics")
             gizmos_mgr = get_gizmos()
             if gizmos_mgr:
                 gizmos_mgr.clear()
