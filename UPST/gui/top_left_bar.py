@@ -4,15 +4,15 @@ from pygame_gui.elements import UIButton, UIPanel, UIImage
 from UPST.sound.sound_synthesizer import synthesizer
 
 class TopLeftBar:
-    def __init__(self, screen_width, screen_height, ui_manager, bar_width=300, bar_height=41, app=None, physics_manager=None):
+    def __init__(self, screen_width, screen_height, ui_manager, bar_width=375, bar_height=45, app=None, physics_manager=None):
         self.ui_manager = ui_manager
         self.app = app
         self.physics_manager = physics_manager
         self.bar_width = bar_width
         self.bar_height = bar_height
-        self.button_width = 35
-        self.button_height = 35
-        self.padding = 2
+        self.button_width = 40
+        self.button_height = 40
+        self.padding = 1
         self.separator_width = 2
 
         self.panel = UIPanel(
@@ -25,6 +25,7 @@ class TopLeftBar:
                 'new': pygame.image.load("sprites/gui/new.png").convert_alpha(),
                 'open': pygame.image.load("sprites/gui/open.png").convert_alpha(),
                 'save': pygame.image.load("sprites/gui/save.png").convert_alpha(),
+                'repository': pygame.image.load("sprites/gui/repository.png").convert_alpha(),
                 'profiler': pygame.image.load("sprites/gui/plot.png").convert_alpha(),
                 'console': pygame.image.load("sprites/gui/window_visibility.png").convert_alpha(),
                 'settings': pygame.image.load("sprites/gui/settings.png").convert_alpha(),
@@ -35,7 +36,7 @@ class TopLeftBar:
             placeholder = pygame.Surface((24, 24), pygame.SRCALPHA)
             pygame.draw.rect(placeholder, (255, 0, 0), placeholder.get_rect(), 1)
             self.icon_surfaces = {name: placeholder.copy() for name in [
-                'new', 'open', 'save', 'profiler', 'console', 'settings', 'about'
+                'new', 'open', 'save', 'repository', 'profiler', 'console', 'settings', 'about'
             ]}
 
         self.buttons = {}
@@ -52,6 +53,10 @@ class TopLeftBar:
 
         self._create_icon_button('save', x_pos, "Save Scene")
         x_pos += self.button_width + self.padding
+
+        self._create_icon_button('repository', x_pos, "Repository")
+        x_pos += self.button_width + self.padding
+
         x_pos += 15
         self._create_separator(x_pos)
         x_pos += self.separator_width + self.padding
@@ -78,8 +83,8 @@ class TopLeftBar:
         )
 
         icon = UIImage(
-            relative_rect=pygame.Rect(x + (self.button_width - 24) // 2,
-                                      (self.bar_height - 24-6) // 2, 24, 24),
+            relative_rect=pygame.Rect(x + (self.button_width - 32) // 2,
+                                      (self.bar_height - 32-6) // 2, 32, 32),
             image_surface=self.icon_surfaces[name],
             container=self.panel,
             manager=self.ui_manager

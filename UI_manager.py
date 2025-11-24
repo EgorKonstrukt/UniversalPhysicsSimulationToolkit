@@ -5,6 +5,7 @@ from UPST.sound.sound_synthesizer import synthesizer
 from UPST.gui.contex_menu import ContextMenu
 from UPST.gui.bottom_bar import BottomBar
 from UPST.gui.top_left_bar import TopLeftBar
+from UPST.gui.top_right_bar import TopRightBar
 from UPST.gui.force_field_ui import ForceFieldUI
 from UPST.gui.console_ui import ConsoleUI
 from UPST.gui.settings_ui import SettingsUI
@@ -37,6 +38,7 @@ class UIManager:
         self.plotter_ui = PlotterUI(self.manager)
         self.bottom_bar = BottomBar(screen_width, screen_height, self.manager, physics_manager=self.physics_manager)
         self.top_left_bar = TopLeftBar(screen_width, screen_height, self.manager, app=self.app, physics_manager=self.physics_manager)
+        self.top_right_bar = TopRightBar(screen_width, screen_height, self.manager, app=self.app, physics_manager=self.physics_manager)
         self.tool_buttons = []
         self.shape_colors = {'rectangle': pygame.Color(128,128,128), 'circle': pygame.Color(128,128,128), 'triangle': pygame.Color(128,128,128), 'polyhedron': pygame.Color(128,128,128)}
         self.rectangle_color_random = True

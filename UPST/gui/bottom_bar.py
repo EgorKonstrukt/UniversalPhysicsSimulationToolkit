@@ -240,8 +240,6 @@ class BottomBar:
         self.panel.set_position((panel_x, screen_height - self.bar_height))
         self.panel.set_dimensions((self.bar_width, self.bar_height))
 
-
-
     def _reposition_button(self, name, x):
         btn = self.buttons[name]
         icon = self.icons[name]
