@@ -50,24 +50,9 @@ class PhysicsDebugConfig:
     show_energy_meters: bool = False
     show_colliders: bool = False
     show_sleep_state: bool = False
-    show_object_info: bool = False
     show_trails: bool = False
-    show_momentum_vectors: bool = False
     show_angular_momentum: bool = True
-    show_impulse_vectors: bool = False
-    show_contact_forces: bool = False
-    show_friction_forces: bool = False
-    show_normal_forces: bool = False
-    show_stress_visualization: bool = False
-    show_deformation_energy: bool = False
     show_rotation_axes: bool = True
-    show_velocity_profiles: bool = False
-    show_phase_space: bool = False
-    show_lagrangian_mechanics: bool = False
-    show_hamiltonian_mechanics: bool = False
-    show_conservation_laws: bool = False
-    show_stability_analysis: bool = False
-    show_resonance_analysis: bool = False
     vector_scale: float = 0.025
     text_scale: float = 1.0
     energy_bar_height: float = 20.0
@@ -94,10 +79,7 @@ class PhysicsDebugConfig:
     sleep_color: Tuple[int, int, int] = (64, 64, 64)
     show_vector_labels: bool = True
     show_energy_values: bool = True
-    show_coordinate_system: bool = False
-    show_scientific_notation: bool = False
     precision_digits: int = 3
-    info_panel_visible: bool = False
     info_panel_position: Tuple[int, int] = (10, 100)
 
 @dataclass

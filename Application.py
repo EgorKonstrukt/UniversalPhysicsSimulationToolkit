@@ -159,7 +159,6 @@ class Application:
             self.gizmos_manager.update(time_delta)
             self.profiler.start("physics debug", "physics")
             self.physics_debug_manager.update(time_delta)
-            self.physics_debug_manager.draw_physics_info_panel()
             self.profiler.stop("physics debug")
             events = pygame.event.get()
             self.input_handler.process_events(profiler=self.profiler, events=events)
