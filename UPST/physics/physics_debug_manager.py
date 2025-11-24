@@ -192,6 +192,7 @@ class PhysicsDebugManager:
                     value = body.torque
                 self.plotter.add_data(key, value, group)
 
+
         if config.physics_debug.show_trails:
             self._update_trail(body, pos)
         if config.physics_debug.show_velocity_profiles:

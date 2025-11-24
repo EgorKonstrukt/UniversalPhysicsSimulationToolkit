@@ -170,7 +170,6 @@ class SnapshotManager:
         data = pickle.loads(snapshot_bytes)
         self.physics_manager.delete_all()
         pm = self.physics_manager
-        pm.delete_all()
         pm.set_iterations(int(data.get("iterations", config.physics.iterations)))
         pm.set_simulation_frequency(int(data.get("sim_freq", config.physics.simulation_frequency)))
         pm.space.gravity = tuple(data.get("gravity", (0.0, 900.0)))

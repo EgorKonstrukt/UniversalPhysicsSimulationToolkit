@@ -2,6 +2,7 @@ import pygame
 import pygame_gui
 from pygame_gui.elements import UIButton, UIPanel, UIImage
 from UPST.sound.sound_synthesizer import synthesizer
+from UPST.gui.windows.visualization_window import VisualizationWindow
 
 class TopRightBar:
     def __init__(self, screen_width, screen_height, ui_manager, bar_width=45, bar_height=300, app=None, physics_manager=None):
@@ -28,12 +29,11 @@ class TopRightBar:
             print(f"Error loading icons: {e}")
             placeholder = pygame.Surface((24, 24), pygame.SRCALPHA)
             pygame.draw.rect(placeholder, (255, 0, 0), placeholder.get_rect(), 1)
-            self.icon_surfaces = {name: placeholder.copy() for name in [
-                'visualization', 'plot'
-            ]}
+            self.icon_surfaces = {name: placeholder.copy() for name in ['visualization', 'plot']}
 
         self.buttons = {}
         self.icons = {}
+        self.visualization_window = None
 
         y_pos = self.padding
         for name, tooltip in [
@@ -51,33 +51,43 @@ class TopRightBar:
             container=self.panel,
             tool_tip_text=tooltip
         )
-
         icon = UIImage(
             relative_rect=pygame.Rect((self.bar_width - 37) // 2, y + (self.button_height - 37) // 2, 37, 37),
             image_surface=self.icon_surfaces[name],
             container=self.panel,
             manager=self.ui_manager
         )
-
         self.buttons[name] = btn
         self.icons[name] = icon
 
     def process_event(self, event):
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-            if event.ui_element == self.buttons['play']:
+            if event.ui_element == self.buttons['visualization']:
+                self._on_visualization_pressed()
+            elif event.ui_element == self.buttons.get('play'):
                 self._on_play_pressed()
-            elif event.ui_element == self.buttons['pause']:
+            elif event.ui_element == self.buttons.get('pause'):
                 self._on_pause_pressed()
-            elif event.ui_element == self.buttons['stop']:
+            elif event.ui_element == self.buttons.get('stop'):
                 self._on_stop_pressed()
-            elif event.ui_element == self.buttons['step']:
+            elif event.ui_element == self.buttons.get('step'):
                 self._on_step_pressed()
-            elif event.ui_element == self.buttons['reset']:
+            elif event.ui_element == self.buttons.get('reset'):
                 self._on_reset_pressed()
-            elif event.ui_element == self.buttons['record']:
+            elif event.ui_element == self.buttons.get('record'):
                 self._on_record_pressed()
-            elif event.ui_element == self.buttons['volume']:
+            elif event.ui_element == self.buttons.get('volume'):
                 self._on_volume_pressed()
+        if self.visualization_window:
+            self.visualization_window.process_event(event)
+
+    def _on_visualization_pressed(self):
+        if self.visualization_window is None or self.visualization_window.window.alive() is False:
+            rect = pygame.Rect(50, 50, 900, 1000)
+            self.visualization_window = VisualizationWindow(rect, self.ui_manager, app=self.app)
+        else:
+            self.visualization_window.window.kill()
+            self.visualization_window = None
 
     def _on_play_pressed(self):
         if self.app and hasattr(self.app, 'simulation_paused'):
@@ -103,4 +113,5 @@ class TopRightBar:
         synthesizer.play_frequency(200, duration=0.15, waveform='sine')
 
     def _on_volume_pressed(self):
+        synthesizer.mute = not synthesizer.mute
         synthesizer.mute = not synthesizer.mute

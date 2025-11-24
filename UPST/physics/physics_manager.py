@@ -130,26 +130,31 @@ class PhysicsManager:
     def delete_all(self):
         try:
             Debug.log_info("Deleting all bodies, shapes, and constraints from physics space.", "Physics")
-            for body in list(self.space.bodies):
-                if body is self.static_body:
-                    continue
-                if body and body in self.space.bodies:
-                    shapes_to_remove = [s for s in body.shapes if s in self.space.shapes]
-                    if shapes_to_remove:
-                        self.space.remove(*shapes_to_remove)
-                    self.script_manager.remove_scripts_by_owner(body)
-                    if body in self.space.bodies:
-                        self.space.remove(body)
-                    Debug.log_info(f"Body {body.__hash__()} and its shapes removed.", "Physics")
-            for line in list(self.static_lines):
-                if line in self.space.shapes:
-                    self.space.remove(line)
-                    Debug.log_info(f"Static line {line.__hash__()} removed.", "Physics")
+            # Удаляем все нестатические тела и их формы
+            dynamic_bodies = [b for b in self.space.bodies if b is not self.static_body]
+            for body in dynamic_bodies:
+                self.space.remove(*body.shapes, body)
+                self.script_manager.remove_scripts_by_owner(body)
+                Debug.log_info(f"Body {body.__hash__()} and its shapes removed.", "Physics")
+
+            # Удаляем все оставшиеся формы (включая Segment на static_body)
+            remaining_shapes = list(self.space.shapes)
+            if remaining_shapes:
+                self.space.remove(*remaining_shapes)
+                for shape in remaining_shapes:
+                    Debug.log_info(f"Static or orphaned shape {shape.__hash__()} (type: {type(shape).__name__}) removed.", "Physics")
+
+            # Очищаем статические линии (уже не нужны, но на всякий случай)
             self.static_lines.clear()
-            for constraint in list(self.space.constraints):
-                if constraint in self.space.constraints:
-                    self.space.remove(constraint)
-                    Debug.log_info(f"Constraint {constraint.__hash__()} removed.", "Physics")
+
+            # Удаляем все ограничения
+            constraints = list(self.space.constraints)
+            if constraints:
+                self.space.remove(*constraints)
+                for c in constraints:
+                    Debug.log_info(f"Constraint {c.__hash__()} removed.", "Physics")
+
+            # Очищаем Gizmos
             gizmos_mgr = get_gizmos()
             if gizmos_mgr:
                 gizmos_mgr.clear()

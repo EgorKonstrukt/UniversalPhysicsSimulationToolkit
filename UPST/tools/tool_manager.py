@@ -252,6 +252,7 @@ class PivotJointTool(BaseTool):
                     pivot = pymunk.PivotJoint(self.first_body, body, self.first_pos)
                     pivot.collide_bodies = self.collide_checkbox.get_state()
                     self.pm.space.add(pivot)
+                    self.undo_redo.take_snapshot()
                 self.first_body = None
 
     def deactivate(self):
@@ -299,6 +300,7 @@ class PinJointTool(BaseTool):
                         rigid = pymunk.PinJoint(self.first_body, body, anchor1, anchor2)
                         rigid.distance = dist
                         self.pm.space.add(rigid)
+                        self.undo_redo.take_snapshot()
                     except ValueError:
                         pass
                 self.first_body = None
@@ -341,6 +343,8 @@ class StaticLineTool(BaseTool):
             segment.friction = 1.0
             segment.elasticity = 0.5
             self.pm.space.add(segment)
+            self.pm.static_lines.append(segment)
+            self.undo_redo.take_snapshot()
             self.start_pos = None
 
     def draw_preview(self, screen, camera):
@@ -407,7 +411,7 @@ class PolyTool(BaseTool):
             shape.friction = friction
             shape.elasticity = elasticity
             self.pm.space.add(body, shape)
-            synthesizer.play_frequency(600, 0.05, 'sine')
+            self.undo_redo.take_snapshot()
         except Exception as e:
             traceback.print_exc()
         self.points.clear()

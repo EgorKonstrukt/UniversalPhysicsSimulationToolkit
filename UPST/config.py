@@ -94,10 +94,10 @@ class PhysicsDebugConfig:
     sleep_color: Tuple[int, int, int] = (64, 64, 64)
     show_vector_labels: bool = True
     show_energy_values: bool = True
-    show_coordinate_system: bool = True
+    show_coordinate_system: bool = False
     show_scientific_notation: bool = False
     precision_digits: int = 3
-    info_panel_visible: bool = True
+    info_panel_visible: bool = False
     info_panel_position: Tuple[int, int] = (10, 100)
 
 @dataclass

@@ -9,7 +9,6 @@ from UPST.gui.top_right_bar import TopRightBar
 from UPST.gui.force_field_ui import ForceFieldUI
 from UPST.gui.console_ui import ConsoleUI
 from UPST.gui.settings_ui import SettingsUI
-from UPST.gui.physics_debug_ui import PhysicsDebugUI
 from UPST.gui.plotter_ui import PlotterUI
 import math
 
@@ -34,7 +33,6 @@ class UIManager:
         self.force_field_ui = ForceFieldUI(self.manager, screen_width, screen_height, self)
         self.console_ui = ConsoleUI(self.manager, screen_width, screen_height)
         self.settings_ui = SettingsUI(self.manager, screen_height)
-        self.physics_debug_ui = PhysicsDebugUI(self.manager, screen_width)
         self.plotter_ui = PlotterUI(self.manager)
         self.bottom_bar = BottomBar(screen_width, screen_height, self.manager, physics_manager=self.physics_manager)
         self.top_left_bar = TopLeftBar(screen_width, screen_height, self.manager, app=self.app, physics_manager=self.physics_manager)
@@ -64,7 +62,6 @@ class UIManager:
 
     def set_physics_debug_manager(self, physics_debug_manager):
         self.physics_debug_manager = physics_debug_manager
-        self.physics_debug_ui.set_debug_manager(physics_debug_manager)
 
     def set_plotter(self, plotter):
         self.plotter = plotter
@@ -108,19 +105,14 @@ class UIManager:
             self.script_editor.process_event(event)
         self.bottom_bar.process_event(event)
         self.top_left_bar.process_event(event)
+        self.top_right_bar.process_event(event)
 
     def _handle_button_press(self, event, game_app):
         if event.ui_element in self.force_field_ui.force_field_buttons:
             self.force_field_ui.handle_button_press(event.ui_element, game_app)
         elif hasattr(event.ui_element, 'tool_name'):
             self.tool_system.activate_tool(event.ui_element.tool_name)
-        elif event.ui_element == self.physics_debug_ui.toggle_all_btn:
-            if self.physics_debug_manager:
-                self.physics_debug_manager.toggle_all_debug()
-                self.physics_debug_ui.update_checkboxes()
-        elif event.ui_element == self.physics_debug_ui.clear_btn:
-            if self.physics_debug_manager:
-                self.physics_debug_manager.clear_trails()
+
         elif event.ui_element == self.plotter_ui.add_btn:
             self._handle_plot_add()
         elif event.ui_element == self.plotter_ui.clear_btn:
@@ -147,7 +139,6 @@ class UIManager:
         self.force_field_ui.resize(screen_w, screen_h)
         self.console_ui.resize(screen_w, screen_h)
         self.settings_ui.resize(screen_h)
-        self.physics_debug_ui.resize(screen_w)
         self.plotter_ui.resize()
         self.bottom_bar.resize(screen_w, screen_h)
 
