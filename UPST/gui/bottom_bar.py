@@ -234,3 +234,17 @@ class BottomBar:
     def set_gravity_state(self, enabled):
         self.states['gravity'] = enabled
         self._update_button_states()
+
+    def resize(self, screen_width, screen_height):
+        panel_x = (screen_width - self.bar_width) // 2
+        self.panel.set_position((panel_x, screen_height - self.bar_height))
+        self.panel.set_dimensions((self.bar_width, self.bar_height))
+
+
+
+    def _reposition_button(self, name, x):
+        btn = self.buttons[name]
+        icon = self.icons[name]
+        y = (self.bar_height - self.button_height - 5) // 2
+        btn.set_position((x, y))
+        icon.set_position((x + (self.button_width - 38) // 2, (self.bar_height - 42) // 2))

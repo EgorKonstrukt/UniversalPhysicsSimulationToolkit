@@ -147,6 +147,7 @@ class UIManager:
         self.settings_ui.resize(screen_h)
         self.physics_debug_ui.resize(screen_w)
         self.plotter_ui.resize()
+        self.bottom_bar.resize(screen_w, screen_h)
 
     def update(self, time_delta, clock):
         self.manager.update(time_delta)
