@@ -140,16 +140,36 @@ class PhysicsDebugManager:
                 total_energy = total_ke + total_pe + elastic_pe
                 self._result_queue.put((task_type, (total_momentum, total_angular_momentum, total_energy, system_com)))
 
-    def _calculate_body_properties(self, body_mass, body_moment, body_velocity_x, body_velocity_y, body_angular_velocity, body_position_y, gravity_magnitude):
-        velocity_length = math.sqrt(body_velocity_x**2 + body_velocity_y**2)
-        kinetic_energy = 0.5 * body_mass * (velocity_length ** 2)
-        rotational_energy = 0.5 * body_moment * (body_angular_velocity ** 2)
+    def _calculate_body_properties(self, body_mass, body_moment, body_velocity_x, body_velocity_y,
+                                   body_angular_velocity, body_position_y, gravity_magnitude):
+        try:
+            velocity_sq = body_velocity_x ** 2 + body_velocity_y ** 2
+            if velocity_sq > 1e15:  # ~1e7.5 m/s; physically unrealistic and dangerous
+                Debug.log_warning(f"Clamped extreme velocity (v²={velocity_sq:.2e}) for body {id(body_mass)}", "PhysicsDebug")
+                velocity_length = 1e7
+            else:
+                velocity_length = math.sqrt(velocity_sq)
+            kinetic_energy = 0.5 * body_mass * (velocity_length ** 2)
+        except (OverflowError, ValueError):
+            Debug.log_warning(f"Overflow in velocity for body {id(body_mass)}: vx={body_velocity_x}, vy={body_velocity_y}",
+                       "PhysicsDebug")
+            velocity_length = 0.0
+            kinetic_energy = 0.0
+
+        try:
+            rotational_energy = 0.5 * body_moment * (body_angular_velocity ** 2)
+            if math.isnan(rotational_energy) or math.isinf(rotational_energy):
+                rotational_energy = 0.0
+        except (OverflowError, ValueError):
+            Debug.log_warning(f"Overflow in angular velocity ({body_angular_velocity}) for body {id(body_mass)}",
+                       "PhysicsDebug")
+            rotational_energy = 0.0
+
         potential_energy = body_mass * gravity_magnitude * max(0, (config.app.screen_height - body_position_y) * 0.001)
         total_energy = kinetic_energy + rotational_energy + potential_energy
         linear_momentum = body_mass * velocity_length
         angular_momentum = body_moment * body_angular_velocity
         return velocity_length, kinetic_energy, rotational_energy, potential_energy, total_energy, linear_momentum, angular_momentum
-
     def _update_body_debug(self, body: pymunk.Body, dt: float, t: float):
         pos = body.position
         velocity_length, kinetic_energy, rotational_energy, potential_energy, total_energy, linear_momentum, angular_momentum = \
