@@ -83,7 +83,7 @@ class TopRightBar:
 
     def _on_visualization_pressed(self):
         if self.visualization_window is None or self.visualization_window.window.alive() is False:
-            rect = pygame.Rect(50, 50, 900, 1000)
+            rect = pygame.Rect(50, 50, 1000, 500)
             self.visualization_window = VisualizationWindow(rect, self.ui_manager, app=self.app)
         else:
             self.visualization_window.window.kill()

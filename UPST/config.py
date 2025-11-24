@@ -57,7 +57,6 @@ class PhysicsDebugConfig:
     text_scale: float = 1.0
     energy_bar_height: float = 20.0
     trail_length: int = 50
-    phase_space_samples: int = 100
     show_constraints: bool = True
     constraint_color: Tuple[int, int, int] = (255, 200, 0)
     show_constraint_info: bool = True
@@ -70,11 +69,6 @@ class PhysicsDebugConfig:
     potential_color: Tuple[int, int, int] = (0, 0, 255)
     momentum_color: Tuple[int, int, int] = (255, 128, 0)
     angular_momentum_color: Tuple[int, int, int] = (128, 255, 0)
-    impulse_color: Tuple[int, int, int] = (255, 0, 128)
-    contact_color: Tuple[int, int, int] = (255, 255, 255)
-    friction_color: Tuple[int, int, int] = (128, 128, 255)
-    normal_color: Tuple[int, int, int] = (255, 128, 128)
-    stress_color: Tuple[int, int, int] = (255, 200, 200)
     collider_color: Tuple[int, int, int] = (128, 128, 128)
     sleep_color: Tuple[int, int, int] = (64, 64, 64)
     show_vector_labels: bool = True
