@@ -65,6 +65,7 @@ class MoveTool(BaseTool):
         self.saved_moi=None
         self.drag=False
         self.tgt=None
+        self.undo_redo.take_snapshot()
 
     def deactivate(self):
         if self.drag:self._stop_move()

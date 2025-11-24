@@ -1,4 +1,5 @@
 import pygame
+from UPST.modules.undo_redo_manager import get_undo_redo
 
 
 class BaseTool:
@@ -8,6 +9,7 @@ class BaseTool:
         self.drag_start = None
         self.preview = None
         self.settings_window = None
+        self.undo_redo = get_undo_redo()
 
     def set_ui_manager(self, ui_manager):
         self.ui_manager = ui_manager

@@ -142,6 +142,8 @@ class LaserTool(BaseTool):
                     em.tex_surf = None
                 self.lp.add_emitter(em)
                 self.phase = 0; self.preview = None
+            self.undo_redo.take_snapshot()
+
         if event.type == pygame.MOUSEMOTION and self.phase == 1:
             dx = world_pos[0] - self.tmp_pos[0]; dy = world_pos[1] - self.tmp_pos[1]
             self.tmp_angle = math.atan2(dy, dx)

@@ -56,6 +56,7 @@ class RectangleTool(BaseTool):
         shape.elasticity = float(self.elasticity_entry.get_text())
         shape.color = self._get_color('rectangle')
         self.pm.add_body_shape(body, shape)
+        self.undo_redo.take_snapshot()
 
     def spawn_dragged(self, start, end):
         dx = end[0] - start[0]
@@ -73,6 +74,7 @@ class RectangleTool(BaseTool):
         shape.elasticity = float(self.elasticity_entry.get_text())
         shape.color = self._get_color('rectangle')
         self.pm.add_body_shape(body, shape)
+        self.undo_redo.take_snapshot()
 
     def _calc_preview(self, end_pos):
         dx = end_pos[0] - self.drag_start[0]

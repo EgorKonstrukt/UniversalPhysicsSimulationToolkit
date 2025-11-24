@@ -65,6 +65,7 @@ class RotateTool(BaseTool):
         if self.cb_lock.get_state():self.tgt.angular_velocity=0
         self.drag=False
         self.tgt=None
+        self.undo_redo.take_snapshot()
 
     def deactivate(self):
         if self.drag:self._stop_rotate()

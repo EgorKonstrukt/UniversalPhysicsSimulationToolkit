@@ -51,6 +51,7 @@ class TriangleTool(BaseTool):
         shape.elasticity = float(self.elasticity_entry.get_text())
         shape.color = self._get_color('triangle')
         self.pm.add_body_shape(body, shape)
+        self.undo_redo.take_snapshot()
 
     def spawn_dragged(self, start, end):
         delta = pymunk.Vec2d(end[0] - start[0], end[1] - start[1])
@@ -66,6 +67,7 @@ class TriangleTool(BaseTool):
         shape.elasticity = float(self.elasticity_entry.get_text())
         shape.color = self._get_color('triangle')
         self.pm.add_body_shape(body, shape)
+        self.undo_redo.take_snapshot()
 
     def _calc_preview(self, end_pos):
         delta = pymunk.Vec2d(end_pos[0] - self.drag_start[0], end_pos[1] - self.drag_start[1])

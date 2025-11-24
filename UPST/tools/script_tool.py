@@ -21,10 +21,12 @@ class ScriptTool(BaseTool):
     def activate(self):
         super().activate()
         self._refresh_scripts()
+        self.undo_redo.take_snapshot()
     def deactivate(self):
         self.scripts.clear()
         self.rects.clear()
         self.execution_times.clear()
+        self.undo_redo.take_snapshot()
     def _refresh_scripts(self):
         if hasattr(self.pm, 'script_manager'):
             self.scripts = self.pm.script_manager.get_all_scripts()

@@ -66,6 +66,7 @@ class CircleTool(BaseTool):
         shape.elasticity = float(self.elasticity_entry.get_text())
         shape.color = self._get_color('circle')
         self.pm.add_body_shape(body, shape)
+        self.undo_redo.take_snapshot()
 
     def _calc_preview(self, end_pos):
         start_vec = pymunk.Vec2d(*self.drag_start)

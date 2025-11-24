@@ -78,6 +78,7 @@ class GearTool(BaseTool):
         sh.elasticity=0.0
         sh._is_gear=True
         self.pm.space.add(body,sh)
+        self.undo_redo.take_snapshot()
         return sh
 
     def handle_event(self,event,world_pos):

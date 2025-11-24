@@ -19,6 +19,9 @@ from UPST.tools.move_tool import MoveTool
 from UPST.tools.rotate_tool import RotateTool
 from UPST.tools.cut_tool import CutTool
 from UPST.tools.script_tool import ScriptTool
+from UPST.tools.drag_tool import DragTool
+
+from UPST.modules.undo_redo_manager import get_undo_redo
 
 class ToolSystem:
     def __init__(self, physics_manager, sound_manager):
@@ -30,6 +33,7 @@ class ToolSystem:
         self.current_tool = None
         self._pending_tools = []
         self._register_tools()
+        self.undo_redo = get_undo_redo()
 
     def is_mouse_on_ui(self):
         return self.ui_manager.manager.get_focus_set()
@@ -56,8 +60,8 @@ class ToolSystem:
         ]
         constraint_tools = [
             SpringTool(self.pm),
-            PivotTool(self.pm),
-            RigidTool(self.pm)
+            PivotJointTool(self.pm),
+            PinJointTool(self.pm)
         ]
         special_tools = [
             ExplosionTool(self.pm),
@@ -131,7 +135,7 @@ class ToolSystem:
             btn = add_tool_btn(name, self.tools[name].icon_path)
             btn.tool_name = name
         add_section("Connections")
-        for name in ["Spring", "Pivot", "Rigid"]:
+        for name in ["Spring", "PivotJoint", "PinJoint"]:
             btn = add_tool_btn(name, self.tools[name].icon_path)
             btn.tool_name = name
         add_section("Tools")
@@ -160,6 +164,23 @@ class SpringTool(BaseTool):
         super().__init__(pm)
         self.first_body = None
         self.first_pos = None
+        self.stiffness = 200.0
+        self.damping = 10.0
+        self.rest_length = 0.0
+
+    def create_settings_window(self):
+        win = pygame_gui.elements.UIWindow(
+            rect=pygame.Rect(210, 10, 300, 200),
+            manager=self.ui_manager.manager,
+            window_display_title="Spring Settings"
+        )
+        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 10, 120, 20), text="Stiffness:", manager=self.ui_manager.manager, container=win)
+        self.stiffness_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 10, 60, 20), initial_text="200", manager=self.ui_manager.manager, container=win)
+        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 40, 120, 20), text="Damping:", manager=self.ui_manager.manager, container=win)
+        self.damping_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 40, 60, 20), initial_text="10", manager=self.ui_manager.manager, container=win)
+        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 70, 120, 20), text="Rest Length:", manager=self.ui_manager.manager, container=win)
+        self.rest_len_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 70, 60, 20), initial_text="auto", manager=self.ui_manager.manager, container=win)
+        self.settings_window = win
 
     def handle_event(self, event, world_pos):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -175,9 +196,17 @@ class SpringTool(BaseTool):
                 if self.first_body != body:
                     anchor1 = self.first_body.world_to_local(self.first_pos)
                     anchor2 = body.world_to_local(world_pos)
-                    rest_len = self.first_body.position.get_distance(body.position)
-                    spring = pymunk.DampedSpring(self.first_body, body, anchor1, anchor2, rest_len, 200, 10)
-                    self.pm.space.add(spring)
+                    try:
+
+                        rest_len_text = self.rest_len_entry.get_text().strip()
+                        rest_len = self.first_body.position.get_distance(body.position) if rest_len_text == "auto" else float(rest_len_text)
+                        stiffness = float(self.stiffness_entry.get_text() or "200")
+                        damping = float(self.damping_entry.get_text() or "10")
+                        spring = pymunk.DampedSpring(self.first_body, body, anchor1, anchor2, rest_len, stiffness, damping)
+                        self.pm.space.add(spring)
+                        self.undo_redo.take_snapshot()
+                    except ValueError:
+                        pass
                 self.first_body = None
 
     def deactivate(self):
@@ -185,14 +214,28 @@ class SpringTool(BaseTool):
         self.first_pos = None
 
 
-class PivotTool(BaseTool):
-    name = "Pivot"
+class PivotJointTool(BaseTool):
+    name = "PivotJoint"
     icon_path = "sprites/gui/tools/pivot.png"
 
     def __init__(self, pm):
         super().__init__(pm)
         self.first_body = None
         self.first_pos = None
+
+    def create_settings_window(self):
+        win = pygame_gui.elements.UIWindow(
+            rect=pygame.Rect(210, 10, 300, 130),
+            manager=self.ui_manager.manager,
+            window_display_title="Pivot Joint Settings"
+        )
+        self.collide_checkbox = pygame_gui.elements.UICheckBox(
+            relative_rect=pygame.Rect(10, 10, 20, 20),
+            text="Enable Collision",
+            manager=self.ui_manager.manager,
+            container=win
+        )
+        self.settings_window = win
 
     def handle_event(self, event, world_pos):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -207,6 +250,7 @@ class PivotTool(BaseTool):
             else:
                 if self.first_body != body:
                     pivot = pymunk.PivotJoint(self.first_body, body, self.first_pos)
+                    pivot.collide_bodies = self.collide_checkbox.get_state()
                     self.pm.space.add(pivot)
                 self.first_body = None
 
@@ -215,14 +259,25 @@ class PivotTool(BaseTool):
         self.first_pos = None
 
 
-class RigidTool(BaseTool):
-    name = "Rigid"
+class PinJointTool(BaseTool):
+    name = "PinJoint"
     icon_path = "sprites/gui/tools/rigid.png"
 
     def __init__(self, pm):
         super().__init__(pm)
         self.first_body = None
         self.first_pos = None
+        self.distance = 0.0
+
+    def create_settings_window(self):
+        win = pygame_gui.elements.UIWindow(
+            rect=pygame.Rect(210, 10, 300, 130),
+            manager=self.ui_manager.manager,
+            window_display_title="Pin Joint Settings"
+        )
+        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 10, 120, 20), text="Distance:", manager=self.ui_manager.manager, container=win)
+        self.distance_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 10, 60, 20), initial_text="auto", manager=self.ui_manager.manager, container=win)
+        self.settings_window = win
 
     def handle_event(self, event, world_pos):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -238,8 +293,14 @@ class RigidTool(BaseTool):
                 if self.first_body != body:
                     anchor1 = self.first_body.world_to_local(self.first_pos)
                     anchor2 = body.world_to_local(world_pos)
-                    rigid = pymunk.PinJoint(self.first_body, body, anchor1, anchor2)
-                    self.pm.space.add(rigid)
+                    try:
+                        dist_text = self.distance_entry.get_text().strip()
+                        dist = 0.0 if dist_text == "auto" else float(dist_text)
+                        rigid = pymunk.PinJoint(self.first_body, body, anchor1, anchor2)
+                        rigid.distance = dist
+                        self.pm.space.add(rigid)
+                    except ValueError:
+                        pass
                 self.first_body = None
 
     def deactivate(self):
@@ -292,163 +353,7 @@ class StaticLineTool(BaseTool):
         self.start_pos = None
 
 
-class DragTool(BaseTool):
-    name="Drag"
-    icon_path="sprites/gui/tools/drag.png"
-    def __init__(self,pm):
-        super().__init__(pm)
-        self.mb=None
-        self.tgt=None
-        self.pj=None
-        self.ds=None
-        self.dragging=False
-        self.stiff_entry=None
-        self.damp_entry=None
-        self.rest_entry=None
-        self.cb_no_rot=None
-        self.cb_center=None
-        self.cb_show_force=None
-        self.last_force=0
-        self.saved_moi=None
 
-    def create_settings_window(self):
-        win = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect(200, 10, 340, 220),
-            manager=self.ui_manager.manager,
-            window_display_title="Drag Settings"
-        )
-
-        pygame_gui.elements.UILabel(
-            relative_rect=pygame.Rect(10, 10, 80, 20),
-            text="Stiff:",
-            manager=self.ui_manager.manager,
-            container=win
-        )
-        self.stiff_entry = pygame_gui.elements.UITextEntryLine(
-            relative_rect=pygame.Rect(95, 10, 80, 20),
-            initial_text="8000",
-            manager=self.ui_manager.manager,
-            container=win
-        )
-
-        pygame_gui.elements.UILabel(
-            relative_rect=pygame.Rect(10, 40, 80, 20),
-            text="Damp:",
-            manager=self.ui_manager.manager,
-            container=win
-        )
-        self.damp_entry = pygame_gui.elements.UITextEntryLine(
-            relative_rect=pygame.Rect(95, 40, 80, 20),
-            initial_text="200",
-            manager=self.ui_manager.manager,
-            container=win
-        )
-
-        pygame_gui.elements.UILabel(
-            relative_rect=pygame.Rect(10, 70, 80, 20),
-            text="Rest:",
-            manager=self.ui_manager.manager,
-            container=win
-        )
-        self.rest_entry = pygame_gui.elements.UITextEntryLine(
-            relative_rect=pygame.Rect(95, 70, 80, 20),
-            initial_text="0",
-            manager=self.ui_manager.manager,
-            container=win
-        )
-
-        self.cb_no_rot = pygame_gui.elements.UICheckBox(
-            relative_rect=pygame.Rect(10, 100, 25, 25),
-            text="Отключить вращение",
-            manager=self.ui_manager.manager,
-            container=win
-        )
-
-        self.cb_center = pygame_gui.elements.UICheckBox(
-            relative_rect=pygame.Rect(10, 125, 25, 25),
-            text="Брать за центр массы",
-            manager=self.ui_manager.manager,
-            container=win
-        )
-
-        self.cb_show_force = pygame_gui.elements.UICheckBox(
-            relative_rect=pygame.Rect(10, 150, 25, 25),
-            text="Отображать силу",
-            manager=self.ui_manager.manager,
-            container=win
-        )
-
-        self.settings_window = win
-
-    def _make_mouse_body(self,pos):
-        b=pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-        b.position=pos
-        self.pm.space.add(b)
-        return b
-
-    def _start_drag(self,wpos,info):
-        self.tgt=info.shape.body
-        self.mb=self._make_mouse_body(wpos)
-        if self.cb_center.get_state():
-            local_anchor=(0,0)
-        else:
-            local_anchor=self.tgt.world_to_local(wpos)
-        k=float(self.stiff_entry.get_text()) if self.stiff_entry else 8000
-        d=float(self.damp_entry.get_text()) if self.damp_entry else 200
-        rest=float(self.rest_entry.get_text()) if self.rest_entry else 0
-        self.pj=pymunk.PivotJoint(self.mb,self.tgt,(0,0),local_anchor)
-        self.ds=pymunk.DampedSpring(self.mb,self.tgt,(0,0),local_anchor,rest,k,d)
-        self.pm.space.add(self.pj,self.ds)
-        if self.cb_no_rot.get_state():
-            self.saved_moi=self.tgt.moment
-            self.tgt.moment=float("inf")
-            self.tgt.angular_velocity=0
-        self.dragging=True
-        synthesizer.play_frequency(400,0.05,'sine')
-
-    def _stop_drag(self):
-        for j in (self.pj,self.ds):
-            if j:
-                try:self.pm.space.remove(j)
-                except:pass
-        self.pj=None
-        self.ds=None
-        if self.mb:
-            try:self.pm.space.remove(self.mb)
-            except:pass
-        self.mb=None
-        if self.cb_no_rot.get_state() and self.saved_moi and self.tgt:
-            self.tgt.moment=self.saved_moi
-        self.saved_moi=None
-        self.tgt=None
-        self.dragging=False
-        synthesizer.play_frequency(250,0.04,'sine')
-
-    def handle_event(self,event,wpos):
-        if event.type==pygame.MOUSEBUTTONDOWN and event.button==1:
-            info=self.pm.space.point_query_nearest(wpos,0,pymunk.ShapeFilter())
-            body=info.shape.body if info and info.shape and info.shape.body!=self.pm.static_body else None
-            if body:self._start_drag(wpos,info)
-        elif event.type==pygame.MOUSEBUTTONUP and event.button==1:
-            if self.dragging:self._stop_drag()
-        elif event.type==pygame.MOUSEMOTION and self.dragging and self.mb:
-            self.mb.position=wpos
-
-    def draw_preview(self,screen,camera):
-        if self.dragging and self.tgt and self.mb:
-            a=camera.world_to_screen(self.mb.position)
-            b=camera.world_to_screen(self.tgt.position)
-            pygame.draw.line(screen,(200,200,255),a,b,2)
-            pygame.draw.circle(screen,(180,180,255),a,5)
-            if self.cb_show_force.get_state():
-                f=(self.mb.position-self.tgt.position).length
-                self.last_force=f
-                font=pygame.font.SysFont("Arial",16)
-                t=font.render(f"{int(f)}",True,(220,220,255))
-                screen.blit(t,(a[0]+10,a[1]-10))
-
-    def deactivate(self):
-        if self.dragging:self._stop_drag()
 
 
 

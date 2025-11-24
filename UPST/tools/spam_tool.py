@@ -16,6 +16,7 @@ class SpamTool(BaseTool):
                 tool = self.ui_manager.tool_system.tools.get(shape_type.capitalize())
                 if tool:
                     tool.spawn_at(offset)
+        self.undo_redo.take_snapshot()
 
 
 

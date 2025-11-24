@@ -224,7 +224,6 @@ class PhysicsManager:
     def add_body_shape(self, body, shape):
         try:
             self.space.add(body, shape)
-            self.undo_redo_manager.take_snapshot()
             Debug.log_info(f"Added body and shape to physics space. Body ID: {body.__hash__()}, Shape ID: {shape.__hash__()}.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in add_body_shape: {e}", "Physics")
@@ -233,7 +232,6 @@ class PhysicsManager:
         try:
             self.static_lines.append(segment)
             self.space.add(segment)
-            self.undo_redo_manager.take_snapshot()
             Debug.log_info(f"Added static line to physics space. Segment ID: {segment.__hash__()}.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in add_static_line: {e}", "Physics")
@@ -241,7 +239,6 @@ class PhysicsManager:
     def add_constraint(self, constraint):
         try:
             self.space.add(constraint)
-            self.undo_redo_manager.take_snapshot()
             Debug.log_info(f"Added constraint to physics space. Constraint ID: {constraint.__hash__()}.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in add_constraint: {e}", "Physics")

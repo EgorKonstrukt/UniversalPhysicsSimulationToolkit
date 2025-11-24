@@ -200,6 +200,8 @@ class CutTool(BaseTool):
                         try: self.pm.space.remove(body)
                         except Exception: pass
                 except Exception: pass
+
+
     def handle_event(self,event,world_pos):
         if event.type==pygame.MOUSEBUTTONDOWN and event.button==1:
             self.start_pos=world_pos; self._tmp_preview=(world_pos,world_pos)
@@ -212,6 +214,8 @@ class CutTool(BaseTool):
             self._process_cut(a,b,thickness)
             self.start_pos=None; self._tmp_preview=None
             synthesizer.play_frequency(300,duration=0.05,waveform='sine')
+            self.undo_redo.take_snapshot()
+
     def draw_preview(self,screen,camera):
         seg=self._tmp_preview
         if not seg: return
