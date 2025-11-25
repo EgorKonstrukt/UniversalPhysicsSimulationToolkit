@@ -80,19 +80,22 @@ class CutTool(BaseTool):
         if abs(a)<1e-8: return 0,(pts[0][0],pts[0][1])
         cx=cx/(6*a); cy=cy/(6*a)
         return abs(a),(cx,cy)
-    def _create_poly_body(self,pts,proto_shape):
-        area,cent=self._area_centroid(pts)
-        if area<1e-2: return None
-        local_pts=[(p[0]-cent[0], p[1]-cent[1]) for p in pts]
-        mass=area/100
-        if mass<=0: mass=0.001
-        body=pymunk.Body(mass, pymunk.moment_for_poly(mass, local_pts))
-        body.position=cent
-        shape=pymunk.Poly(body, local_pts)
-        shape.friction=getattr(proto_shape,"friction",0.7)
-        shape.elasticity=getattr(proto_shape,"elasticity",0.5)
-        shape.color=getattr(proto_shape,"color",(200,200,200,255))
-        return body,shape
+    def _create_poly_body(self, pts, proto_shape, proto_body=None):
+        area, cent = self._area_centroid(pts)
+        if area < 1e-2: return None
+        local_pts = [(p[0] - cent[0], p[1] - cent[1]) for p in pts]
+        mass = area / 100
+        if mass <= 0: mass = 0.001
+        body = pymunk.Body(mass, pymunk.moment_for_poly(mass, local_pts))
+        body.position = cent
+        shape = pymunk.Poly(body, local_pts)
+        shape.friction = getattr(proto_shape, "friction", 0.7)
+        shape.elasticity = getattr(proto_shape, "elasticity", 0.5)
+        shape.color = getattr(proto_shape, "color", (200, 200, 200, 255))
+        if proto_body:
+            body.velocity = proto_body.velocity
+            body.angular_velocity = proto_body.angular_velocity
+        return body, shape
     def _remove_shape_and_maybe_body(self,shape):
         b=shape.body
         try:
@@ -169,7 +172,7 @@ class CutTool(BaseTool):
                         res = self._split_circle_by_segment(shape, a, b)
                         if res:
                             for pts in res:
-                                new = self._create_poly_body(pts, shape)
+                                new = self._create_poly_body(pts, shape, shape.body)
                                 if new:
                                     to_add.append(new)
             elif isinstance(shape, pymunk.Poly):
@@ -177,8 +180,8 @@ class CutTool(BaseTool):
                 if res:
                     bodies_to_remove.add(shape.body)
                     p1_pts, p2_pts = res
-                    new1 = self._create_poly_body(p1_pts, shape)
-                    new2 = self._create_poly_body(p2_pts, shape)
+                    new1 = self._create_poly_body(p1_pts, shape, shape.body)
+                    new2 = self._create_poly_body(p2_pts, shape, shape.body)
                     if new1: to_add.append(new1)
                     if new2: to_add.append(new2)
                 else:
