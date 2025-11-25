@@ -125,7 +125,6 @@ class Application:
         set_gizmos(self.gizmos_manager)
         self.profiler = Profiler(self.ui_manager.manager)
         Debug.log("Profiler initialized successfully", "Init")
-        self.profiler.toggle()
         self.undo_redo_manager.take_snapshot()
         Debug.log_info(str(pygame.display.Info()), "Init")
         Debug.log_info(str(pygame.display.get_wm_info()), "Init")

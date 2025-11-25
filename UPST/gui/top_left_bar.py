@@ -2,6 +2,7 @@ import pygame
 import pygame_gui
 from pygame_gui.elements import UIButton, UIPanel, UIImage
 from UPST.sound.sound_synthesizer import synthesizer
+from UPST.modules.profiler import get_profiler
 
 class TopLeftBar:
     def __init__(self, screen_width, screen_height, ui_manager, bar_width=375, bar_height=45, app=None, physics_manager=None):
@@ -135,7 +136,9 @@ class TopLeftBar:
         pass
 
     def _on_profiler_pressed(self):
-        pass
+        profiler = get_profiler()
+        if profiler:
+            profiler.toggle_window()
 
     def _on_console_pressed(self):
         pass

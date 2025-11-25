@@ -96,17 +96,34 @@ class Profiler:
     def _get_color(self, key):
         return self.plotter._get_color(key)
 
-    def toggle(self):
-        self.visible = not self.visible
-        if self.visible:
+    def toggle_window(self):
+        if self.window:
+            self.hide_window()
+        else:
             self.show_window()
-        elif self.window:
+
+    def hide_window(self):
+        if self.window:
             self.window.kill()
             self.window = None
+        self.visible = False
+
+    def _enable_profiling(self):
+        self.visible = True
+        self.running = True
+        if not self.thread.is_alive():
+            self.thread = threading.Thread(target=self.run, daemon=True)
+            self.thread.start()
+
+    def _disable_profiling(self):
+        self.visible = False
+        self.running = False
+        set_profiler(None)
 
     def show_window(self):
         if self.window:
             return
+        self.visible = True
 
         self.window = pygame_gui.elements.UIWindow(
             rect=pygame.Rect((config.app.screen_width / 2 - 400, 10),
@@ -116,14 +133,12 @@ class Profiler:
             object_id="#profiler_window",
             resizable=True
         )
-
         self.image_element = pygame_gui.elements.UIImage(
             relative_rect=pygame.Rect((10, 10), self.surface_size),
             image_surface=self.plotter.get_surface(),
             manager=self.manager,
             container=self.window
         )
-
         button_y = self.surface_size[1] + 20
         self.reset_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect((10, button_y), (80, 30)),
@@ -131,21 +146,18 @@ class Profiler:
             manager=self.manager,
             container=self.window
         )
-
         self.pause_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect((100, button_y), (80, 30)),
-            text='Pause',
+            text='Pause' if not self.paused else 'Resume',
             manager=self.manager,
             container=self.window
         )
-
         self.toggle_mode_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect((190, button_y), (150, 30)),
-            text='Overlay Mode: ON',
+            text=f'Overlay Mode: {"ON" if self.plotter.overlay_mode else "OFF"}',
             manager=self.manager,
             container=self.window
         )
-
         self.group_dropdown = pygame_gui.elements.UIDropDownMenu(
             relative_rect=pygame.Rect((350, button_y), (150, 30)),
             expansion_height_limit=1000,
@@ -154,15 +166,12 @@ class Profiler:
             manager=self.manager,
             container=self.window
         )
-
         self.group_controls_panel = pygame_gui.elements.UIPanel(
             relative_rect=pygame.Rect((10, button_y + 40), (self.surface_size[0], 60)),
             manager=self.manager,
             container=self.window
         )
-
         self._update_group_controls()
-
         self.tooltip_label = pygame_gui.elements.UILabel(
             relative_rect=pygame.Rect((0, 0), (250, 60)),
             text='',
@@ -346,12 +355,8 @@ class Profiler:
 
     def stop_thread(self):
         self.running = False
-        if self.thread.is_alive():
+        if hasattr(self, 'thread') and self.thread.is_alive():
             self.thread.join(timeout=1.0)
-        global _global_profiler
-        if _global_profiler is self:
-            _global_profiler = None
-
 
 def start_profiling(key, group=None):
     profiler = get_profiler()

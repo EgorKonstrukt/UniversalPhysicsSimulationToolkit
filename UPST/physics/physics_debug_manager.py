@@ -12,8 +12,6 @@ from UPST.debug.debug_manager import Debug
 from UPST.modules.profiler import profile
 
 
-
-
 class PhysicsDebugManager:
     def __init__(self, physics_manager, camera, plotter):
         self.physics_manager = physics_manager
