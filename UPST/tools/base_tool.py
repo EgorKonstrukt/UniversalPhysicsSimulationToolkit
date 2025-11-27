@@ -1,7 +1,6 @@
 import pygame
 from UPST.modules.undo_redo_manager import get_undo_redo
 
-
 class BaseTool:
     def __init__(self, pm):
         self.pm = pm
@@ -10,6 +9,7 @@ class BaseTool:
         self.preview = None
         self.settings_window = None
         self.undo_redo = get_undo_redo()
+        self.font = pygame.font.SysFont('Arial', 14)
 
     def set_ui_manager(self, ui_manager):
         self.ui_manager = ui_manager
@@ -48,6 +48,20 @@ class BaseTool:
     def draw_preview(self, screen, camera):
         if not self.preview: return
         self._draw_custom_preview(screen, camera)
+        self._draw_metrics(screen, camera)
 
     def _draw_custom_preview(self, screen, camera):
         pass
+
+    def _draw_metrics(self, screen, camera):
+        if not self.preview: return
+        pos = camera.world_to_screen(self.preview['position'])
+        lines = self._get_metric_lines()
+        dy = 0
+        for line in lines:
+            surf = self.font.render(line, True, (255, 255, 255))
+            screen.blit(surf, (pos[0] + 10, pos[1] + dy))
+            dy += 16
+
+    def _get_metric_lines(self):
+        return []

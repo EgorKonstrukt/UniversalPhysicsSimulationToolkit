@@ -61,15 +61,14 @@ class RectangleTool(BaseTool):
     def spawn_dragged(self, start, end):
         dx = end[0] - start[0]
         dy = end[1] - start[1]
-        w = abs(dx) / 2
-        h = abs(dy) / 2
-        if w <= 0 or h <= 0:
-            return
+        w = abs(dx)
+        h = abs(dy)
+        if w <= 0 or h <= 0: return
         center = (start[0] + dx / 2, start[1] + dy / 2)
         mass = (w * h) / 200
-        body = pymunk.Body(mass, pymunk.moment_for_box(mass, (w * 2, h * 2)))
+        body = pymunk.Body(mass, pymunk.moment_for_box(mass, (w, h)))
         body.position = center
-        shape = pymunk.Poly.create_box(body, (w * 2, h * 2))
+        shape = pymunk.Poly.create_box(body, (w, h))
         shape.friction = float(self.friction_entry.get_text())
         shape.elasticity = float(self.elasticity_entry.get_text())
         shape.color = self._get_color('rectangle')
@@ -79,14 +78,24 @@ class RectangleTool(BaseTool):
     def _calc_preview(self, end_pos):
         dx = end_pos[0] - self.drag_start[0]
         dy = end_pos[1] - self.drag_start[1]
+        w, h = abs(dx), abs(dy)
         center = (self.drag_start[0] + dx / 2, self.drag_start[1] + dy / 2)
-        return {"type": "rect", "position": center, "width": abs(dx), "height": abs(dy), "color": (200, 200, 255, 100)}
+        area = w * h
+        perimeter = 2 * (w + h)
+        return {"type": "rect", "position": center, "width": w, "height": h, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 100)}
 
     def _draw_custom_preview(self, screen, camera):
         sp = camera.world_to_screen(self.preview['position'])
         r = pygame.Rect(0, 0, self.preview['width'], self.preview['height'])
         r.center = sp
         pygame.draw.rect(screen, self.preview['color'], r, 1)
+
+    def _get_metric_lines(self):
+        w = self.preview['width']
+        h = self.preview['height']
+        a = self.preview['area']
+        p = self.preview['perimeter']
+        return [f"W: {w:.1f}", f"H: {h:.1f}", f"A: {a:.1f}", f"P: {p:.1f}"]
 
     def _get_color(self, shape_type):
         if getattr(self.ui_manager, f"{shape_type}_color_random", True):

@@ -33,10 +33,15 @@ class MultithreadingConfig:
 
 @dataclass
 class PhysicsConfig:
+    PTM_RATIO: float = 30.0
     collision_type_default: int = 1
     simulation_frequency: int = 100
     iterations: int = 512
     sleep_time_threshold: float = 0.5
+    air_friction_linear = 0.0100
+    air_friction_quadratic = 0.00100
+    air_friction_multiplier = 1.0
+    air_density = 1.225
 
 @dataclass
 class PhysicsDebugConfig:

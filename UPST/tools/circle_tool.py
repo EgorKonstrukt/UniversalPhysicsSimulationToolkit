@@ -4,7 +4,6 @@ from UPST.config import config
 from UPST.tools.tool_manager import BaseTool
 import pygame_gui
 
-
 class CircleTool(BaseTool):
     name = "Circle"
     icon_path = "sprites/gui/spawn/circle.png"
@@ -56,8 +55,7 @@ class CircleTool(BaseTool):
         start_vec = pymunk.Vec2d(*start)
         end_vec = pymunk.Vec2d(*end)
         r = (start_vec - end_vec).length
-        if r <= 0:
-            return
+        if r <= 0: return
         mass = r * math.pi / 10
         body = pymunk.Body(mass, pymunk.moment_for_circle(mass, 0, r))
         body.position = start
@@ -72,11 +70,19 @@ class CircleTool(BaseTool):
         start_vec = pymunk.Vec2d(*self.drag_start)
         end_vec = pymunk.Vec2d(*end_pos)
         r = (start_vec - end_vec).length
-        return {"type": "circle", "position": self.drag_start, "radius": r, "color": (200, 200, 255, 100)}
+        area = math.pi * r**2
+        perimeter = 2 * math.pi * r
+        return {"type": "circle", "position": self.drag_start, "radius": r, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 100)}
 
     def _draw_custom_preview(self, screen, camera):
         sp = camera.world_to_screen(self.preview['position'])
         pygame.draw.circle(screen, self.preview['color'], sp, int(self.preview['radius']), 1)
+
+    def _get_metric_lines(self):
+        r = self.preview['radius']
+        a = self.preview['area']
+        p = self.preview['perimeter']
+        return [f"R: {r:.1f}", f"A: {a:.1f}", f"P: {p:.1f}"]
 
     def _get_color(self, shape_type):
         if getattr(self.ui_manager, f"{shape_type}_color_random", True):

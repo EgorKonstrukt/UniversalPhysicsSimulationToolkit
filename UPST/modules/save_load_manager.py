@@ -37,14 +37,18 @@ class SaveLoadManager:
                 if self.compression_method == "lzma": lzma.open(fp,"wb").__enter__().write(pickle.dumps(data))
                 else: gzip.open(fp,"wb").__enter__().write(pickle.dumps(data))
             else: open(fp,"wb").write(pickle.dumps(data))
-            self.ui_manager.console_window.add_output_line_to_log("Save successful!")
+            # self.ui_manager.console_window.add_output_line_to_log("Save successful!")
             Debug.log_success(f"Saved to {fp}", "SaveLoadManager")
         except Exception as e:
-            self.ui_manager.console_window.add_output_line_to_log(f"Save error: {e}")
+            # self.ui_manager.console_window.add_output_line_to_log(f"Save error: {e}")
             Debug.log_exception(f"Save failed for {fp}: {traceback.format_exc()}", "SaveLoadManager")
 
     def _prepare_save_data(self):
         data = {"iterations": int(self.physics_manager.space.iterations),
+                "air_friction_linear": float(self.physics_manager.space.air_friction_linear),
+                "air_friction_quadratic": float(self.physics_manager.space.air_friction_quadratic),
+                "air_friction_multiplier": float(self.physics_manager.space.air_friction_multiplier),
+                "air_density": float(self.physics_manager.space.air_density),
                 "sim_freq": int(self.physics_manager.simulation_frequency),
                 "gravity": tuple(self.physics_manager.space.gravity),
                 "damping_linear": float(self.physics_manager.space.damping),
@@ -145,6 +149,12 @@ class SaveLoadManager:
         self.physics_manager.set_sleep_time_threshold(float(data.get("sleep_time_threshold",config.physics.sleep_time_threshold)))
         self.physics_manager.set_collision_slop(float(data.get("collision_slop",0.5)))
         self.physics_manager.set_collision_bias(float(data.get("collision_bias",pow(1.0-0.1,60.0))))
+
+        self.physics_manager.set_air_friction_linear(int(data.get("air_friction_linear",config.physics.air_friction_linear)))
+        self.physics_manager.set_air_friction_quadratic(int(data.get("air_friction_quadratic",config.physics.air_friction_quadratic)))
+        self.physics_manager.set_air_friction_multiplier(int(data.get("air_friction_multiplier",config.physics.air_friction_multiplier)))
+        self.physics_manager.set_air_density(int(data.get("air_density",config.physics.air_density)))
+
         cam_tr = data.get("camera_translation")
         if cam_tr and isinstance(cam_tr,(list,tuple)) and len(cam_tr)==2: self.camera.translation = pymunk.Transform(1,0,0,1,float(cam_tr[0]),float(cam_tr[1]))
         cam_scale = float(data.get("camera_scaling",getattr(self.camera,"scaling",1.0)))

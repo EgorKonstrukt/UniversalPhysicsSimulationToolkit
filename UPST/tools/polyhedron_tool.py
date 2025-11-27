@@ -48,8 +48,7 @@ class PolyhedronTool(BaseTool):
     def spawn_at(self, pos):
         size = float(self.size_entry.get_text())
         faces = int(self.faces_entry.get_text())
-        points = [(size * math.cos(i * 2 * math.pi / faces), size * math.sin(i * 2 * math.pi / faces)) for i in
-                  range(faces)]
+        points = [(size * math.cos(i * 2 * math.pi / faces), size * math.sin(i * 2 * math.pi / faces)) for i in range(faces)]
         area = 0
         for i in range(len(points)):
             x1, y1 = points[i]
@@ -68,11 +67,9 @@ class PolyhedronTool(BaseTool):
     def spawn_dragged(self, start, end):
         delta = pymunk.Vec2d(end[0] - start[0], end[1] - start[1])
         size = delta.length / 2
-        if size <= 0:
-            return
+        if size <= 0: return
         faces = int(self.faces_entry.get_text())
-        points = [(size * math.cos(i * 2 * math.pi / faces), size * math.sin(i * 2 * math.pi / faces)) for i in
-                  range(faces)]
+        points = [(size * math.cos(i * 2 * math.pi / faces), size * math.sin(i * 2 * math.pi / faces)) for i in range(faces)]
         area = 0
         for i in range(len(points)):
             x1, y1 = points[i]
@@ -92,14 +89,21 @@ class PolyhedronTool(BaseTool):
         delta = pymunk.Vec2d(end_pos[0] - self.drag_start[0], end_pos[1] - self.drag_start[1])
         size = delta.length / 2
         faces = int(self.faces_entry.get_text())
-        points = [(size * math.cos(i * 2 * math.pi / faces), size * math.sin(i * 2 * math.pi / faces)) for i in
-                  range(faces)]
-        return {"type": "poly", "position": self.drag_start, "points": points, "color": (200, 200, 255, 100)}
+        pts = [(size * math.cos(i * 2 * math.pi / faces), size * math.sin(i * 2 * math.pi / faces)) for i in range(faces)]
+        area = abs(sum(pts[i][0]*pts[(i+1)%faces][1] - pts[(i+1)%faces][0]*pts[i][1] for i in range(faces))) / 2
+        perimeter = sum(math.dist(pts[i], pts[(i+1)%faces]) for i in range(faces))
+        return {"type": "poly", "position": self.drag_start, "points": pts, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 100)}
 
     def _draw_custom_preview(self, screen, camera):
         sp = camera.world_to_screen(self.preview['position'])
         pts = [(sp[0] + p[0], sp[1] + p[1]) for p in self.preview['points']]
         pygame.draw.polygon(screen, self.preview['color'], pts, 1)
+
+    def _get_metric_lines(self):
+        a = self.preview['area']
+        p = self.preview['perimeter']
+        f = len(self.preview['points'])
+        return [f"F: {f}", f"A: {a:.1f}", f"P: {p:.1f}"]
 
     def _get_color(self, shape_type):
         if getattr(self.ui_manager, f"{shape_type}_color_random", True):

@@ -205,13 +205,16 @@ class BottomBar:
         config.grid.is_visible = not self.states['grid']
 
     def _on_air_friction_toggled(self):
+
         self.physics_manager.air_friction_multiplier = 0.0
+        self.undo_redo.take_snapshot()
         pass
 
     def _on_gravity_toggled(self):
 
         g = (0, 981) if self.states['gravity'] else (0, 0)
         self.physics_manager.set_gravity_mode(g=g)
+        self.undo_redo.take_snapshot()
 
     def _on_undo_pressed(self):
         self.undo_redo.undo()
@@ -233,6 +236,7 @@ class BottomBar:
 
     def set_gravity_state(self, enabled):
         self.states['gravity'] = enabled
+        self.undo_redo.take_snapshot()
         self._update_button_states()
 
     def resize(self, screen_width, screen_height):

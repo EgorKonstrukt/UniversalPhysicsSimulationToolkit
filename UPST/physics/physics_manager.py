@@ -130,31 +130,22 @@ class PhysicsManager:
     def delete_all(self):
         try:
             Debug.log_info("Deleting all bodies, shapes, and constraints from physics space.", "Physics")
-            # Удаляем все нестатические тела и их формы
             dynamic_bodies = [b for b in self.space.bodies if b is not self.static_body]
             for body in dynamic_bodies:
                 self.space.remove(*body.shapes, body)
                 self.script_manager.remove_scripts_by_owner(body)
                 Debug.log_info(f"Body {body.__hash__()} and its shapes removed.", "Physics")
-
-            # Удаляем все оставшиеся формы (включая Segment на static_body)
             remaining_shapes = list(self.space.shapes)
             if remaining_shapes:
                 self.space.remove(*remaining_shapes)
                 for shape in remaining_shapes:
                     Debug.log_info(f"Static or orphaned shape {shape.__hash__()} (type: {type(shape).__name__}) removed.", "Physics")
-
-            # Очищаем статические линии (уже не нужны, но на всякий случай)
             self.static_lines.clear()
-
-            # Удаляем все ограничения
             constraints = list(self.space.constraints)
             if constraints:
                 self.space.remove(*constraints)
                 for c in constraints:
                     Debug.log_info(f"Constraint {c.__hash__()} removed.", "Physics")
-
-            # Очищаем Gizmos
             gizmos_mgr = get_gizmos()
             if gizmos_mgr:
                 gizmos_mgr.clear()
@@ -332,6 +323,39 @@ class PhysicsManager:
             Debug.log_info(f"Solver iterations set to {iters}", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in set_iterations: {e}", "Physics")
+
+    def set_air_friction_linear(self, linear: float):
+        try:
+            self.air_friction_linear = max(0.0, float(linear))
+            Debug.log_info(f"Air friction params set: linear={self.air_friction_linear}",
+                           "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in set_air_friction_linear: {e}", "Physics")
+
+    def set_air_friction_quadratic(self, quadratic: float):
+        try:
+            self.air_friction_quadratic = max(0.0, float(quadratic))
+            Debug.log_info(f"Air friction params set: quadratic={self.air_friction_quadratic}",
+                           "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in set_air_friction_quadratic: {e}", "Physics")
+
+    def set_air_friction_multiplier(self, multiplier: float):
+        try:
+            self.air_friction_multiplier = max(0.0, float(multiplier))
+            Debug.log_info(f"Air friction params set: multiplier={self.air_friction_multiplier}",
+                           "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in set_air_friction_multiplier: {e}", "Physics")
+
+    def set_air_density(self, density: float):
+        try:
+            self.air_density = max(0.0, float(density))
+            Debug.log_info(f"Air friction params set: density={self.air_density}",
+                           "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in set_air_density: {e}", "Physics")
+
 
     def set_damping(self, linear: float = 1.0, angular: float = 0.0):
         try:
