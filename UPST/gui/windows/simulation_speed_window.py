@@ -59,7 +59,7 @@ class SimulationSpeedWindow:
         self.iterations_slider = UIHorizontalSlider(
             relative_rect=pygame.Rect(10, 230, 310, 20),
             start_value=initial_iterations,
-            value_range=(1, 50),
+            value_range=(1, 1024),
             manager=ui_manager,
             container=self.window,
             object_id="#iterations_slider"

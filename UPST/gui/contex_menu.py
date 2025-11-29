@@ -53,25 +53,32 @@ class ContextMenu:
                                  handler=self.open_script_management)
                 ],
                                  icon="sprites/gui/python.png"),
-                ConfigOption("Center to Scene", handler=self.center_to_scene)
+                ConfigOption("Center to Scene", handler=self.center_to_scene,
+                             icon="sprites/gui/zoom2scene.png"),
+                ConfigOption("Center to Origin", handler=self.center_to_origin)
             ]
         else:  # Меню для объектов (Body)
             return [
                 ConfigOption("Erase", handler=self.delete_object,
                              icon="sprites/gui/erase.png"),
-                ConfigOption("Properties", handler=self.open_properties_window, icon="sprites/gui/settings.png"),
-                ConfigOption("Duplicate", handler=self.duplicate_object, icon="sprites/gui/clone.png"),
-                ConfigOption("Freeze/Unfreeze", handler=self.toggle_freeze_object, icon="sprites/gui/glue.png"),
-                ConfigOption("Set Texture", handler=self.open_texture_window, icon="sprites/gui/texture.png"),
+                ConfigOption("Properties", handler=self.open_properties_window,
+                             icon="sprites/gui/settings.png"),
+                ConfigOption("Duplicate", handler=self.duplicate_object,
+                             icon="sprites/gui/clone.png"),
+                ConfigOption("Freeze/Unfreeze", handler=self.toggle_freeze_object,
+                             icon="sprites/gui/glue.png"),
+                ConfigOption("Set Texture", handler=self.open_texture_window,
+                             icon="sprites/gui/texture.png"),
                 ConfigOption("Reset", children=[
                     ConfigOption("Reset Position", handler=self.reset_position),
                     ConfigOption("Reset Rotation", handler=self.reset_rotation)
-                ]),
+                ], icon="sprites/gui/reload.png"),
                 ConfigOption("Body Type", children=[
                     ConfigOption("Make Static", handler=self.make_static),
                     ConfigOption("Make Dynamic", handler=self.make_dynamic)
-                ]),
-                ConfigOption("Select for Debug", handler=self.select_for_debug),
+                ], icon="sprites/gui/tools/box.png"),
+                ConfigOption("Select for Debug", handler=self.select_for_debug,
+                             icon="sprites/gui/info.png"),
                 ConfigOption("Camera", children=[
                     ConfigOption("Follow This Object", handler=self.set_camera_target),
                     ConfigOption(
@@ -80,7 +87,7 @@ class ContextMenu:
                         get_state=lambda: self.ui_manager.camera.rotate_with_target,
                         set_state=lambda val: setattr(self.ui_manager.camera, 'rotate_with_target', val)
                     )
-                ]),
+                ], icon="sprites/gui/camera.png"),
                 ConfigOption("Scripts", children=[
                     ConfigOption("Run Python Script",
                                  handler=lambda: self.ui_manager.show_inline_script_editor(owner=self.clicked_object)),
@@ -92,7 +99,12 @@ class ContextMenu:
 
     def center_to_scene(self):
         if self.ui_manager.camera:
+
             self.ui_manager.camera.center_to_scene()
+
+    def center_to_origin(self):
+        if self.ui_manager.camera:
+            self.ui_manager.camera.center_to_origin()
 
     def set_camera_target(self):
         cam = self.ui_manager.camera
@@ -144,9 +156,9 @@ class ContextMenu:
                 else:
                     img_surf = opt.icon
                 UIImage(
-                    relative_rect=pygame.Rect(8, btn_y + 2,
-                                              config.context_menu.button_height-5,
-                                              config.context_menu.button_height-5),
+                    relative_rect=pygame.Rect(11, btn_y + 4,
+                                              config.context_menu.button_height-9,
+                                              config.context_menu.button_height-9),
                     image_surface=img_surf,
                     manager=self.manager,
                     container=self.context_menu

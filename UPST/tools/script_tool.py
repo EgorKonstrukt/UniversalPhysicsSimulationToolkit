@@ -43,8 +43,10 @@ class ScriptTool(BaseTool):
                     script = self.scripts[i]
                     if script.running:
                         self.pm.script_manager.stop_script(script)
+                        self.undo_redo.take_snapshot()
                     else:
                         self.pm.script_manager.start_script(script)
+                        self.undo_redo.take_snapshot()
                     synthesizer.play_frequency(1200 if script.running else 800, duration=0.05, waveform='sine')
                     return
     def draw_preview(self, screen, camera):
@@ -64,7 +66,7 @@ class ScriptTool(BaseTool):
             )
             if world_rect.collidepoint(mouse_pos):
                 self.hover_idx = i
-            color = (100, 200, 100) if self.scripts[i].running else (200, 100, 100)
+            color = (100, 200, 100) if self.scripts[i] else (200, 100, 100)
             if i == self.hover_idx:
                 color = (min(color[0]+50, 255), min(color[1]+50, 255), min(color[2]+50, 255))
             pygame.draw.rect(screen, color, world_rect, 2)

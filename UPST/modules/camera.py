@@ -54,6 +54,52 @@ class Camera:
         self.track_vel = Vec2d(0, 0)
         self.track_smooth = 0.25
 
+    def animate_to(self, target_tx, target_ty, duration=0.5):
+        self.anim_start = time.time()
+        self.anim_duration = duration
+        self.anim_start_tx = Vec2d(self.translation.tx, self.translation.ty)
+        self.anim_target_tx = Vec2d(target_tx, target_ty)
+        self.anim_active = True
+
+    def center_to_scene(self, duration=0.5):
+        if not self.app or not hasattr(self.app, 'physics_manager'):
+            return
+        space = self.app.physics_manager.space
+        if not space.bodies:
+            self.center_to_origin(duration)
+            return
+
+        points = []
+        for body in space.bodies:
+            for shape in body.shapes:
+                if isinstance(shape, pymunk.Circle):
+                    p = body.local_to_world(shape.offset)  # handles rotation
+                    points.append(p)
+                elif isinstance(shape, pymunk.Poly):
+                    for v in shape.get_vertices():
+                        points.append(body.local_to_world(v))
+                elif isinstance(shape, pymunk.Segment):
+                    a = body.local_to_world(shape.a)
+                    b = body.local_to_world(shape.b)
+                    points.append(a)
+                    points.append(b)
+
+        if not points:
+            self.center_to_origin(duration)
+            return
+
+        min_x = min(p.x for p in points)
+        max_x = max(p.x for p in points)
+        min_y = min(p.y for p in points)
+        max_y = max(p.y for p in points)
+        center_x = (min_x + max_x) * 0.5
+        center_y = (min_y + max_y) * 0.5
+
+        self.animate_to(-center_x, -center_y, duration)
+
+    def center_to_origin(self, duration=0.5):
+        self.animate_to(0.0, 0.0, duration)
+
     def ease_in_out_expo(self, t):
         if t == 0:
             return 0
