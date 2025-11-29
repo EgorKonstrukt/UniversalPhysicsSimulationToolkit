@@ -45,10 +45,10 @@ class SaveLoadManager:
 
     def _prepare_save_data(self):
         data = {"iterations": int(self.physics_manager.space.iterations),
-                "air_friction_linear": float(self.physics_manager.space.air_friction_linear),
-                "air_friction_quadratic": float(self.physics_manager.space.air_friction_quadratic),
-                "air_friction_multiplier": float(self.physics_manager.space.air_friction_multiplier),
-                "air_density": float(self.physics_manager.space.air_density),
+                "air_friction_linear": float(self.physics_manager.air_friction_linear),
+                "air_friction_quadratic": float(self.physics_manager.air_friction_quadratic),
+                "air_friction_multiplier": float(self.physics_manager.air_friction_multiplier),
+                "air_density": float(self.physics_manager.air_density),
                 "sim_freq": int(self.physics_manager.simulation_frequency),
                 "gravity": tuple(self.physics_manager.space.gravity),
                 "damping_linear": float(self.physics_manager.space.damping),
@@ -58,8 +58,11 @@ class SaveLoadManager:
                 "collision_bias": float(self.physics_manager.space.collision_bias),
                 "camera_translation": (getattr(getattr(self.camera, "translation", None), "tx", 0.0),
                                        getattr(getattr(self.camera, "translation", None), "ty", 0.0)),
-                "camera_scaling": float(getattr(self.camera, "scaling", 1.0)), "bodies": [], "constraints": [],
-                "static_lines": [], "scripts": self.physics_manager.script_manager.serialize_for_save()}
+                "camera_scaling": float(getattr(self.camera, "scaling", 1.0)),
+                "bodies": [],
+                "constraints": [],
+                "static_lines": [],
+                "scripts": self.physics_manager.script_manager.serialize_for_save()}
         sim_bodies = [b for b in self.physics_manager.space.bodies if b is not self.physics_manager.static_body]
         body_map = {b: i for i, b in enumerate(sim_bodies)}
         for body in sim_bodies:
