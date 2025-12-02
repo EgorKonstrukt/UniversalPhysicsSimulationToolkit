@@ -54,14 +54,15 @@ class BaseTool:
         pass
 
     def _draw_metrics(self, screen, camera):
+        pass
         if not self.preview: return
-        pos = camera.world_to_screen(self.preview['position'])
-        lines = self._get_metric_lines()
-        dy = 0
-        for line in lines:
-            surf = self.font.render(line, True, (255, 255, 255))
-            screen.blit(surf, (pos[0] + 10, pos[1] + dy))
-            dy += 16
+        # pos = camera.world_to_screen(self.preview['position'])
+        # lines = self._get_metric_lines()
+        # dy = 0
+        # for line in lines:
+        #     surf = self.font.render(line, True, (255, 255, 255))
+        #     screen.blit(surf, (pos[0] + 10, pos[1] + dy))
+        #     dy += 16
 
     def _get_metric_lines(self):
         return []

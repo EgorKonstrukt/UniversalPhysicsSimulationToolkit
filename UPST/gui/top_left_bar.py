@@ -3,6 +3,7 @@ import pygame_gui
 from pygame_gui.elements import UIButton, UIPanel, UIImage
 from UPST.sound.sound_synthesizer import synthesizer
 from UPST.modules.profiler import get_profiler
+from UPST.gui.windows.theme_selection_dialog import ThemeSelectionDialog
 
 class TopLeftBar:
     def __init__(self, screen_width, screen_height, ui_manager, bar_width=375, bar_height=45, app=None, physics_manager=None):
@@ -15,6 +16,8 @@ class TopLeftBar:
         self.button_height = 40
         self.padding = 1
         self.separator_width = 2
+
+        self.theme_dialog = None
 
         self.panel = UIPanel(
             relative_rect=pygame.Rect(0, 0, self.bar_width, self.bar_height),
@@ -122,9 +125,16 @@ class TopLeftBar:
                 self._on_settings_pressed()
             elif event.ui_element == self.buttons['about']:
                 self._on_about_pressed()
+        if self.theme_dialog:
+            self.theme_dialog.process_event(event)
 
     def _on_new_scene_pressed(self):
-        self.physics_manager.delete_all()
+        if not self.theme_dialog or not self.theme_dialog.alive():
+            self.theme_dialog = ThemeSelectionDialog(
+                pygame.Rect(100, 100, 620, 480),
+                self.ui_manager,
+                self
+            )
 
     def _on_open_scene_pressed(self):
         synthesizer.play_frequency(100, duration=0.2, waveform='sine')

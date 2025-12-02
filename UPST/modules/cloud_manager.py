@@ -1,6 +1,8 @@
 import os, random, time, math, pygame
 from pymunk import Vec2d
 from collections import deque
+
+from UPST.config import config
 from UPST.modules.profiler import profile
 
 class CloudManager:
@@ -160,7 +162,7 @@ class CloudRenderer:
 
     @profile("Cloud Renderer", "Renderer")
     def draw(self):
-        sw, sh = self.screen.get_size()
+        sw, sh = config.app.screen_width, config.app.screen_height
         cam_pos = self.camera.position
         cam_scale = max(0.01, self.camera.scaling)
         get_tex = self.clouds.get_scaled_texture

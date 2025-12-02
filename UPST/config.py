@@ -144,28 +144,7 @@ class GridConfig:
     skip_offscreen_lines: bool = True
     ruler_skip_factor = 2
 
-@dataclass
-class WorldTheme:
-    background_color: Tuple[int, int, int]
-    shape_color_range: Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]]
-    platform_color: Tuple[int, int, int, int]
 
-@dataclass
-class WorldConfig:
-    themes: Dict[str, WorldTheme] = field(default_factory=lambda: {
-        "Classic": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255)),
-        "Desert": WorldTheme((80,60,20), ((200,255),(150,200),(50,100)), (210,180,140,255)),
-        "Ice": WorldTheme((120,120,155), ((150,200),(180,230),(230,255)), (100,170,220,255)),
-        "Night": WorldTheme((10,10,30), ((20,80),(20,80),(60,150)), (40,40,60,255)),
-        "Forest": WorldTheme((34,45,28), ((30,100),(100,200),(30,100)), (60,120,60,255)),
-        "Lava": WorldTheme((40,0,0), ((100,255),(0,40),(0,10)), (120,30,0,255)),
-        "Ocean": WorldTheme((0,40,80), ((0,100),(100,200),(150,255)), (0,90,150,255)),
-        "SciFi": WorldTheme((10,10,10), ((50,100),(200,255),(200,255)), (60,255,180,255)),
-        "Candy": WorldTheme((255,230,255), ((200,255),(100,200),(200,255)), (255,180,220,255)),
-        "Void": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255)),
-        "Black&White": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255)),
-    })
-    current_theme: str = "Classic"
 
 @dataclass
 class InputConfig:
@@ -213,6 +192,29 @@ class TextureEditorConfig:
     blend_mode: str = 'normal'
     preview_quality: float = 1.0
     auto_save_interval: float = 5.0
+
+@dataclass
+class WorldTheme:
+    background_color: tuple
+    shape_color_range: tuple
+    platform_color: tuple
+
+@dataclass
+class WorldConfig:
+    themes: Dict[str, WorldTheme] = field(default_factory=lambda: {
+        "Classic": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255)),
+        "Desert": WorldTheme((80,60,20), ((200,255),(150,200),(50,100)), (210,180,140,255)),
+        "Ice": WorldTheme((120,120,155), ((150,200),(180,230),(230,255)), (100,170,220,255)),
+        "Night": WorldTheme((10,10,30), ((20,80),(20,80),(60,150)), (40,40,60,255)),
+        "Forest": WorldTheme((34,45,28), ((30,100),(100,200),(30,100)), (60,120,60,255)),
+        "Lava": WorldTheme((40,0,0), ((100,255),(0,40),(0,10)), (120,30,0,255)),
+        "Ocean": WorldTheme((0,40,80), ((0,100),(100,200),(150,255)), (0,90,150,255)),
+        "SciFi": WorldTheme((10,10,10), ((50,100),(200,255),(200,255)), (60,255,180,255)),
+        "Candy": WorldTheme((255,230,255), ((200,255),(100,200),(200,255)), (255,180,220,255)),
+        "Void": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255)),
+        "Black&White": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255)),
+    })
+    current_theme: str = "Classic"
 
 @dataclass
 class AppConfig:

@@ -67,9 +67,6 @@ class Application:
 
         self.physics_manager.undo_redo_manager = self.undo_redo_manager
 
-        if config.app.create_base_world:
-            self.physics_manager.create_base_world()
-            Debug.log_info("Base world created after undo_redo manager setup.", "Physics")
 
         self.tool_manager = ToolSystem(physics_manager=self.physics_manager,
                                        sound_manager=self.sound_manager)
