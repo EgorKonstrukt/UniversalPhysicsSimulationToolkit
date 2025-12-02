@@ -37,7 +37,7 @@ def update(dt):
         rotate(p, 2, 3, angle_zw)
 
         x, y, z, w = p
-        scale = 500 / (4 - w)
+        scale = 400 / (4 - w)
         sx = (x * scale) + cx
         sy = (y * scale) + cy
         sz = (z * scale)

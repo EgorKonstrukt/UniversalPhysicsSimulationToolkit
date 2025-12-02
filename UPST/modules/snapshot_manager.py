@@ -14,36 +14,9 @@ class SnapshotManager:
     def __init__(self, physics_manager, camera, script_manager):
         self.physics_manager = physics_manager
         self.camera = camera
-        self._executor = ThreadPoolExecutor(max_workers=1)
-        self._autosave_lock = threading.Lock()
-
         self.script_manager = script_manager
-        self._try_load_autosave()
 
-    def _try_load_autosave(self):
-        if not os.path.isfile(config.app.autosave_path):
-            return
-        try:
-            with open(config.app.autosave_path, "rb") as f:
-                data = f.read()
-            self.load_snapshot(data)
-            self.physics_manager.set_simulation_paused(paused=False)
-            Debug.log_success("Autosave loaded from root directory.", category="SnapshotManager")
-        except Exception as e:
-            Debug.log_error(f"Failed to load autosave: {e}", category="SnapshotManager")
-    def _write_snapshot_background(self, data):
-        if not self._autosave_lock.acquire(blocking=False):
-            return
-        try:
-            snapshot_bytes = pickle.dumps(data)
-            print(data)
-            with open(config.app.autosave_path, "wb") as f:
-                f.write(snapshot_bytes)
-            Debug.log_success("Autosave written to root directory.", category="SnapshotManager")
-        except Exception as e:
-            Debug.log_error(f"Autosave write failed: {e}", category="SnapshotManager")
-        finally:
-            self._autosave_lock.release()
+
 
     def capture_snapshot_data(self) -> dict:
         return self._collect_snapshot_data()
@@ -52,12 +25,8 @@ class SnapshotManager:
         data = self.capture_snapshot_data()
 
         #TODO:сделать запись только последнего снапшота
-        self.save_autosave_background(data)
 
         return pickle.dumps(data)
-
-    def save_autosave_background(self, data):
-        self._executor.submit(self._write_snapshot_background, data)
 
     #TODO: Исправить перезапись тяжелых изображений и кода, проверять наличие перед записью
     def _collect_snapshot_data(self):

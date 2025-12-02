@@ -6,6 +6,9 @@ import traceback
 import pymunk
 import gzip
 import lzma
+import threading
+from concurrent.futures import ThreadPoolExecutor
+import os
 
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
@@ -24,6 +27,46 @@ class SaveLoadManager:
         self.undo_redo = get_undo_redo()
         self.enable_compression = config.save_load.enable_compression
         self.compression_method = config.save_load.compression_method
+
+        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._autosave_lock = threading.Lock()
+        self._try_load_autosave()
+
+    def _try_load_autosave(self):
+        if not os.path.isfile(config.app.autosave_path):
+            return
+        try:
+            with open(config.app.autosave_path, "rb") as f:
+                data = f.read()
+            self._apply_loaded_data(pickle.loads(data))
+            self.physics_manager.set_simulation_paused(paused=False)
+            Debug.log_success("Autosave loaded from root directory.", category="SaveLoadManager")
+        except Exception as e:
+            Debug.log_error(f"Failed to load autosave: {e}", category="SaveLoadManager")
+
+    def _write_autosave_background(self, data):
+        if not self._autosave_lock.acquire(blocking=False):
+            return
+        try:
+            snapshot_bytes = pickle.dumps(data)
+            with open(config.app.autosave_path, "wb") as f:
+                f.write(snapshot_bytes)
+            Debug.log_success("Autosave written to root directory.", category="SaveLoadManager")
+        except Exception as e:
+            Debug.log_error(f"Autosave write failed: {e}", category="SaveLoadManager")
+        finally:
+            self._autosave_lock.release()
+
+    def save_autosave_background(self, data):
+        self._executor.submit(self._write_autosave_background, data)
+
+    def capture_snapshot_data(self) -> dict:
+        return self._prepare_save_data()
+
+    def create_snapshot(self) -> bytes:
+        data = self.capture_snapshot_data()
+        self.save_autosave_background(data)
+        return pickle.dumps(data)
 
     def save_world(self):
         root = tk.Tk(); root.withdraw()

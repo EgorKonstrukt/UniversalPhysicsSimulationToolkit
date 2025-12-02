@@ -164,6 +164,7 @@ class Application:
             self.input_handler.process_events(profiler=self.profiler, events=events)
             self.update(time_delta)
             self.draw()
+        self.save_load_manager.create_snapshot()
         pygame.quit()
 
     @profile("MAIN_LOOP")
