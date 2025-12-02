@@ -11,11 +11,13 @@ from UPST.utils import surface_to_bytes, bytes_to_surface
 
 class SnapshotManager:
 
-    def __init__(self, physics_manager, camera):
+    def __init__(self, physics_manager, camera, script_manager):
         self.physics_manager = physics_manager
         self.camera = camera
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._autosave_lock = threading.Lock()
+
+        self.script_manager = script_manager
         self._try_load_autosave()
 
     def _try_load_autosave(self):
@@ -34,6 +36,7 @@ class SnapshotManager:
             return
         try:
             snapshot_bytes = pickle.dumps(data)
+            print(data)
             with open(config.app.autosave_path, "wb") as f:
                 f.write(snapshot_bytes)
             Debug.log_success("Autosave written to root directory.", category="SnapshotManager")
@@ -67,7 +70,7 @@ class SnapshotManager:
             "sleep_time_threshold": float(self.physics_manager.space.sleep_time_threshold),
             "collision_slop": float(self.physics_manager.space.collision_slop),
             "collision_bias": float(self.physics_manager.space.collision_bias),
-            "scripts": self.physics_manager.script_manager.serialize_for_save(),
+            "scripts": self.script_manager.serialize_for_save(),
         }
 
         if config.snapshot.save_camera_position:
@@ -276,5 +279,6 @@ class SnapshotManager:
                     if surf:
                         cache[tex_bytes] = surf
 
-        self.physics_manager.script_manager.deserialize_from_save(data.get("scripts", {}), body_uuid_map)
+        str_body_map = {str(uid): body for uid, body in body_uuid_map.items()}
+        self.physics_manager.script_manager.deserialize_from_save(data.get("scripts", {}), str_body_map)
         Debug.log_success("Snapshot restored.", category="SnapshotManager")

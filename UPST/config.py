@@ -1,4 +1,6 @@
 import os
+import random
+
 import pygame
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, Tuple, List, Type, Optional, get_type_hints
@@ -193,28 +195,7 @@ class TextureEditorConfig:
     preview_quality: float = 1.0
     auto_save_interval: float = 5.0
 
-@dataclass
-class WorldTheme:
-    background_color: tuple
-    shape_color_range: tuple
-    platform_color: tuple
 
-@dataclass
-class WorldConfig:
-    themes: Dict[str, WorldTheme] = field(default_factory=lambda: {
-        "Classic": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255)),
-        "Desert": WorldTheme((80,60,20), ((200,255),(150,200),(50,100)), (210,180,140,255)),
-        "Ice": WorldTheme((120,120,155), ((150,200),(180,230),(230,255)), (100,170,220,255)),
-        "Night": WorldTheme((10,10,30), ((20,80),(20,80),(60,150)), (40,40,60,255)),
-        "Forest": WorldTheme((34,45,28), ((30,100),(100,200),(30,100)), (60,120,60,255)),
-        "Lava": WorldTheme((40,0,0), ((100,255),(0,40),(0,10)), (120,30,0,255)),
-        "Ocean": WorldTheme((0,40,80), ((0,100),(100,200),(150,255)), (0,90,150,255)),
-        "SciFi": WorldTheme((10,10,10), ((50,100),(200,255),(200,255)), (60,255,180,255)),
-        "Candy": WorldTheme((255,230,255), ((200,255),(100,200),(200,255)), (255,180,220,255)),
-        "Void": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255)),
-        "Black&White": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255)),
-    })
-    current_theme: str = "Classic"
 
 @dataclass
 class AppConfig:
@@ -254,6 +235,80 @@ class AppConfig:
         ("Glass", 0.94), ("Metal", 0.5), ("Polyethene", 0.2), ("Teflon (PTFE)", 0.04),
         ("Wood", 0.4),
     ])
+
+# ---- palette utilities ----
+def _rand_in_range(r):
+    return random.randint(int(r[0]), int(r[1]))
+
+def sample_color_from_def(pdef: Dict[str, Any]) -> Tuple[int,int,int,int]:
+    mode = pdef.get("mode","range")
+    if mode == "preset":
+        cols = pdef.get("colors",[])
+        if not cols: return (200,200,200,255)
+        c = random.choice(cols)
+        return tuple(int(x) for x in (*c, 255)) if len(c)==3 else tuple(int(x) for x in c)
+    # range mode: expects {"r":(min,max),"g":(...),"b":(...),"mix_with_white":float optional}
+    r = _rand_in_range(pdef.get("r",(0,255)))
+    g = _rand_in_range(pdef.get("g",(0,255)))
+    b = _rand_in_range(pdef.get("b",(0,255)))
+    a = int(pdef.get("a",255))
+    if pdef.get("mix_with_white"):
+        mix = float(pdef["mix_with_white"])
+        r = int(r + (255 - r) * mix)
+        g = int(g + (255 - g) * mix)
+        b = int(b + (255 - b) * mix)
+    return (r,g,b,a)
+
+@dataclass
+class WorldTheme:
+    background_color: Tuple[int,int,int]
+    shape_color_range: Tuple[Tuple[int,int], Tuple[int,int], Tuple[int,int]]
+    platform_color: Tuple[int,int,int,int]
+    palettes: Dict[str, Dict[str,Any]] = field(default_factory=dict)
+    default_palette: str = "Default"
+
+    def get_palette_def(self, name: Optional[str] = None) -> Dict[str,Any]:
+        nm = name or self.default_palette
+        if nm in self.palettes: return self.palettes[nm]
+        r_rng, g_rng, b_rng = self.shape_color_range
+        return {"mode":"range","r":tuple(r_rng),"g":tuple(g_rng),"b":tuple(b_rng),"a":255}
+
+@dataclass
+class WorldConfig:
+    themes: Dict[str, WorldTheme] = field(default_factory=lambda: {
+        "Default": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255),
+            palettes={"Default":{"mode":"range","r":(50,200),"g":(50,200),"b":(50,200)}}, default_palette="Default"),
+        "Autumn": WorldTheme((80,60,20), ((200,255),(150,200),(50,100)), (210,180,140,255),
+            palettes={"Default":{"mode":"range","r":(180,240),"g":(140,200),"b":(40,120)}}, default_palette="Default"),
+        "Black": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255),
+            palettes={"Default":{"mode":"range","r":(0,20),"g":(0,20),"b":(0,20)}}, default_palette="Default"),
+        "Blueprint": WorldTheme((0,20,80), ((150,255),(150,255),(150,255)), (0,90,150,255),
+            palettes={"Default":{"mode":"range","r":(230,230),"g":(230,230),"b":(230,230)}}, default_palette="Default"),
+        "Chalkboard": WorldTheme((34,45,28), ((170,200),(170,200),(170,200)), (60,120,60,255),
+            palettes={"Default":{"mode":"range","r":(30,100),"g":(80,200),"b":(30,100)}}, default_palette="Default"),
+        "Dark": WorldTheme((10,10,30), ((20,80),(20,80),(60,150)), (40,40,60,255),
+            palettes={"Default":{"mode":"range","r":(20,80),"g":(20,80),"b":(60,150)}}, default_palette="Default"),
+        "Greyscale": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255),
+            palettes={"Default":{"mode":"preset","colors":[(0,0,0),(50,50,50),(200,200,200),(255,255,255)]}}, default_palette="Default"),
+        "Ice": WorldTheme((120,120,155), ((150,200),(180,230),(230,255)), (100,170,220,255),
+            palettes={"Default":{"mode":"range","r":(150,200),"g":(180,230),"b":(230,255)}}, default_palette="Default"),
+        "Light grey": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255),
+            palettes={"Default":{"mode":"preset","colors":[(0,0,0),(50,50,50),(200,200,200),(255,255,255)]}}, default_palette="Default"),
+        "Optics": WorldTheme((10,10,10), ((50,100),(200,255),(200,255)), (60,255,180,255),
+            palettes={"Default":{"mode":"range","r":(40,80),"g":(200,255),"b":(180,255)}}, default_palette="Default"),
+        "Pastel": WorldTheme((255,230,255), ((200,255),(100,200),(200,255)), (255,180,220,255),
+            palettes={"Default":{"mode":"range","r":(200,255),"g":(100,200),"b":(200,255)}}, default_palette="Default"),
+        "Sunset": WorldTheme((40,0,0), ((100,255),(0,40),(0,10)), (120,30,0,255),
+            palettes={"Default":{"mode":"range","r":(100,255),"g":(0,60),"b":(0,30)}}, default_palette="Default"),
+        "Sweet": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255),
+            palettes={"Default":{"mode":"range","r":(50,200),"g":(50,200),"b":(50,200)}}, default_palette="Default"),
+        "White": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255),
+            palettes={"Default":{"mode":"preset","colors":[(0,0,0),(50,50,50),(200,200,200),(255,255,255)]}}, default_palette="Default"),
+        "X-ray": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255),
+            palettes={"Default":{"mode":"range","r":(0,20),"g":(0,20),"b":(0,20)}}, default_palette="Default"),
+    })
+    current_theme: str = "Default"
+    current_palette: str = "Default"
 
 class Config:
     _subconfigs: Dict[str, Type] = {}
@@ -379,42 +434,44 @@ def grid_from_dict_custom(cls, d: Dict) -> "GridConfig":
     return cls(**d)
 
 def world_to_dict_custom(self, d: Dict) -> Dict:
-    d["themes"] = {k: asdict(v) for k, v in self.themes.items()}
+    d["themes"] = {}
+    for k,v in self.themes.items():
+        vd = asdict(v)
+        d["themes"][k] = vd
+    d["current_theme"] = self.current_theme
+    d["current_palette"] = self.current_palette
     return d
 
 def world_from_dict_custom(cls, d: Dict) -> "WorldConfig":
-    default_themes = {
-        "Classic": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255)),
-        "Desert": WorldTheme((80,60,20), ((200,255),(150,200),(50,100)), (210,180,140,255)),
-        "Ice": WorldTheme((120,120,155), ((150,200),(180,230),(230,255)), (100,170,220,255)),
-        "Night": WorldTheme((10,10,30), ((20,80),(20,80),(60,150)), (40,40,60,255)),
-        "Forest": WorldTheme((34,45,28), ((30,100),(100,200),(30,100)), (60,120,60,255)),
-        "Lava": WorldTheme((40,0,0), ((100,255),(0,40),(0,10)), (120,30,0,255)),
-        "Ocean": WorldTheme((0,40,80), ((0,100),(100,200),(150,255)), (0,90,150,255)),
-        "SciFi": WorldTheme((10,10,10), ((50,100),(200,255),(200,255)), (60,255,180,255)),
-        "Candy": WorldTheme((255,230,255), ((200,255),(100,200),(200,255)), (255,180,220,255)),
-        "Void": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255)),
-        "Black&White": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255)),
-    }
-    loaded_themes = d.get("themes", {})
-    merged_themes = {}
-    for name, default_theme in default_themes.items():
-        if name in loaded_themes:
-            theme_data = loaded_themes[name]
-            # Recreate tuples from lists (JSON doesn't support tuples)
-            bg = tuple(theme_data.get("background_color", default_theme.background_color))
-            shape = tuple(tuple(pair) for pair in theme_data.get("shape_color_range", default_theme.shape_color_range))
-            plat = tuple(theme_data.get("platform_color", default_theme.platform_color))
-            merged_themes[name] = WorldTheme(bg, shape, plat)
+    default = WorldConfig()
+    loaded = d.get("themes", {})
+    merged = {}
+    for name, def_theme in default.themes.items():
+        if name in loaded:
+            td = loaded[name]
+            bg = tuple(td.get("background_color", def_theme.background_color))
+            shape = tuple(tuple(pair) for pair in td.get("shape_color_range", def_theme.shape_color_range))
+            plat = tuple(td.get("platform_color", def_theme.platform_color))
+            pals = td.get("palettes", def_theme.palettes)
+            default_pal = td.get("default_palette", def_theme.default_palette)
+            merged[name] = WorldTheme(bg, shape, plat, palettes=pals, default_palette=default_pal)
         else:
-            merged_themes[name] = default_theme
-    current_theme = d.get("current_theme", "Classic")
-    return cls(themes=merged_themes, current_theme=current_theme)
+            merged[name] = def_theme
+    cur_t = d.get("current_theme", default.current_theme)
+    cur_p = d.get("current_palette", default.current_palette)
+    return cls(themes=merged, current_theme=cur_t, current_palette=cur_p)
 
 GridConfig._to_dict_custom = grid_to_dict_custom
 GridConfig._from_dict_custom = classmethod(grid_from_dict_custom)
+
 WorldConfig._to_dict_custom = world_to_dict_custom
 WorldConfig._from_dict_custom = classmethod(world_from_dict_custom)
+
+def get_theme_and_palette(cfg, theme_name=None, palette_name=None):
+    th = cfg.world.themes.get(theme_name or cfg.world.current_theme, None)
+    if not th: th = next(iter(cfg.world.themes.values()))
+    pal = palette_name or cfg.world.current_palette or th.default_palette
+    return th, pal
 
 @property
 def background_color(self) -> Tuple[int, int, int]:

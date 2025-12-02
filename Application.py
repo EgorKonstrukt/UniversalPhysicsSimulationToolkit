@@ -3,6 +3,7 @@ import pygame
 import math
 import pymunk
 
+from UPST.scripting.script_manager import ScriptManager
 from UPST.splash_screen import SplashScreen, FreezeWatcher
 from UPST.config import config
 from UPST.modules.camera import Camera
@@ -44,11 +45,12 @@ class Application:
         self.clock = pygame.time.Clock()
         self.running = True
         self.world_theme = config.world.current_theme
+        self.script_manager = ScriptManager(self)
         Debug.log("World Theme initialized successfully", "Init")
         self.sound_manager = SoundManager()
         Debug.log("SoundManager initialized successfully", "Init")
 
-        self.physics_manager = PhysicsManager(self, undo_redo_manager=None)
+        self.physics_manager = PhysicsManager(self, undo_redo_manager=None, script_manager=self.script_manager)
         Debug.log("PhysicsManager initialized successfully", "Init")
 
         self.camera = Camera(self, config.app.screen_width, config.app.screen_height, self.screen)
@@ -60,7 +62,9 @@ class Application:
         self.grid_manager.set_theme_colors(self.world_theme)
         self.gizmos_manager = GizmosManager(self.camera, self.screen)
         self.debug_manager = DebugManager()
-        self.snapshot_manager = SnapshotManager(physics_manager=self.physics_manager, camera=self.camera)
+
+        self.snapshot_manager = SnapshotManager(physics_manager=self.physics_manager, camera=self.camera,
+                                                script_manager=self.script_manager)
         Debug.log("SnapshotManager initialized successfully", "Init")
         self.undo_redo_manager = UndoRedoManager(snapshot_manager=self.snapshot_manager)
         Debug.log("UndoRedoManager initialized successfully", "Init")

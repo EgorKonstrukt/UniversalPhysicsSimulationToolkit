@@ -93,17 +93,19 @@ class ScriptManager:
         if script in self.scripts or script in self.world_scripts:
             self.remove_script(script)
 
-    def deserialize_from_save(self, data:dict, body_uuid_map: dict):
+    def deserialize_from_save(self, data: dict, body_uuid_map: dict):
         self.stop_all()
         self.scripts.clear()
         self.world_scripts.clear()
 
+        str_body_map = {str(uid): body for uid, body in body_uuid_map.items()}
+
         def load_script_list(items, is_world=False):
             for item in items:
                 owner = None
-                if not is_world and item.get("owner_uuid"):
-                    owner_uuid = uuid.UUID(item["owner_uuid"])
-                    owner = body_uuid_map.get(owner_uuid)
+                owner_uuid_str = item.get("owner_uuid")
+                if not is_world and owner_uuid_str:
+                    owner = str_body_map.get(owner_uuid_str)
                 if is_world or owner is not None:
                     script = self.add_script_to(
                         owner,
@@ -112,8 +114,6 @@ class ScriptManager:
                         item["threaded"],
                         start_immediately=False
                     )
-
-                    script.threaded = item.get("threaded", False)
                     script.restore_state(item.get("state", {}))
                     if item.get("running", True):
                         script.start()

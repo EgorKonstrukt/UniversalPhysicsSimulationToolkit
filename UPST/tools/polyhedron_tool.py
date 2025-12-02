@@ -3,6 +3,7 @@ import pygame, math, pymunk
 from UPST.config import config
 from UPST.tools.tool_manager import BaseTool
 import pygame_gui
+from UPST.config import config, get_theme_and_palette, sample_color_from_def
 
 class PolyhedronTool(BaseTool):
     name = "Polyhedron"
@@ -107,8 +108,8 @@ class PolyhedronTool(BaseTool):
 
     def _get_color(self, shape_type):
         if getattr(self.ui_manager, f"{shape_type}_color_random", True):
-            theme = config.world.themes.get(config.world.current_theme, config.world.themes["Classic"])
-            r_range, g_range, b_range = theme.shape_color_range
-            return (random.randint(r_range[0], r_range[1]), random.randint(g_range[0], g_range[1]),
-                    random.randint(b_range[0], b_range[1]), 255)
-        return getattr(self.ui_manager, f"shape_colors")[shape_type]
+            theme, pal = get_theme_and_palette(config, None, getattr(self.ui_manager, "shape_palette", None))
+            pdef = theme.get_palette_def(pal)
+            return sample_color_from_def(pdef)
+        sc = getattr(self.ui_manager, "shape_colors", {})
+        return tuple(sc.get(shape_type, (200, 200, 200, 255)))

@@ -7,10 +7,11 @@ from UPST.scripting.script_manager import ScriptManager
 from UPST.modules.undo_redo_manager import get_undo_redo
 
 class PhysicsManager:
-    def __init__(self, game_app, undo_redo_manager):
+    def __init__(self, game_app, undo_redo_manager, script_manager):
         try:
             Debug.log_info("PhysicsManager initialization started.", "Physics")
             self.app = game_app
+            self.script_manager = script_manager
             self.undo_redo_manager = undo_redo_manager
             self.space = pymunk.Space(threaded=config.multithreading.pymunk_threaded)
             self.space.threads = config.multithreading.pymunk_threads
@@ -33,13 +34,11 @@ class PhysicsManager:
             self.air_friction_quadratic = 0.00100
             self.air_friction_multiplier = 1.0
             self.air_density = 1.225
-            self.theme = config.world.themes.get(config.world.current_theme, config.world.themes["Classic"])
-
-            self.script_manager = ScriptManager(app=self.app)
+            self.theme = config.world.themes.get(config.world.current_theme, config.world.themes["Default"])
 
             if not self.theme:
                 Debug.log_warning(f"Theme '{self.app.world_theme}' not found, defaulting to Classic.", "Physics")
-                self.theme = config.world.themes["Classic"]
+                self.theme = config.world.themes["Default"]
             Debug.log_info(f"Physics space initialized with {self.space.threads} threads and {self.space.iterations} iterations.", "Physics")
             if config.app.create_base_world:
                 self.create_base_world()
@@ -56,7 +55,7 @@ class PhysicsManager:
 
     def reset_with_theme(self):
         self.delete_all()
-        self.theme = config.world.themes.get(config.world.current_theme, config.world.themes["Classic"])
+        self.theme = config.world.themes.get(config.world.current_theme, config.world.themes["Default"])
         self.create_base_world()
 
     def create_base_world(self):
@@ -70,8 +69,22 @@ class PhysicsManager:
             floor.color = self.theme.platform_color
             self.space.add(floor)
             self.static_lines.append(floor)
-            Gizmos.draw_text(position=(950, 350), text="Welcome to the " + config.app.version + "!", font_name="Consolas", font_size=40, font_world_space=True, color=(255, 0, 255), duration=10.01, world_space=True)
-            Gizmos.draw_text(position=(1000, 600), text=config.app.guide_text, font_name="Consolas", font_size=30, font_world_space=True, color=(255, 255, 255), duration=10.01, world_space=True)
+            Gizmos.draw_text(position=(950, 350),
+                             text="Welcome to the " + config.app.version + "!",
+                             font_name="Consolas",
+                             font_size=40,
+                             font_world_space=True,
+                             color=(255, 0, 255),
+                             duration=60.01,
+                             world_space=True)
+            Gizmos.draw_text(position=(1000, 600),
+                             text=config.app.guide_text,
+                             font_name="Consolas",
+                             font_size=30,
+                             font_world_space=True,
+                             color=(255, 255, 255),
+                             duration=60.01,
+                             world_space=True)
             Debug.log_info("Welcome and guide texts drawn using Gizmos.", "Physics")
             Debug.log_info("Base world created after undo_redo manager setup.", "Physics")
         except Exception as e:
