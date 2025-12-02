@@ -283,7 +283,7 @@ class WorldConfig:
         "Black": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255),
             palettes={"Default":{"mode":"range","r":(0,20),"g":(0,20),"b":(0,20)}}, default_palette="Default"),
         "Blueprint": WorldTheme((0,20,80), ((150,255),(150,255),(150,255)), (0,90,150,255),
-            palettes={"Default":{"mode":"range","r":(230,230),"g":(230,230),"b":(230,230)}}, default_palette="Default"),
+            palettes={"Default":{"mode":"preset","colors":[(240,240,240),(245,245,245),(250,250,250),(255,255,255)]}}, default_palette="Default"),
         "Chalkboard": WorldTheme((34,45,28), ((170,200),(170,200),(170,200)), (60,120,60,255),
             palettes={"Default":{"mode":"range","r":(30,100),"g":(80,200),"b":(30,100)}}, default_palette="Default"),
         "Dark": WorldTheme((10,10,30), ((20,80),(20,80),(60,150)), (40,40,60,255),
@@ -303,7 +303,7 @@ class WorldConfig:
         "Sweet": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255),
             palettes={"Default":{"mode":"range","r":(50,200),"g":(50,200),"b":(50,200)}}, default_palette="Default"),
         "White": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255),
-            palettes={"Default":{"mode":"preset","colors":[(0,0,0),(50,50,50),(200,200,200),(255,255,255)]}}, default_palette="Default"),
+            palettes={"Default":{"mode":"preset","colors":[(0,0,0),(20,20,20),(30,30,30),(40,40,40)]}}, default_palette="Default"),
         "X-ray": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255),
             palettes={"Default":{"mode":"range","r":(0,20),"g":(0,20),"b":(0,20)}}, default_palette="Default"),
     })

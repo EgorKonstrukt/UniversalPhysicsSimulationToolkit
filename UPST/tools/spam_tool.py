@@ -9,7 +9,7 @@ class SpamTool(BaseTool):
     icon_path = "sprites/gui/spawn/spam.png"
 
     def spawn_at(self, pos):
-        for _ in range(50):
+        for _ in range(10):
             shape_type = random.choice(["circle", "rectangle", "triangle", "polyhedron"])
             offset = (pos[0] + random.uniform(-150, 150), pos[1] + random.uniform(-150, 150))
             if self.ui_manager and self.ui_manager.tool_system:

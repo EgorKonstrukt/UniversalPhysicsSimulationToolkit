@@ -40,9 +40,7 @@ class PhysicsManager:
                 Debug.log_warning(f"Theme '{self.app.world_theme}' not found, defaulting to Classic.", "Physics")
                 self.theme = config.world.themes["Default"]
             Debug.log_info(f"Physics space initialized with {self.space.threads} threads and {self.space.iterations} iterations.", "Physics")
-            if config.app.create_base_world:
-                self.create_base_world()
-                Debug.log_info("Base world created.", "Physics")
+
         except Exception as e:
             Debug.log_error(f"Failed to initialize PhysicsManager: {e}", "Physics")
 

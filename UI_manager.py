@@ -32,7 +32,7 @@ class UIManager:
         self.context_menu = ContextMenu(self.manager, self)
         self.force_field_ui = ForceFieldUI(self.manager, screen_width, screen_height, self)
         self.console_ui = ConsoleUI(self.manager, screen_width, screen_height)
-        self.settings_ui = SettingsUI(self.manager, screen_height)
+        # self.settings_ui = SettingsUI(self.manager, screen_height)
         self.plotter_ui = PlotterUI(self.manager)
         self.bottom_bar = BottomBar(screen_width, screen_height, self.manager, physics_manager=self.physics_manager)
         self.top_left_bar = TopLeftBar(screen_width, screen_height, self.manager, app=self.app, physics_manager=self.physics_manager)

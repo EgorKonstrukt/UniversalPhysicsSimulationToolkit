@@ -117,7 +117,7 @@ class Application:
                                               gizmos=self.gizmos_manager,
                                               console=self.console_handler)
         self.ui_manager.network_manager = self.network_manager
-        self.ui_manager.init_network_menu()
+        # self.ui_manager.init_network_menu()
         synthesizer.set_volume(0.5)
         self.physics_debug_manager = PhysicsDebugManager(self.physics_manager, self.camera, self.plotter)
         Debug.log("PhysicsDebugManager initialized successfully", "Init")
