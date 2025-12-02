@@ -12,6 +12,14 @@ class ScriptManager:
         self.world_scripts: List[ScriptInstance] = []
         self._body_uuid_map: Dict[uuid.UUID, Any] = {}
 
+    def reload_all_scripts(self):
+        all_scripts = self.get_all_scripts()
+        reloaded = 0
+        for s in all_scripts:
+            if getattr(s, 'filepath', None) and s.reload_from_file():
+                reloaded += 1
+        Debug.log_info(f"Reloaded {reloaded}/{len(all_scripts)} scripts from files.", "Scripting")
+
     def register_body(self, body):
         """Assign UUID to bodies for persistent referencing"""
         if not hasattr(body, '_script_uuid'):

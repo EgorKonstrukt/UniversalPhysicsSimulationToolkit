@@ -15,7 +15,7 @@ from UPST.sound.sound_synthesizer import synthesizer
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
 from UPST.gui.windows.plotter_window import PlotterWindow
-
+import os
 
 
 try:
@@ -49,6 +49,7 @@ class ScriptInstance:
         self._stop_event = threading.Event()
         self._last_bg_time = None
         self.state = {}
+        self.filepath = None
 
         def threaded(fn: T) -> T:
             def wrapper(*args, **kwargs):
@@ -98,6 +99,7 @@ class ScriptInstance:
             "Union": Union,
             "Set": Set,
             "PlotterWindow": lambda *args, **kwargs: PlotterWindow(main_manager, *args, **kwargs),
+            "load_script": self._load_script_wrapper,
         }
 
         try:
@@ -149,6 +151,35 @@ class ScriptInstance:
         if self.threaded and not _numba_available:
             Debug.log_warning(f"Script '{self.name}' uses background updates without numba — may be GIL-bound.", "Scripting")
         Debug.log_info(f"Script '{self.name}' initialized on {type(owner).__name__}. threaded={self.threaded}", "Scripting")
+    def _load_script_wrapper(self, name: str) -> str:
+
+        scripts_dir = "UserScripts"
+        if not os.path.exists(scripts_dir):
+            os.makedirs(scripts_dir)
+        if not name.endswith(".py"):
+            name += ".py"
+        path = os.path.join(scripts_dir, name)
+        if not os.path.isfile(path):
+            Debug.log_error(f"Script file not found: {path}", "Scripting")
+            return ""
+        with open(path, 'r', encoding='utf-8') as f:
+            code = f.read()
+        self.filepath = os.path.abspath(path)
+        return code
+
+    def reload_from_file(self) -> bool:
+        if not self.filepath or not os.path.isfile(self.filepath):
+            return False
+        try:
+            with open(self.filepath, 'r', encoding='utf-8') as f:
+                new_code = f.read()
+            if self._recompile(new_code):
+                Debug.log_info(f"Reloaded script '{self.name}' from {self.filepath}", "Scripting")
+                return True
+            return False
+        except Exception:
+            Debug.log_exception(f"Failed to reload script '{self.name}' from {self.filepath}", "Scripting")
+            return False
 
     def set_bg_fps(self, fps: float):
         with self.thread_lock:
@@ -271,15 +302,16 @@ class ScriptInstance:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
-    def _recompile(self, new_code: str):
+    def _recompile(self, new_code: str) -> bool:
         self.code = new_code
         namespace = self._build_namespace()
         try:
             exec(self.code, namespace, namespace)
         except Exception:
             Debug.log_exception(f"Script '{self.name}' recompilation error: {traceback.format_exc()}", "Scripting")
-            return
+            return False
         self._update_functions_from_namespace(namespace)
+        return True
 
     def _build_namespace(self):
         def threaded(fn):

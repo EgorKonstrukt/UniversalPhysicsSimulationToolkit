@@ -48,6 +48,11 @@ class InputHandler:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_g and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 self.app.toggle_grid()
+            mods = pygame.key.get_mods()
+
+            if event.key == pygame.K_r and (mods & pygame.KMOD_CTRL) and (mods & pygame.KMOD_SHIFT):
+                if hasattr(self.app, 'script_manager'):
+                    self.app.script_manager.reload_all_scripts()
             elif event.key == pygame.K_ESCAPE:
                 if self.first_joint_body:
                     self.first_joint_body = None
@@ -70,6 +75,7 @@ class InputHandler:
                 )
                 if info and info.shape:
                     self.app.physics_manager.remove_shape_body(info.shape)
+
         elif event.type == pygame.KEYUP:
             if event.key == pygame.K_f:
                 if (pygame.time.get_ticks() - self.key_f_hold_start_time) < config.input.hold_time_ms:
