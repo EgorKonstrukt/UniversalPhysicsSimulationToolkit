@@ -5,6 +5,7 @@ from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
 from UPST.scripting.script_manager import ScriptManager
 from UPST.modules.undo_redo_manager import get_undo_redo
+from UPST.modules.statistics import stats
 
 class PhysicsManager:
     def __init__(self, game_app, undo_redo_manager, script_manager):
@@ -237,6 +238,8 @@ class PhysicsManager:
         try:
             self.running_physics = not self.running_physics
             # self.undo_redo_manager.take_snapshot()
+            stats.increment('paused_times', delta=1)
+            stats.save()
             Debug.log_info(f"Physics simulation {'paused' if not self.running_physics else 'unpaused'}.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in toggle_pause: {e}", "Physics")
@@ -244,6 +247,8 @@ class PhysicsManager:
     def add_body_shape(self, body, shape):
         try:
             self.space.add(body, shape)
+            stats.increment('objects_created', delta=1)
+            stats.save()
             Debug.log_info(f"Added body and shape to physics space. Body ID: {body.__hash__()}, Shape ID: {shape.__hash__()}.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in add_body_shape: {e}", "Physics")
@@ -252,6 +257,8 @@ class PhysicsManager:
         try:
             self.static_lines.append(segment)
             self.space.add(segment)
+            stats.increment('static_created', delta=1)
+            stats.save()
             Debug.log_info(f"Added static line to physics space. Segment ID: {segment.__hash__()}.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in add_static_line: {e}", "Physics")
@@ -259,6 +266,8 @@ class PhysicsManager:
     def add_constraint(self, constraint):
         try:
             self.space.add(constraint)
+            stats.increment('constraints_created', delta=1)
+            stats.save()
             Debug.log_info(f"Added constraint to physics space. Constraint ID: {constraint.__hash__()}.", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in add_constraint: {e}", "Physics")

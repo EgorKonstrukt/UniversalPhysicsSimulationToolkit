@@ -5,6 +5,7 @@ from UPST.tools.tool_manager import BaseTool
 import pygame_gui
 from UPST.config import config, get_theme_and_palette, sample_color_from_def
 
+
 class CircleTool(BaseTool):
     name = "Circle"
     icon_path = "sprites/gui/spawn/circle.png"

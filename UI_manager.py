@@ -1,16 +1,14 @@
 import pygame
 import pygame_gui
 from UPST.config import config
-from UPST.sound.sound_synthesizer import synthesizer
 from UPST.gui.contex_menu import ContextMenu
-from UPST.gui.bottom_bar import BottomBar
-from UPST.gui.top_left_bar import TopLeftBar
-from UPST.gui.top_right_bar import TopRightBar
+from UPST.gui.bars.bottom_bar import BottomBar
+from UPST.gui.bars.top_left_bar import TopLeftBar
+from UPST.gui.bars.top_right_bar import TopRightBar
 from UPST.gui.force_field_ui import ForceFieldUI
 from UPST.gui.console_ui import ConsoleUI
-from UPST.gui.settings_ui import SettingsUI
 from UPST.gui.plotter_ui import PlotterUI
-import math
+
 
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera, input_handler, screen, font, tool_system=None, network_manager=None, app=None):

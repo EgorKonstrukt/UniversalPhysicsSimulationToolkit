@@ -2,6 +2,7 @@ import ctypes
 import pygame
 import math
 import pymunk
+import time
 
 from UPST.scripting.script_manager import ScriptManager
 from UPST.splash_screen import SplashScreen, FreezeWatcher
@@ -28,6 +29,7 @@ from UPST.sound.sound_manager import SoundManager
 from UPST.network.network_manager import NetworkManager
 from UI_manager import UIManager
 from UPST.modules.renderer import Renderer
+from UPST.modules.statistics import stats
 
 from UPST.tools.tool_manager import ToolSystem
 
@@ -36,6 +38,7 @@ class Application:
     def __init__(self):
         pygame.init()
         self.freeze_watcher = None
+        self.stats = stats
         config.load_from_file()
         self.screen = self.setup_screen()
         self.font = pygame.font.SysFont("Consolas", 16)
@@ -86,7 +89,6 @@ class Application:
                                           ui_manager=self.ui_manager,
                                           tool_system=self.tool_manager)
 
-        # Set up the circular dependencies after all managers are created
         self.tool_manager.set_ui_manager(self.ui_manager)
         self.tool_manager.set_input_handler(self.input_handler)
         self.ui_manager.input_handler = self.input_handler
@@ -152,6 +154,8 @@ class Application:
         synthesizer.play_note("A3", duration=0.1, waveform="sine", adsr=(0.01, 0.1, 0.7, 0.1), volume=0.5, pan=0.0)
         self.freeze_watcher = FreezeWatcher(threshold_sec=0.1)
         self.freeze_watcher.start()
+        stats.accumulate_session_time()
+        stats.session_start = time.time()
         while self.running:
             self.freeze_watcher.ping()
             time_delta = self.clock.tick(config.app.clock_tickrate) / 1000.0
@@ -164,6 +168,8 @@ class Application:
             self.input_handler.process_events(profiler=self.profiler, events=events)
             self.update(time_delta)
             self.draw()
+        stats.accumulate_session_time()
+        stats.save()
         self.save_load_manager.create_snapshot()
         pygame.quit()
 
@@ -214,3 +220,5 @@ if __name__ == '__main__':
         print(f"Application error: {e}")
         import traceback
         traceback.print_exc()
+
+print(1)

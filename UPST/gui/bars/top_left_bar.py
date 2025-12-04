@@ -1,6 +1,9 @@
 import pygame
 import pygame_gui
 from pygame_gui.elements import UIButton, UIPanel, UIImage
+
+from UPST.config import config
+from UPST.gui.windows.about_window import AboutWindow
 from UPST.sound.sound_synthesizer import synthesizer
 from UPST.modules.profiler import get_profiler
 from UPST.gui.windows.theme_selection_dialog import ThemeSelectionDialog
@@ -18,6 +21,7 @@ class TopLeftBar:
         self.separator_width = 2
 
         self.theme_dialog = None
+        self.about_window = None
 
         self.panel = UIPanel(
             relative_rect=pygame.Rect(0, 0, self.bar_width, self.bar_height),
@@ -157,4 +161,8 @@ class TopLeftBar:
         pass
 
     def _on_about_pressed(self):
-        pass
+        if not self.about_window or not self.about_window.alive():
+            self.about_window = AboutWindow(pygame.Rect(config.app.screen_width/2-210,
+                                                        config.app.screen_height/2-315,
+                                                        420,
+                                                        630), self.ui_manager, self.app)
