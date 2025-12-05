@@ -34,6 +34,7 @@ class PlotterWindow:
         except Exception:
             Debug.log_exception("Failed to register PlotterWindow with UI wrapper.", "GUI")
         self._create_buttons()
+        self._create_sample_controls()
 
     def _create_window(self):
         self.window = pygame_gui.elements.UIWindow(
@@ -63,17 +64,51 @@ class PlotterWindow:
                 container=self.window
             )
 
+    def _create_sample_controls(self):
+        self.sample_input = pygame_gui.elements.UITextEntryLine(
+            relative_rect=pygame.Rect(340, 10, 60, 30),
+            manager=self.manager,
+            container=self.window
+        )
+        self.sample_input.set_text(str(self.plotter.max_samples))
+        self.sample_inc = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(405, 10, 30, 30),
+            text="+",
+            manager=self.manager,
+            container=self.window
+        )
+        self.sample_dec = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(440, 10, 30, 30),
+            text="-",
+            manager=self.manager,
+            container=self.window
+        )
+
     def handle_event(self, event: pygame.event.Event):
-        if event.type == pygame_gui.UI_BUTTON_PRESSED and self.is_open():
-            for key, btn in self.buttons.items():
-                if event.ui_element == btn:
-                    if key == "toggle_mode":
-                        self.plotter.set_overlay_mode(not self.plotter.overlay_mode)
-                    elif key == "clear_data":
-                        self.plotter.clear_data()
-                    elif key == "show_all":
-                        for g in self.plotter.get_available_groups():
-                            self.plotter.set_group_visibility(g, True)
+        if not self.is_open(): return
+        if event.type == pygame_gui.UI_BUTTON_PRESSED:
+            if event.ui_element == self.buttons["toggle_mode"]:
+                self.plotter.set_overlay_mode(not self.plotter.overlay_mode)
+            elif event.ui_element == self.buttons["clear_data"]:
+                self.plotter.clear_data()
+            elif event.ui_element == self.buttons["show_all"]:
+                for g in self.plotter.get_available_groups():
+                    self.plotter.set_group_visibility(g, True)
+            elif event.ui_element == self.sample_inc:
+                val = int(self.sample_input.get_text()) + 1
+                self.plotter.max_samples = val
+                self.sample_input.set_text(str(val))
+            elif event.ui_element == self.sample_dec:
+                val = max(1, int(self.sample_input.get_text()) - 1)
+                self.plotter.max_samples = val
+                self.sample_input.set_text(str(val))
+        elif event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED and event.ui_element == self.sample_input:
+            try:
+                val = max(1, int(self.sample_input.get_text()))
+                self.plotter.max_samples = val
+                self.plotter.clear_data()
+            except ValueError:
+                self.sample_input.set_text(str(self.plotter.max_samples))
 
     def is_open(self): return self.window and self.window.alive()
     def show(self): self.window.show()
