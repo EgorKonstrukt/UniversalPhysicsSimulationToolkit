@@ -6,12 +6,15 @@ class Statistics:
     def __init__(self, save_path="stats.json"):
         self.save_path = Path(save_path)
         self._persistent_keys = {'total_runtime', 'launch_count', 'objects_created',
-                                 'paused_times', 'static_created', 'constraints_created'}
+                                 'paused_times', 'static_created', 'constraints_created',
+                                 'objects_cutted', 'scripts_created'}
         self._data = {}
         self.load()
         self._data.setdefault('launch_count', 0)
         self._data.setdefault('total_runtime', 0.0)
         self._data.setdefault('objects_created', 0)
+        self._data.setdefault('objects_cutted', 0)
+        self._data.setdefault('scripts_created', 0)
         self._data['launch_count'] += 1
         self.save()
 

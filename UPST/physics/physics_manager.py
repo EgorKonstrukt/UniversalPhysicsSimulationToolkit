@@ -60,6 +60,7 @@ class PhysicsManager:
     def create_base_world(self):
         try:
             Debug.log_info("Creating base world geometry and debug texts.", "Physics")
+            self.set_gravity_mode(mode="world", g=(0,981))
             vertices = [(-10000, config.app.screen_height - 200), (-10000, config.app.screen_height),
                         (10000, config.app.screen_height), (10000, config.app.screen_height - 200)]
             floor = pymunk.Poly(self.static_body, vertices)

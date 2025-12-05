@@ -96,7 +96,6 @@ class Application:
 
         self.plotter = Plotter(surface_size=(580, 300))
         Debug.log("UIManager initialized successfully", "Init")
-        self.ui_manager.set_plotter(self.plotter)
         self.spawner = ObjectSpawner(physics_manager=self.physics_manager,
                                      ui_manager=self.ui_manager,
                                      sound_manager=self.sound_manager)
@@ -161,39 +160,25 @@ class Application:
             time_delta = self.clock.tick(config.app.clock_tickrate) / 1000.0
             self.debug_manager.update(time_delta)
             self.gizmos_manager.update(time_delta)
-            self.profiler.start("physics debug", "physics")
             self.physics_debug_manager.update(time_delta)
-            self.profiler.stop("physics debug")
             events = pygame.event.get()
             self.input_handler.process_events(profiler=self.profiler, events=events)
             self.update(time_delta)
-            self.draw()
+            self.renderer.draw()
         stats.accumulate_session_time()
         stats.save()
         self.save_load_manager.create_snapshot()
         pygame.quit()
 
-    @profile("MAIN_LOOP")
     def update(self, time_delta):
         Debug.set_performance_counter("Update Time", time_delta * 1000)
-        self.profiler.start("camera", "app")
         self.camera.update(pygame.key.get_pressed())
-        self.profiler.stop("camera")
-        self.profiler.start("physics solver", "physics")
         self.physics_manager.update(self.camera.rotation)
-        self.profiler.stop("physics solver")
         world_mouse_pos = self.camera.screen_to_world(pygame.mouse.get_pos())
-        self.profiler.start("force_field", "physics")
         self.force_field_manager.update(world_mouse_pos, self.screen)
-        self.profiler.stop("force_field")
-        self.profiler.start("gui", "gui")
         self.ui_manager.update(time_delta, self.clock)
-        self.profiler.stop("gui")
         self.undo_redo_manager.update()
         self.physics_manager.update_scripts(time_delta)
-
-    def draw(self):
-        self.renderer.draw()
 
     def toggle_grid(self):
         self.grid_manager.toggle_grid()

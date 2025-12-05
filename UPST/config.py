@@ -164,13 +164,13 @@ class InputConfig:
 @dataclass
 class DebugConfig:
     gizmos: bool = True
-    draw_collision_points: bool = True
-    draw_constraints: bool = True
-    draw_body_outlines: bool = True
-    draw_center_of_mass: bool = True
-    show_performance: bool = True
+    draw_collision_points: bool = False
+    draw_constraints: bool = False
+    draw_body_outlines: bool = False
+    draw_center_of_mass: bool = False
+    show_performance: bool = False
     show_physics_debug: bool = True
-    show_camera_debug: bool = True
+    show_camera_debug: bool = False
     show_snapshots_debug: bool = True
     show_console: bool = False
 
@@ -204,7 +204,7 @@ class AppConfig:
     screen_width: int = 1920
     screen_height: int = 1080
     fullscreen: bool = False
-    use_system_dpi: bool = False
+    use_system_dpi: bool = True
     version: str = "Universal Physics Simulation Toolkit"
     create_base_world: bool = True
     clock_tickrate: int = 1000

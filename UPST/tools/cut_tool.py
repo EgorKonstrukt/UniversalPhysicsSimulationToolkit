@@ -4,6 +4,7 @@ from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
 from UPST.tools.tool_manager import BaseTool
 import pygame_gui
+from UPST.modules.statistics import stats
 
 class CutTool(BaseTool):
     name = "Cut"
@@ -156,6 +157,7 @@ class CutTool(BaseTool):
             return False
 
     def _process_cut(self, a, b, thickness):
+        stats.increment('objects_cutted', delta=1)
         bodies_to_remove = set()
         to_add = []
 

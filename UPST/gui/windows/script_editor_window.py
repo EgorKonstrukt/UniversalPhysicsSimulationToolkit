@@ -12,7 +12,7 @@ import tokenize
 import io
 from UPST.modules.undo_redo_manager import get_undo_redo
 from UPST.utils import safe_filedialog
-
+from UPST.modules.statistics import stats
 
 class ScriptEditorWindow:
     def __init__(self, rect, manager, physics_manager, physics_debug_manager=None, owner=None, script=None, app=None):
@@ -242,6 +242,8 @@ class ScriptEditorWindow:
                 script_manager.add_script_to(owner, code, name, threaded, start_immediately=True)
                 self.undo_redo.take_snapshot()
                 self.update_status("New script applied and running")
+                stats.increment('scripts_created', delta=1)
+
         except Exception as e:
             self.show_error("Runtime Error", f"Failed to apply script:<br>{str(e)}")
 

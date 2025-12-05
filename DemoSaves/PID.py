@@ -121,6 +121,7 @@ def update(dt):
         plotter.add_data("Y Error", abs(pid_y.last_error), "Error")
         plotter.add_data("X Output", abs(fx), "Output")
         plotter.add_data("Y Output", abs(fy), "Output")
+        plotter.update(dt)
 
 
 def stop():

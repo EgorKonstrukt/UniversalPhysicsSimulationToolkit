@@ -1,13 +1,13 @@
 import pygame
 import pygame_gui
 from UPST.config import config
+from UPST.debug.debug_manager import Debug
 from UPST.gui.contex_menu import ContextMenu
 from UPST.gui.bars.bottom_bar import BottomBar
 from UPST.gui.bars.top_left_bar import TopLeftBar
 from UPST.gui.bars.top_right_bar import TopRightBar
 from UPST.gui.force_field_ui import ForceFieldUI
 from UPST.gui.console_ui import ConsoleUI
-from UPST.gui.plotter_ui import PlotterUI
 
 
 class UIManager:
@@ -23,15 +23,12 @@ class UIManager:
         self.network_manager = network_manager
         self.network_menu = None
         self.physics_debug_manager = None
-        self.plotter = None
         self.active_color_picker = None
         self.color_picker_for_shape = None
         self.script_editor = None
         self.context_menu = ContextMenu(self.manager, self)
         self.force_field_ui = ForceFieldUI(self.manager, screen_width, screen_height, self)
         self.console_ui = ConsoleUI(self.manager, screen_width, screen_height)
-        # self.settings_ui = SettingsUI(self.manager, screen_height)
-        self.plotter_ui = PlotterUI(self.manager)
         self.bottom_bar = BottomBar(screen_width, screen_height, self.manager, physics_manager=self.physics_manager)
         self.top_left_bar = TopLeftBar(screen_width, screen_height, self.manager, app=self.app, physics_manager=self.physics_manager)
         self.top_right_bar = TopRightBar(screen_width, screen_height, self.manager, app=self.app, physics_manager=self.physics_manager)
@@ -42,6 +39,13 @@ class UIManager:
         self.triangle_color_random = True
         self.poly_color_random = True
         self._init_fonts()
+        self.script_windows = []
+
+    def register_script_window(self, w):
+        if w not in self.script_windows: self.script_windows.append(w)
+    def unregister_script_window(self, w):
+        try: self.script_windows.remove(w)
+        except ValueError: pass
 
     def _init_fonts(self):
         self.manager.add_font_paths(font_name="consolas", regular_path="fonts/Consolas.ttf")
@@ -60,10 +64,6 @@ class UIManager:
 
     def set_physics_debug_manager(self, physics_debug_manager):
         self.physics_debug_manager = physics_debug_manager
-
-    def set_plotter(self, plotter):
-        self.plotter = plotter
-        self.plotter_ui.set_plotter(plotter)
 
     def toggle_color_mode(self, shape_type):
         current = getattr(self, f"{shape_type}_color_random", True)
@@ -104,22 +104,17 @@ class UIManager:
         self.bottom_bar.process_event(event)
         self.top_left_bar.process_event(event)
         self.top_right_bar.process_event(event)
+        for w in list(self.script_windows):
+            try:
+                w.handle_event(event)
+            except Exception:
+                Debug.log_exception("Error while dispatching UI event to script window.", "GUI")
 
     def _handle_button_press(self, event, game_app):
         if event.ui_element in self.force_field_ui.force_field_buttons:
             self.force_field_ui.handle_button_press(event.ui_element, game_app)
         elif hasattr(event.ui_element, 'tool_name'):
             self.tool_system.activate_tool(event.ui_element.tool_name)
-
-        elif event.ui_element == self.plotter_ui.add_btn:
-            self._handle_plot_add()
-        elif event.ui_element == self.plotter_ui.clear_btn:
-            if self.plotter:
-                self.plotter.clear_data()
-
-    def _handle_plot_add(self):
-        if self.plotter and self.physics_debug_manager.selected_body and hasattr(self, 'selected_plot_parameter'):
-            self.physics_debug_manager.add_plot_parameter(self.physics_debug_manager.selected_body, self.selected_plot_parameter)
 
     def _handle_color_pick(self, event):
         if self.active_color_picker and event.ui_element == self.active_color_picker and self.tool_system.current_tool:
@@ -136,15 +131,11 @@ class UIManager:
         self.manager.set_window_resolution((screen_w, screen_h))
         self.force_field_ui.resize(screen_w, screen_h)
         self.console_ui.resize(screen_w, screen_h)
-        self.settings_ui.resize(screen_h)
-        self.plotter_ui.resize()
         self.bottom_bar.resize(screen_w, screen_h)
 
     def update(self, time_delta, clock):
         self.manager.update(time_delta)
         self.context_menu.update(time_delta, clock)
-        if self.plotter:
-            self.plotter_ui.update_surface(self.plotter.get_surface())
 
     def draw(self, screen):
         self.context_menu.draw_menu_line(screen, self.camera)
