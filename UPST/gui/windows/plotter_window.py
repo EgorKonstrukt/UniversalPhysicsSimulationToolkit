@@ -26,7 +26,6 @@ class PlotterWindow:
         self.plot_image = None
         self.plotter = None
         self.buttons = {}
-        self._plot_surface = pygame.Surface((size[0], size[1] - 60)).convert()
         self._create_window()
         try:
             if hasattr(self._wrapper, "register_script_window") and callable(self._wrapper.register_script_window):
@@ -40,15 +39,17 @@ class PlotterWindow:
         self.window = pygame_gui.elements.UIWindow(
             rect=pygame.Rect(self.position, self.size),
             manager=self.manager,
-            window_display_title=self.window_title
+            window_display_title=self.window_title,
+            resizable=True
         )
+        plot_height = self.size[1] - 70
         self.plot_image = pygame_gui.elements.UIImage(
-            relative_rect=pygame.Rect(0, 60, self.size[0], self.size[1] - 70),
-            image_surface=self._plot_surface,
+            relative_rect=pygame.Rect(0, 60, self.size[0], plot_height),
+            image_surface=pygame.Surface((self.size[0], plot_height)).convert(),
             manager=self.manager,
             container=self.window
         )
-        self.plotter = Plotter((self.size[0], self.size[1] - 60), max_samples=120)
+        self.plotter = Plotter((self.size[0], plot_height), max_samples=120)
 
     def _create_buttons(self):
         btn_defs = {
@@ -84,9 +85,20 @@ class PlotterWindow:
             container=self.window
         )
 
+    def _resize_plot_area(self):
+        new_w, new_h = self.window.rect.size
+        if new_w <= 0 or new_h <= 70: return
+        plot_height = new_h - 70
+        self.plotter.surface_size = (new_w, plot_height)
+        self.plotter.surface = pygame.Surface((new_w, plot_height), pygame.SRCALPHA)
+        self.plot_image.set_dimensions((new_w, plot_height))
+        self.plot_image.set_image(self.plotter.get_surface())
+
     def handle_event(self, event: pygame.event.Event):
         if not self.is_open(): return
-        if event.type == pygame_gui.UI_BUTTON_PRESSED:
+        if event.type == pygame_gui.UI_WINDOW_RESIZED and event.ui_element == self.window:
+            self._resize_plot_area()
+        elif event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element == self.buttons["toggle_mode"]:
                 self.plotter.set_overlay_mode(not self.plotter.overlay_mode)
             elif event.ui_element == self.buttons["clear_data"]:
