@@ -49,7 +49,7 @@ class DebugManager:
         self.show_camera_debug = True
         self.show_snapshots_debug = True
 
-        self.performance_history = defaultdict(lambda: deque(maxlen=60))
+        self.performance_history = defaultdict(lambda: deque(maxlen=200))
         self.performance_counters = defaultdict(float)
 
         self.stats = defaultdict(int)

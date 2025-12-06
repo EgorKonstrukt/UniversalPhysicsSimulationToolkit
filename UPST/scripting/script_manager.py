@@ -17,8 +17,13 @@ class ScriptManager:
         all_s = self.get_all_scripts()
         r = 0
         for s in all_s:
-            if getattr(s, 'filepath', None) and s.reload_from_file(): r += 1
-        Debug.log_info(f"Reloaded {r}/{len(all_s)} scripts from files.", "Scripting")
+            if getattr(s, 'filepath', None):
+                if s.reload_from_file():
+                    r += 1
+            else:
+                if s.recompile():
+                    r += 1
+        Debug.log_info(f"Reloaded {r}/{len(all_s)} scripts from files or inline code.", "Scripting")
 
     def register_body(self, body):
         if not hasattr(body, '_script_uuid'):

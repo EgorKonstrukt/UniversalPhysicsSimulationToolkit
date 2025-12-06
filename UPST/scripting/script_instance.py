@@ -40,6 +40,14 @@ T = TypeVar('T', bound=Callable)
 
 class ScriptInstance:
     MAX_USER_THREADS = 16
+    _BUILTIN_NAMES = {
+        "owner", "Gizmos", "Debug", "synthesizer", "pymunk", "time", "math", "random",
+        "threading", "pygame", "self", "traceback", "profile", "thread_lock",
+        "spawn_thread", "log", "set_bg_fps", "threaded", "np", "njit", "Optional",
+        "Any", "Callable", "TypeVar", "Dict", "List", "Tuple", "Union", "Set",
+        "PlotterWindow", "load_script"
+    }
+
     def __init__(self, code: str, owner: Any, name: str = "Unnamed Script", threaded_default: bool = False, app=None):
         self.code = code
         self.app = app
@@ -80,7 +88,7 @@ class ScriptInstance:
         return self.app.ui_manager if self.app and hasattr(self.app, 'ui_manager') else config.ui_manager
 
     def _make_plotter(self):
-        mm = self.app.ui_manager
+        mm = self._main_manager()
         return lambda *a, **kw: PlotterWindow(mm, *a, **kw)
 
     def _is_pickle_safe(self, v) -> bool:
@@ -98,42 +106,49 @@ class ScriptInstance:
                 return orig
         return obj
 
-    def _build_namespace(self) -> Dict[str, Any]:
-        base = {
+    def _build_base_namespace(self, for_recompile: bool = False) -> Dict[str, Any]:
+        mm = self._main_manager() if for_recompile else None
+        plotter_factory = (lambda *a, **kw: PlotterWindow(mm, *a, **kw)) if for_recompile else self._make_plotter()
+        threaded_decorator = self._user_thread_decorator if not for_recompile else (
+            lambda fn: (lambda *a, **k: self.spawn_thread(fn, *a, **k)).__setattr__('_is_user_threaded', True) or
+                       setattr(lambda *a, **k: self.spawn_thread(fn, *a, **k), '_original', fn) or
+                       (lambda *a, **k: self.spawn_thread(fn, *a, **k))
+        )
+        if for_recompile:
+            def threaded(fn):
+                wrapper = lambda *a, **k: self.spawn_thread(fn, *a, **k)
+                wrapper._is_user_threaded = True
+                wrapper._original = fn
+                return wrapper
+            threaded_decorator = threaded
+        return {
             "owner": self.owner, "app": self.app, "config": config, "Camera": Camera,
             "Gizmos": Gizmos, "Debug": Debug, "synthesizer": synthesizer, "pymunk": pymunk,
             "time": time, "math": math, "random": random, "threading": threading,
             "pygame": pygame, "self": self, "traceback": traceback, "profile": profile,
             "thread_lock": self.thread_lock, "spawn_thread": self.spawn_thread,
             "log": lambda m: Debug.log_info(str(m), "UserScript"), "set_bg_fps": self.set_bg_fps,
-            "threaded": self._user_thread_decorator, "np": np, "njit": njit,
+            "threaded": threaded_decorator, "np": np, "njit": njit,
             "Optional": Optional, "Any": Any, "Callable": Callable, "TypeVar": TypeVar,
             "Dict": Dict, "List": List, "Tuple": Tuple, "Union": Union, "Set": Set,
-            "PlotterWindow": self._make_plotter(), "load_script": self._load_script_wrapper
+            "PlotterWindow": plotter_factory, "load_script": self._load_script_wrapper
         }
-        return base
 
     def _init_namespace_and_compile(self):
-        ns = self._build_namespace()
+        ns = self._build_base_namespace()
         try:
             exec(self.code, ns, ns)
         except Exception:
             Debug.log_exception(f"Script '{self.name}' compilation error: {traceback.format_exc()}", "Scripting")
             ns = {}
         for k, v in ns.items():
-            if k.startswith('__'): continue
-            if k in ns and k in ("owner","Gizmos","Debug","synthesizer","pymunk","time","math","random","threading","pygame","self","traceback","profile","thread_lock","spawn_thread","log","set_bg_fps","threaded","np","njit","Optional","Any","Callable","TypeVar","Dict","List","Tuple","Union","Set","PlotterWindow","load_script"): continue
-            if callable(v) or isinstance(v, type): continue
+            if k.startswith('__') or k in self._BUILTIN_NAMES or callable(v) or isinstance(v, type):
+                continue
             if self._is_pickle_safe(v):
                 self.state[k] = v
             else:
                 Debug.log_warning(f"Non-picklable variable '{k}' skipped in script state (type: {type(v).__name__}).", "Scripting")
-        self._start_fn = self._unwrap_if_threaded(ns.get("start"))
-        self._update_main = self._unwrap_if_threaded(ns.get("update"))
-        self._update_bg = ns.get("update_threaded")
-        self._stop_fn = self._unwrap_if_threaded(ns.get("stop"))
-        self._save_state_fn = ns.get("save_state")
-        self._load_state_fn = ns.get("load_state")
+        self._extract_functions(ns)
         self.threaded = self.threaded or bool(self._update_bg)
         if self.threaded and not _numba_available:
             Debug.log_warning(f"Script '{self.name}' uses background updates without numba — may be GIL-bound.", "Scripting")
@@ -282,44 +297,32 @@ class ScriptInstance:
 
     def _recompile(self, new_code: str) -> bool:
         self.code = new_code
-        ns = self._build_namespace_for_recompile()
+        ns = self._build_base_namespace(for_recompile=True)
         try:
             exec(self.code, ns, ns)
         except Exception:
             Debug.log_exception(f"Script '{self.name}' recompilation error: {traceback.format_exc()}", "Scripting")
             return False
-        self._update_functions_from_namespace(ns)
+        self._extract_functions(ns)
         return True
+    def recompile(self) -> bool:
+        """Recompile script from its current `self.code`, preserving runtime state."""
+        if not self.running:
+            return self._recompile(self.code)
+        saved_state = self.state.copy()
+        was_running = self.running
+        self.stop()
+        ok = self._recompile(self.code)
+        if ok:
+            self.state.update(saved_state)
+            if was_running:
+                self.start()
+        return ok
 
-    def _build_namespace_for_recompile(self) -> Dict[str, Any]:
-        mm = self._main_manager()
-        def threaded(fn):
-            def wrapper(*a, **k): return self.spawn_thread(fn, *a, **k)
-            wrapper._is_user_threaded = True
-            wrapper._original = fn
-            return wrapper
-        base = {
-            "owner": self.owner, "Gizmos": Gizmos, "Debug": Debug, "synthesizer": synthesizer,
-            "pymunk": pymunk, "time": time, "math": math, "random": random, "threading": threading,
-            "pygame": pygame, "self": self, "traceback": traceback, "profile": profile,
-            "thread_lock": self.thread_lock, "spawn_thread": self.spawn_thread,
-            "log": lambda m: Debug.log_info(str(m), "UserScript"), "set_bg_fps": self.set_bg_fps,
-            "threaded": threaded, "np": np, "njit": njit, "Optional": Optional, "Any": Any,
-            "Callable": Callable, "TypeVar": TypeVar, "Dict": Dict, "List": List, "Tuple": Tuple,
-            "Union": Union, "Set": Set, "PlotterWindow": lambda *a, **kw: PlotterWindow(mm, *a, **kw),
-        }
-        return base
-
-    def _update_functions_from_namespace(self, ns: Dict[str, Any]):
-        def _unwrap(obj):
-            if getattr(obj, "_is_user_threaded", False):
-                orig = getattr(obj, "_original", None)
-                if callable(orig): return orig
-            return obj
-        self._start_fn = _unwrap(ns.get("start"))
-        self._update_main = _unwrap(ns.get("update"))
+    def _extract_functions(self, ns: Dict[str, Any]):
+        self._start_fn = self._unwrap_if_threaded(ns.get("start"))
+        self._update_main = self._unwrap_if_threaded(ns.get("update"))
         self._update_bg = ns.get("update_threaded")
-        self._stop_fn = _unwrap(ns.get("stop"))
+        self._stop_fn = self._unwrap_if_threaded(ns.get("stop"))
         self._save_state_fn = ns.get("save_state")
         self._load_state_fn = ns.get("load_state")
-

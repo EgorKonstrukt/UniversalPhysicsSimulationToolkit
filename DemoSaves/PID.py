@@ -117,10 +117,10 @@ def update(dt):
     pid_y.draw_ui(pos=(100, 320), label="Y")
 
     if plotter:
-        plotter.add_data("X Error", abs(pid_x.last_error), "Error")
-        plotter.add_data("Y Error", abs(pid_y.last_error), "Error")
-        plotter.add_data("X Output", abs(fx), "Output")
-        plotter.add_data("Y Output", abs(fy), "Output")
+        plotter.add_data("X Error", pid_x.last_error, "Error")
+        plotter.add_data("Y Error", pid_y.last_error, "Error")
+        plotter.add_data("X Output", fx, "Output")
+        plotter.add_data("Y Output", fy, "Output")
         plotter.update(dt)
 
 
