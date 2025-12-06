@@ -490,40 +490,59 @@ class PhysicsManager:
     def _apply_air_friction(self):
         for b in self.space.bodies:
             if b.body_type != pymunk.Body.DYNAMIC: continue
+            total_torque_from_drag = 0.0
             for s in b.shapes:
                 try:
                     if getattr(s, "sensor", False): continue
                     if hasattr(s, "offset"):
                         off = pymunk.Vec2d(*s.offset)
                     elif isinstance(s, pymunk.Segment):
-                        a = pymunk.Vec2d(*s.a);
-                        c = pymunk.Vec2d(*s.b);
-                        off = (a + c) * 0.5
+                        a = pymunk.Vec2d(*s.a); c = pymunk.Vec2d(*s.b); off = (a + c) * 0.5
                     elif isinstance(s, pymunk.Poly):
                         try:
                             verts = [pymunk.Vec2d(*v) for v in s.get_vertices()]
-                            if len(verts) == 0:
-                                off = pymunk.Vec2d(0, 0)
-                            else:
-                                sm = pymunk.Vec2d(0, 0)
-                                for v in verts: sm += v
-                                off = sm / len(verts)
+                            off = sum(verts, pymunk.Vec2d(0, 0)) / len(verts) if verts else pymunk.Vec2d(0, 0)
                         except Exception:
                             off = pymunk.Vec2d(0, 0)
                     else:
                         off = pymunk.Vec2d(0, 0)
                     wp = b.position + off.rotated(b.angle)
                     r = wp - b.position
-                    ang = pymunk.Vec2d(-b.angular_velocity * r.y, b.angular_velocity * r.x)
-                    vp = b.velocity + ang
+                    ang_vel_vec = pymunk.Vec2d(-b.angular_velocity * r.y, b.angular_velocity * r.x)
+                    vp = b.velocity + ang_vel_vec
                     vm = vp.length
                     if vm <= 1e-9: continue
                     vel_unit = vp / vm
                     A, Cd = self._shape_proj_area_and_cd(s, b, vel_unit)
                     lin = -self.air_friction_multiplier * self.air_friction_linear * A * vp
-                    quad = -self.air_friction_multiplier * (
-                            0.5 * self.air_density * Cd * A * vm) * vel_unit * self.air_friction_quadratic
+                    quad = -self.air_friction_multiplier * (0.5 * self.air_density * Cd * A * vm) * vel_unit * self.air_friction_quadratic
                     f = lin + quad
                     b.apply_force_at_world_point(f, wp)
                 except Exception as e:
                     Debug.log_error(f"Error applying air friction on body {b.__hash__()}: {e}", "Physics")
+            # --- Apply rotational aerodynamic drag ---
+            if abs(b.angular_velocity) > 1e-9:
+                area_rot = 0.0
+                for s in b.shapes:
+                    if isinstance(s, pymunk.Circle):
+                        area_rot += s.radius
+                    elif isinstance(s, pymunk.Segment):
+                        a = pymunk.Vec2d(*s.a); c = pymunk.Vec2d(*s.b)
+                        length = (c - a).length
+                        area_rot += length * (getattr(s, "radius", 0.5) * 2.0)
+                    elif isinstance(s, pymunk.Poly):
+                        verts = [pymunk.Vec2d(*v) for v in s.get_vertices()]
+                        if verts:
+                            sm = 0.0
+                            for i in range(len(verts)):
+                                x1, y1 = verts[i].x, verts[i].y
+                                x2, y2 = verts[(i + 1) % len(verts)].x, verts[(i + 1) % len(verts)].y
+                                sm += x1 * y2 - x2 * y1
+                            area_rot += abs(sm) * 0.5
+                area_rot = max(0.001, area_rot)
+                av = b.angular_velocity
+                av_abs = abs(av)
+                torque_lin = -self.air_friction_multiplier * self.air_friction_linear * area_rot * av
+                torque_quad = -self.air_friction_multiplier * self.air_friction_quadratic * 0.5 * self.air_density * area_rot * av_abs * av
+                total_torque = torque_lin + torque_quad
+                b.torque += total_torque

@@ -10,9 +10,9 @@ def update(dt):
     angle_xy = self.phase * 0.3
     angle_xz = self.phase * 0.4
     angle_xw = self.phase * 0.5
-    angle_yz = self.phase * 0.6
-    angle_yw = self.phase * 0.7
-    angle_zw = self.phase * 0.8
+    angle_yz = 0
+    angle_yw = 0
+    angle_zw = 0
 
     vertices = []
     for w in [-1, 1]:
