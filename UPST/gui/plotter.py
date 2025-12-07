@@ -1,6 +1,10 @@
 import collections
+import math
 from typing import Dict, List, Optional, Tuple
 import pygame
+
+
+
 
 class Plotter:
     BASE_COLORS: List[Tuple[int, int, int]] = [
@@ -17,24 +21,26 @@ class Plotter:
     NO_DATA_COLOR: Tuple[int, int, int] = (128, 128, 128)
     FILTER_LABEL_COLOR: Tuple[int, int, int] = (200, 200, 200)
     MARGIN_TOP: int = 20
-    MARGIN_BOTTOM: int = 20
+    MARGIN_BOTTOM: int = 30
     MARGIN_LEFT: int = 60
     LABEL_Y_OFFSET: int = 5
     LABEL_LINE_SPACING: int = 18
     FILTER_LABEL_X_OFFSET: int = 150
     GRID_LABEL_X_OFFSET: int = 60
-    GRID_STEPS: int = 8
     AXIS_COLOR: Tuple[int, int, int] = (200, 200, 200)
+    BASE_GRID_PIXEL_STEP: int = 50
+    PADDING_RATIO: float = 0.1
 
     def __init__(self, surface_size: Tuple[int, int], max_samples: int = 120,
                  smoothing_factor: float = 0.15, font_size: int = 16, sort_by_value: bool = True,
-                 x_label: str = "", y_label: str = ""):
+                 x_label: str = "", y_label: str = "", grid_density: float = 1.0):
         self.surface_size = surface_size
         self.max_samples = max(1, int(max_samples))
         self.smoothing_factor = smoothing_factor
         self.sort_by_value = sort_by_value
         self.x_label = x_label
         self.y_label = y_label
+        self.grid_density = max(0.1, float(grid_density))
         self.data: Dict[str, collections.deque] = collections.defaultdict(
             lambda: collections.deque(maxlen=self.max_samples))
         self.x_data: Dict[str, collections.deque] = collections.defaultdict(
@@ -49,6 +55,28 @@ class Plotter:
         self.group_visibility: Dict[str, bool] = {}
         self.current_group_filter: str = "All"
         self.available_groups: set = {"ungrouped"}
+
+    @staticmethod
+    def _nice_step(range_val: float, pixel_length: int, density: float = 1.0) -> float:
+        if range_val <= 0:
+            return 1.0
+
+        target_steps = max(2, int(pixel_length / 50))
+        step_approx = range_val / target_steps
+        exponent = int(math.floor(math.log10(step_approx)))
+        mantissa = step_approx / (10 ** exponent)
+        if mantissa <= 0.5:
+            nice_mantissa = 0.5
+        elif mantissa <= 1:
+            nice_mantissa = 1.0
+        elif mantissa <= 2:
+            nice_mantissa = 2.0
+        elif mantissa <= 5:
+            nice_mantissa = 5.0
+        else:
+            nice_mantissa = 10.0
+        base_step = nice_mantissa * (10 ** exponent)
+        return base_step / max(0.1, density)
 
     def _get_color(self, key: str) -> Tuple[int, int, int]:
         if key not in self.colors:
@@ -87,23 +115,31 @@ class Plotter:
         txt = self.font.render("No data to display", True, self.NO_DATA_COLOR)
         self.surface.blit(txt, txt.get_rect(center=(self.surface_size[0] // 2, self.surface_size[1] // 2)))
 
-    def _auto_center_y(self, y_min: float, y_max: float) -> Tuple[float, float]:
-        if y_min < 0 < y_max:
-            abs_max = max(abs(y_min), abs(y_max))
-            return -abs_max, abs_max
-        return y_min, y_max
+    def _get_padded_range(self, val_min: float, val_max: float) -> Tuple[float, float]:
+        val_range = val_max - val_min or 1.0
+        pad = val_range * self.PADDING_RATIO
+        return val_min - pad, val_max + pad
 
     def _render_overlay_mode(self, keys: List[str]) -> None:
         all_vals = [v for k in keys for v in self.data[k]]
+        all_x = [x for k in keys for x in self.x_data[k]]
         if not all_vals:
             self._render_no_data()
             return
         global_min = min(all_vals)
         global_max = max(all_vals)
-        y_min, y_max = self._auto_center_y(global_min, global_max)
+        y_min, y_max = self._get_padded_range(global_min, global_max)
         y_range = y_max - y_min or 1.0
         h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
         w = self.surface_size[0] - self.MARGIN_LEFT
+
+        if not all_x:
+            x_min, x_max = 0.0, 1.0
+        else:
+            x_min_raw, x_max_raw = min(all_x), max(all_x)
+            x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
+        x_range = x_max - x_min or 1.0
+
         smoothed_key = 'overlay'
         self._smoothed_range.setdefault(smoothed_key, (y_min, y_max))
         old_min, old_max = self._smoothed_range[smoothed_key]
@@ -112,13 +148,6 @@ class Plotter:
         self._smoothed_range[smoothed_key] = (new_min, new_max)
         draw_min, draw_max = new_min, new_max
         draw_range = draw_max - draw_min or 1.0
-
-        all_x = [x for k in keys for x in self.x_data[k]]
-        if not all_x:
-            x_min, x_max = 0, 1
-        else:
-            x_min, x_max = min(all_x), max(all_x)
-        x_range = x_max - x_min or 1.0
 
         for key in keys:
             ys = self.data[key]
@@ -138,15 +167,32 @@ class Plotter:
         self._draw_grid_range(draw_min, draw_max)
         self._draw_x_axis_labels(x_min, x_max)
 
+    def _compute_grid_steps(self, axis_length: int) -> int:
+        step_px = self.BASE_GRID_PIXEL_STEP * self.grid_density
+        return max(1, int(axis_length / step_px))
+
     def _draw_x_axis_labels(self, x_min: float, x_max: float) -> None:
         w = self.surface_size[0] - self.MARGIN_LEFT
         x_range = x_max - x_min or 1.0
-        for i in range(self.GRID_STEPS + 1):
-            t = i / self.GRID_STEPS
-            val = x_min + t * x_range
+        step = self._nice_step(x_range, w, self.grid_density)
+        start = math.floor(x_min / step) * step
+        end = math.ceil(x_max / step) * step
+        x_vals = []
+        val = start
+        while val <= end + 1e-9:
+            x_vals.append(val)
+            val += step
+        for x_val in x_vals:
+            t = (x_val - x_min) / x_range
             x = self.MARGIN_LEFT + t * w
             pygame.draw.line(self.surface, self.GRID_COLOR, (x, 0), (x, self.surface_size[1]))
-            lbl = self.font.render(f"{val:.1f}", True, self.TEXT_COLOR)
+            if abs(x_val) < 0.01 or abs(x_val) > 1e5:
+                txt = f"{x_val:.2e}"
+            else:
+                txt = f"{x_val:.4f}".rstrip('0').rstrip('.')
+                if '.' not in txt and abs(x_val) < 1000:
+                    txt = str(int(round(x_val)))
+            lbl = self.font.render(txt, True, self.TEXT_COLOR)
             self.surface.blit(lbl, (x - lbl.get_width() // 2, self.surface_size[1] - self.MARGIN_BOTTOM // 2))
 
     def _draw_labels_overlay(self, keys: List[str]) -> None:
@@ -164,12 +210,25 @@ class Plotter:
     def _draw_grid_range(self, min_y: float, max_y: float) -> None:
         y_range = max_y - min_y or 1.0
         h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
-        for i in range(self.GRID_STEPS + 1):
-            t = i / self.GRID_STEPS
-            val = min_y + t * y_range
+        step = self._nice_step(y_range, h, self.grid_density)
+        start = math.floor(min_y / step) * step
+        end = math.ceil(max_y / step) * step
+        y_vals = []
+        val = start
+        while val <= end + 1e-9:
+            y_vals.append(val)
+            val += step
+        for y_val in y_vals:
+            t = (y_val - min_y) / y_range
             y = self.surface_size[1] - self.MARGIN_BOTTOM - t * h
             pygame.draw.line(self.surface, self.GRID_COLOR, (self.MARGIN_LEFT, y), (self.surface_size[0], y))
-            lbl = self.font.render(f"{val:.1f}", True, self.TEXT_COLOR)
+            if abs(y_val) < 0.01 or abs(y_val) > 1e5:
+                txt = f"{y_val:.2e}"
+            else:
+                txt = f"{y_val:.4f}".rstrip('0').rstrip('.')
+                if '.' not in txt and abs(y_val) < 1000:
+                    txt = str(int(round(y_val)))
+            lbl = self.font.render(txt, True, self.TEXT_COLOR)
             self.surface.blit(lbl, (self.surface_size[0] - self.GRID_LABEL_X_OFFSET, y - 10))
 
     def _render_split_mode(self, keys: List[str]) -> None:
@@ -178,9 +237,10 @@ class Plotter:
         bar_h = total_h / len(keys) if keys else 0
         all_x = [x for k in keys for x in self.x_data[k]]
         if not all_x:
-            x_min, x_max = 0, 1
+            x_min, x_max = 0.0, 1.0
         else:
-            x_min, x_max = min(all_x), max(all_x)
+            x_min_raw, x_max_raw = min(all_x), max(all_x)
+            x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
         x_range = x_max - x_min or 1.0
 
         for i, key in enumerate(keys):
@@ -191,7 +251,7 @@ class Plotter:
             y0 = self.MARGIN_TOP + i * bar_h
             local_min = min(ys)
             local_max = max(ys)
-            y_min, y_max = self._auto_center_y(local_min, local_max)
+            y_min, y_max = self._get_padded_range(local_min, local_max)
             y_range = y_max - y_min or 1.0
             scale_h = bar_h * 0.8
             smoothed_key = f"bar_{key}"
@@ -215,6 +275,7 @@ class Plotter:
         for i in range(len(keys) + 1):
             y = self.MARGIN_TOP + i * bar_h
             pygame.draw.line(self.surface, self.DIVIDER_COLOR, (0, y), (self.surface_size[0], y), width=2)
+
     def _draw_label_split(self, key: str, vals: collections.deque, col: Tuple[int, int, int], y0: float) -> None:
         avg = sum(vals) / len(vals)
         txt = f"{key} [{self.groups.get(key, 'ungrouped')}]: {vals[-1]:.1f} Avg: {avg:.1f}"

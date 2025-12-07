@@ -25,7 +25,7 @@ class ThemeSelectionDialog(UIWindow):
             x = col * self.cell_size
             y = row * self.cell_size
             panel = UIPanel(
-                relative_rect=pygame.Rect(x, y, self.cell_size - 10, self.cell_size - 10),
+                relative_rect=pygame.Rect(x, y, self.cell_size - 15, self.cell_size - 15),
                 manager=self.ui_manager,
                 container=self.container,
                 anchors={'left': 'left', 'top': 'top'}
@@ -38,7 +38,7 @@ class ThemeSelectionDialog(UIWindow):
                 container=panel
             )
             UILabel(
-                relative_rect=pygame.Rect(0, 102, 100, 20),
+                relative_rect=pygame.Rect(0, 0, 100, 20),
                 text=theme_name,
                 manager=self.ui_manager,
                 container=panel
@@ -52,8 +52,9 @@ class ThemeSelectionDialog(UIWindow):
             for panel in self.theme_panels:
                 if panel.get_abs_rect().collidepoint(mouse_pos):
                     if self.get_abs_rect().collidepoint(mouse_pos):
+                        self.theme_panels = []
                         self._on_theme_selected(panel.theme_name)
-                        break
+                        self.kill()
         super().process_event(event)
 
     def _generate_thumbnail(self, theme_name):

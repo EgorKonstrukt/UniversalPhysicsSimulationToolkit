@@ -53,6 +53,7 @@ class ContextPlotterWindow:
         o = self.tracked_object
         if key == "pos_x": return o.position.x
         if key == "pos_y": return o.position.y
+        if key == "vel": return o.velocity.x + o.velocity.y
         if key == "vel_x": return o.velocity.x
         if key == "vel_y": return o.velocity.y
         if key == "ang_vel": return o.angular_velocity
@@ -71,12 +72,13 @@ class ContextPlotterWindow:
         if key == "pot_grav_en": return -o.mass * 9.81 * o.position.y
         if key == "pot_en_sum": return -o.mass * 9.81 * o.position.y
         if key == "en_sum": return 0.5 * o.mass * (o.velocity.x**2 + o.velocity.y**2) + 0.5 * o.moment * o.angular_velocity**2 - o.mass * 9.81 * o.position.y
+
         return 0.0
 
     def fetch_and_add_data(self, elapsed_time):
         if not self.tracked_object or not self.is_open(): return
         x_val = elapsed_time if self.current_x_axis == "time" else self._fetch_value(self.current_x_axis)
-        y_val = self._fetch_value(self.current_y_axis)
+        y_val = elapsed_time if self.current_y_axis == "time" else self._fetch_value(self.current_y_axis)
         self.plotter.add_data(str(self.current_y_axis)+" / "+str(self.current_x_axis ), y_val, x=x_val, group="Tracked Object")
 
     def _create_window(self):
@@ -120,6 +122,7 @@ class ContextPlotterWindow:
             "Time",
             "Position (x)",
             "Position (y)",
+            "Velocity",
             "Velocity (x)",
             "Velocity (y)",
             "Angular Velocity",
@@ -223,8 +226,10 @@ class ContextPlotterWindow:
         elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             if event.ui_element == self.axis_controls["x"]:
                 self.current_x_axis = self._get_axis_key(event.text)
+                self.plotter.clear_data()
             elif event.ui_element == self.axis_controls["y"]:
                 self.current_y_axis = self._get_axis_key(event.text)
+                self.plotter.clear_data()
         elif event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
             if event.ui_element == self.slider_controls["time_span"]:
                 self.time_span = event.value
@@ -242,6 +247,7 @@ class ContextPlotterWindow:
             "Time": "time",
             "Position (x)": "pos_x",
             "Position (y)": "pos_y",
+            "Velocity": "vel",
             "Velocity (x)": "vel_x",
             "Velocity (y)": "vel_y",
             "Angular Velocity": "ang_vel",
@@ -289,12 +295,12 @@ class ContextPlotterWindow:
             )
             root.destroy()
             if not fp: return
-            grp = "Tracked Object"
-            xs = self.plotter.x_data.get(grp, [])
-            ys = self.plotter.data.get(grp, [])
+            key = f"{self.current_y_axis} / {self.current_x_axis}"
+            xs = self.plotter.x_data.get(key, [])
+            ys = self.plotter.data.get(key, [])
             with open(fp, 'w', newline='') as f:
                 wr = csv.writer(f)
-                wr.writerow(["X", "Y"])
+                wr.writerow([self.current_x_axis, self.current_y_axis])
                 wr.writerows(zip(xs, ys))
         except Exception as e:
             Debug.log_exception(f"Failed to save plot CSV: {e}", "Plotter")

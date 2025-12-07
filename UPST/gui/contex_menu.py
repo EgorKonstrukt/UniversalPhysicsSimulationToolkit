@@ -107,7 +107,7 @@ class ContextMenu:
             manager=self.manager,
             ui_manager=self.ui_manager,
             position=(100, 100),
-            size=(600, 400),
+            size=(700, 500),
             window_title=f"Plotter: {self.clicked_object.__class__.__name__ if self.clicked_object else 'World'}",
             x_label="Time (s)",
             y_label="Value",

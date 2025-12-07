@@ -300,7 +300,7 @@ class WorldConfig:
             palettes={"Default":{"mode":"range","r":(200,255),"g":(100,200),"b":(200,255)}}, default_palette="Default"),
         "Sunset": WorldTheme((40,0,0), ((100,255),(0,40),(0,10)), (120,30,0,255),
             palettes={"Default":{"mode":"range","r":(100,255),"g":(0,60),"b":(0,30)}}, default_palette="Default"),
-        "Sweet": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255),
+        "Sweet": WorldTheme((10,0,190), ((50,255),(50,255),(50,255)), (30,170,30,255),
             palettes={"Default":{"mode":"range","r":(50,200),"g":(50,200),"b":(50,200)}}, default_palette="Default"),
         "White": WorldTheme((255,255,255), ((0,0),(0,0),(0,0)), (0,0,0,255),
             palettes={"Default":{"mode":"preset","colors":[(0,0,0),(20,20,20),(30,30,30),(40,40,40)]}}, default_palette="Default"),
