@@ -28,12 +28,11 @@ class Plotter:
 
     def __init__(self, surface_size: Tuple[int, int], max_samples: int = 120,
                  smoothing_factor: float = 0.15, font_size: int = 16, sort_by_value: bool = True,
-                 zero_centered: bool = False, x_label: str = "", y_label: str = ""):
+                 x_label: str = "", y_label: str = ""):
         self.surface_size = surface_size
         self.max_samples = max(1, int(max_samples))
         self.smoothing_factor = smoothing_factor
         self.sort_by_value = sort_by_value
-        self.zero_centered = zero_centered
         self.x_label = x_label
         self.y_label = y_label
         self.data: Dict[str, collections.deque] = collections.defaultdict(
@@ -88,6 +87,12 @@ class Plotter:
         txt = self.font.render("No data to display", True, self.NO_DATA_COLOR)
         self.surface.blit(txt, txt.get_rect(center=(self.surface_size[0] // 2, self.surface_size[1] // 2)))
 
+    def _auto_center_y(self, y_min: float, y_max: float) -> Tuple[float, float]:
+        if y_min < 0 < y_max:
+            abs_max = max(abs(y_min), abs(y_max))
+            return -abs_max, abs_max
+        return y_min, y_max
+
     def _render_overlay_mode(self, keys: List[str]) -> None:
         all_vals = [v for k in keys for v in self.data[k]]
         if not all_vals:
@@ -95,11 +100,7 @@ class Plotter:
             return
         global_min = min(all_vals)
         global_max = max(all_vals)
-        if self.zero_centered:
-            abs_max = max(abs(global_min), abs(global_max))
-            y_min, y_max = -abs_max, abs_max
-        else:
-            y_min, y_max = global_min, global_max
+        y_min, y_max = self._auto_center_y(global_min, global_max)
         y_range = y_max - y_min or 1.0
         h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
         w = self.surface_size[0] - self.MARGIN_LEFT
@@ -132,7 +133,7 @@ class Plotter:
                 y_screen = self.surface_size[1] - self.MARGIN_BOTTOM - y_norm * h
                 pts.append((x_screen, y_screen))
             if len(pts) > 1:
-                pygame.draw.lines(self.surface, col, False, pts)
+                pygame.draw.lines(self.surface, col, False, pts, width=2)
         self._draw_labels_overlay(keys)
         self._draw_grid_range(draw_min, draw_max)
         self._draw_x_axis_labels(x_min, x_max)
@@ -190,11 +191,7 @@ class Plotter:
             y0 = self.MARGIN_TOP + i * bar_h
             local_min = min(ys)
             local_max = max(ys)
-            if self.zero_centered:
-                abs_max = max(abs(local_min), abs(local_max))
-                y_min, y_max = -abs_max, abs_max
-            else:
-                y_min, y_max = local_min, local_max
+            y_min, y_max = self._auto_center_y(local_min, local_max)
             y_range = y_max - y_min or 1.0
             scale_h = bar_h * 0.8
             smoothed_key = f"bar_{key}"
@@ -213,11 +210,11 @@ class Plotter:
                 y_screen = y0 + bar_h - y_norm * scale_h
                 pts.append((x_screen, y_screen))
             if len(pts) > 1:
-                pygame.draw.lines(self.surface, col, False, pts)
+                pygame.draw.lines(self.surface, col, False, pts, width=2)
             self._draw_label_split(key, ys, col, y0)
         for i in range(len(keys) + 1):
             y = self.MARGIN_TOP + i * bar_h
-            pygame.draw.line(self.surface, self.DIVIDER_COLOR, (0, y), (self.surface_size[0], y))
+            pygame.draw.line(self.surface, self.DIVIDER_COLOR, (0, y), (self.surface_size[0], y), width=2)
     def _draw_label_split(self, key: str, vals: collections.deque, col: Tuple[int, int, int], y0: float) -> None:
         avg = sum(vals) / len(vals)
         txt = f"{key} [{self.groups.get(key, 'ungrouped')}]: {vals[-1]:.1f} Avg: {avg:.1f}"

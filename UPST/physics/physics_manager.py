@@ -36,6 +36,7 @@ class PhysicsManager:
             self.air_friction_multiplier = 1.0
             self.air_density = 1.225
             self.theme = config.world.themes.get(config.world.current_theme, config.world.themes["Default"])
+            self.simulation_time = 0.0
 
             if not self.theme:
                 Debug.log_warning(f"Theme '{self.app.world_theme}' not found, defaulting to Classic.", "Physics")
@@ -130,6 +131,7 @@ class PhysicsManager:
                 self._accumulator -= effective_dt
         except Exception as e:
             Debug.log_error(f"Error in physics step: {e}", "Physics")
+        self.simulation_time += effective_dt
 
     def remove_shape_body(self, shape):
         try:

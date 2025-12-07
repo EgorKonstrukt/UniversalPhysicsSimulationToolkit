@@ -5,8 +5,7 @@ from UPST.gui.plotter import Plotter
 from UPST.debug.debug_manager import Debug
 
 class PlotterWindow:
-    def __init__(self, manager: Optional[object], position=(10,10), size=(600,400), window_title="Data Plotter",
-                 zero_centered=False, max_samples=200, x_label: str = "X", y_label: str = "Y"):
+    def __init__(self, manager: Optional[object], position=(10,10), size=(600,400), window_title="Data Plotter",max_samples=200, x_label: str = "X", y_label: str = "Y"):
         orig_mgr = manager
         ui_mgr = manager
         if manager is None:
@@ -23,7 +22,6 @@ class PlotterWindow:
         self.position = position
         self.size = size
         self.window_title = window_title
-        self.zero_centered = zero_centered
         self.max_samples = max_samples
         self.x_label = x_label
         self.y_label = y_label
@@ -56,7 +54,6 @@ class PlotterWindow:
         )
         self.plotter = Plotter((self.size[0], plot_height),
                                max_samples=self.max_samples,
-                               zero_centered=self.zero_centered,
                                x_label=self.x_label,
                                y_label=self.y_label)
 

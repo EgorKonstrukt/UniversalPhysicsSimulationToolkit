@@ -40,11 +40,18 @@ class UIManager:
         self.poly_color_random = True
         self._init_fonts()
         self.script_windows = []
+        self.plotter_windows = []
 
     def register_script_window(self, w):
         if w not in self.script_windows: self.script_windows.append(w)
     def unregister_script_window(self, w):
         try: self.script_windows.remove(w)
+        except ValueError: pass
+
+    def register_plotter_window(self, w):
+        if w not in self.plotter_windows: self.plotter_windows.append(w)
+    def unregister_plotter_window(self, w):
+        try: self.plotter_windows.remove(w)
         except ValueError: pass
 
     def _init_fonts(self):
@@ -109,6 +116,9 @@ class UIManager:
                 w.handle_event(event)
             except Exception:
                 Debug.log_exception("Error while dispatching UI event to script window.", "GUI")
+        for w in list(self.plotter_windows):
+            try: w.handle_event(event)
+            except Exception: Debug.log_exception("Error dispatching plotter event.", "GUI")
 
     def _handle_button_press(self, event, game_app):
         if event.ui_element in self.force_field_ui.force_field_buttons:
@@ -136,6 +146,9 @@ class UIManager:
     def update(self, time_delta, clock):
         self.manager.update(time_delta)
         self.context_menu.update(time_delta, clock)
+        for w in list(self.plotter_windows):
+            try: w.update(time_delta, self.physics_manager.simulation_time)
+            except Exception: Debug.log_exception("Error updating plotter window.", "GUI")
 
     def draw(self, screen):
         self.context_menu.draw_menu_line(screen, self.camera)

@@ -7,6 +7,7 @@ from UPST.config import config
 from UPST.gui.windows.properties_window import PropertiesWindow
 from UPST.gui.windows.texture_window import TextureWindow
 from UPST.gui.windows.script_management_window import ScriptManagementWindow
+from UPST.gui.windows.context_plotter_window import ContextPlotterWindow
 
 
 class ConfigOption:
@@ -43,7 +44,7 @@ class ContextMenu:
         self.last_object_pos = None
 
     def _build_menu_structure(self):
-        if self.clicked_object is None:  # Меню для мира
+        if self.clicked_object is None:
             return [
                 ConfigOption("Scripts", children=[
                     ConfigOption("Run Python Script",
@@ -55,9 +56,11 @@ class ContextMenu:
                                  icon="sprites/gui/python.png"),
                 ConfigOption("Center to Scene", handler=self.center_to_scene,
                              icon="sprites/gui/zoom2scene.png"),
-                ConfigOption("Center to Origin", handler=self.center_to_origin)
+                ConfigOption("Center to Origin", handler=self.center_to_origin),
+                ConfigOption("Open Plotter", handler=self.open_plotter,
+                             icon="sprites/gui/plot.png")
             ]
-        else:  # Меню для объектов (Body)
+        else:
             return [
                 ConfigOption("Erase", handler=self.delete_object,
                              icon="sprites/gui/erase.png"),
@@ -94,8 +97,23 @@ class ContextMenu:
                     ConfigOption("Edit Script", handler=self.edit_script),
                     ConfigOption("Script Management", handler=self.open_script_management)
                 ],
-                                 icon="sprites/gui/python.png")
+                                 icon="sprites/gui/python.png"),
+                ConfigOption("Plot Data", handler=self.open_plotter,
+                             icon="sprites/gui/plot.png")
             ]
+
+    def open_plotter(self):
+        plotter_win = ContextPlotterWindow(
+            manager=self.manager,
+            ui_manager=self.ui_manager,
+            position=(100, 100),
+            size=(600, 400),
+            window_title=f"Plotter: {self.clicked_object.__class__.__name__ if self.clicked_object else 'World'}",
+            x_label="Time (s)",
+            y_label="Value",
+            tracked_object=self.clicked_object
+        )
+        plotter_win.show()
 
     def center_to_scene(self):
         if self.ui_manager.camera:
