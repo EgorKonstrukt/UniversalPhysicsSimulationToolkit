@@ -11,11 +11,11 @@
       }
     },
     "colours": {
-      "normal_bg": "#383838,#282828,270",
-      "hovered_bg": "#600000,#400000,270",
-      "disabled_bg": "#222222,#181818,270",
-      "selected_bg": "#A00000,#700000,270",
-      "dark_bg": "#1C1C1C,#0F0F0F,270",
+      "normal_bg": "rgba(56,56,56,201),rgba(40,40,40,201),270",
+      "hovered_bg": "rgba(96,0,0,201),rgba(64,0,0,201),270",
+      "disabled_bg": "rgba(34,34,34,201),rgba(24,24,24,201),270",
+      "selected_bg": "rgba(160,0,0,201),rgba(112,0,0,201),270",
+      "dark_bg": "rgba(28,28,28,201),rgba(15,15,15,201),270",
       "normal_text": "#E0E0E0",
       "hovered_text": "#FFFFFF",
       "selected_text": "#FFFFFF",
@@ -30,7 +30,7 @@
       "selected_border": "#CC0000",
       "active_border": "#D80030",
       "filled_bar": "#E04030",
-      "unfilled_bar": "#505050,#383838,270"
+      "unfilled_bar": "rgba(80,80,80,201),rgba(56,56,56,201),270"
     },
     "shape": {
       "border_width": 2,
@@ -42,19 +42,16 @@
       "text_vert_alignment": "center",
       "text_horiz_alignment_padding": 4,
       "text_vert_alignment_padding": 2,
-      "text_shadow_offset": [
-        1,
-        1
-      ],
+      "text_shadow_offset": [1, 1],
       "text_shadow_alpha": 128
     }
   },
   "button": {
     "colours": {
-      "normal_bg": "#424242,#323232,270",
-      "hovered_bg": "#680000,#480000,270",
-      "selected_bg": "#A50000,#750000,270",
-      "disabled_bg": "#282828,#1C1C1C,270",
+      "normal_bg": "rgba(66,66,66,201),rgba(50,50,50,201),270",
+      "hovered_bg": "rgba(104,0,0,201),rgba(72,0,0,201),270",
+      "selected_bg": "rgba(165,0,0,201),rgba(117,0,0,201),270",
+      "disabled_bg": "rgba(40,40,40,201),rgba(28,28,28,201),270",
       "normal_text": "#E0E0E0",
       "hovered_text": "#FFFFFF",
       "selected_text": "#FFFFFF",
@@ -66,15 +63,16 @@
       "shape_corner_radius": 5
     },
     "misc": {
-      "shape": "rounded_rectangle"
+      "shape": "rounded_rectangle",
+      "auto_scale_images": "1"
     }
   },
-    "@context_button": {
+  "@context_button": {
     "colours": {
-      "normal_bg": "#424242,#323232,270",
-      "hovered_bg": "#680000,#480000,270",
-      "selected_bg": "#A50000,#750000,270",
-      "disabled_bg": "#282828,#1C1C1C,270",
+      "normal_bg": "rgba(66,66,66,201),rgba(50,50,50,201),270",
+      "hovered_bg": "rgba(104,0,0,201),rgba(72,0,0,201),270",
+      "selected_bg": "rgba(165,0,0,201),rgba(117,0,0,201),270",
+      "disabled_bg": "rgba(40,40,40,201),rgba(28,28,28,201),270",
       "normal_text": "#E0E0E0",
       "hovered_text": "#FFFFFF",
       "selected_text": "#FFFFFF",
@@ -93,12 +91,12 @@
       "text_vert_alignment_padding": 4
     }
   },
-      "@context_checkbox": {
+  "@context_checkbox": {
     "colours": {
-      "normal_bg": "#424242,#323232,270",
-      "hovered_bg": "#680000,#480000,270",
-      "selected_bg": "#A50000,#750000,270",
-      "disabled_bg": "#282828,#1C1C1C,270",
+      "normal_bg": "rgba(66,66,66,201),rgba(50,50,50,201),270",
+      "hovered_bg": "rgba(104,0,0,201),rgba(72,0,0,201),270",
+      "selected_bg": "rgba(165,0,0,201),rgba(117,0,0,201),270",
+      "disabled_bg": "rgba(40,40,40,201),rgba(28,28,28,201),270",
       "normal_text": "#E0E0E0",
       "hovered_text": "#FFFFFF",
       "selected_text": "#FFFFFF",
@@ -111,7 +109,7 @@
     },
     "misc": {
       "shape": "rounded_rectangle",
-            "text_horiz_alignment": "left",
+      "text_horiz_alignment": "left",
       "text_vert_alignment": "center",
       "text_horiz_alignment_padding": 28,
       "text_vert_alignment_padding": 4
@@ -119,7 +117,7 @@
   },
   "panel": {
     "colours": {
-      "dark_bg": "#222222,#141414,270",
+      "dark_bg": "rgba(34,34,34,201),rgba(20,20,20,201),270",
       "normal_border": "#333333"
     },
     "shape": {
@@ -133,7 +131,7 @@
   },
   "text_box": {
     "colours": {
-      "normal_bg": "#282828,#1C1C1C,270",
+      "normal_bg": "rgba(40,40,40,201),rgba(28,28,28,201),270",
       "normal_text": "#D0D0D0"
     },
     "shape": {
@@ -153,8 +151,8 @@
   },
   "drop_down_menu": {
     "colours": {
-      "normal_bg": "#343434,#262626,270",
-      "hovered_bg": "#650000,#450000,270",
+      "normal_bg": "rgba(52,52,52,201),rgba(38,38,38,201),270",
+      "hovered_bg": "rgba(101,0,0,201),rgba(69,0,0,201),270",
       "normal_text": "#E0E0E0",
       "hovered_text": "#FFFFFF"
     },
@@ -171,10 +169,10 @@
       "text_vert_alignment_padding": 4
     }
   },
-    "drop_down_menu.#button": {
+  "drop_down_menu.#button": {
     "colours": {
-      "normal_bg": "#343434,#262626,270",
-      "hovered_bg": "#650000,#450000,270",
+      "normal_bg": "rgba(52,52,52,201),rgba(38,38,38,201),270",
+      "hovered_bg": "rgba(101,0,0,201),rgba(69,0,0,201),270",
       "normal_text": "#E0E0E0",
       "hovered_text": "#FFFFFF"
     },
@@ -193,7 +191,7 @@
   },
   "horizontal_slider": {
     "colours": {
-      "normal_bg": "#2C2C2C,#202020,270",
+      "normal_bg": "rgba(44,44,44,201),rgba(32,32,32,201),270",
       "normal_text": "#D0D0D0"
     },
     "shape": {
@@ -214,7 +212,7 @@
   },
   "window": {
     "colours": {
-      "normal_bg": "#242424,#181818,270",
+      "normal_bg": "rgba(36,36,36,201),rgba(24,24,24,201),270",
       "normal_border": "#444444",
       "text_shadow": "#000000"
     },
@@ -224,23 +222,15 @@
       "shape_corner_radius": 10
     },
     "misc": {
-      "text_horiz_alignment": "left",
-      "text_vert_alignment": "center",
-      "text_horiz_alignment_padding": 8,
-      "text_vert_alignment_padding": 4,
       "shape": "rounded_rectangle",
-      "shadow_width": 50,
+      "shadow_width": 48,
       "shape_corner_radius": "7",
-      "border_width": "1",
-      "padding": "10,10",
-      "link_normal_underline": "0",
-      "link_hover_underline": "0",
-      "line_spacing": "0.9"
+      "border_width": "1"
     }
   },
   "window.#title_bar": {
     "colours": {
-      "normal_bg": "#424242,#121212,270"
+      "normal_bg": "rgba(66,66,66,201),rgba(18,18,18,201),270"
     },
     "misc": {
       "shape": "rounded_rectangle",
@@ -256,7 +246,7 @@
   },
   "scrollbar": {
     "colours": {
-      "normal_bg": "#2A2A2A",
+      "normal_bg": "rgba(42,42,42,201)",
       "normal_border": "#404040",
       "normal_text": "#CCCCCC",
       "hovered_text": "#FFFFFF"
@@ -269,7 +259,7 @@
   },
   "tool_tip": {
     "colours": {
-      "normal_bg": "#303030,#202020,270",
+      "normal_bg": "rgba(48,48,48,201),rgba(32,32,32,201),270",
       "normal_border": "#505050",
       "normal_text": "#E8E8E8"
     },

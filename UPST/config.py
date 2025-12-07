@@ -22,7 +22,7 @@ class OpticsConfig:
 class ContextMenuConfig:
     button_height = 30
     button_spacing = -4
-    hover_delay = 0.25
+    hover_delay = 0.0
 
 @dataclass
 class MultithreadingConfig:
