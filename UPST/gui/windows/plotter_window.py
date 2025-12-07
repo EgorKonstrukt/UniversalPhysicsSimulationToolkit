@@ -5,7 +5,8 @@ from UPST.gui.plotter import Plotter
 from UPST.debug.debug_manager import Debug
 
 class PlotterWindow:
-    def __init__(self, manager: Optional[object], position=(10,10), size=(600,400), window_title="Data Plotter"):
+    def __init__(self, manager: Optional[object], position=(10,10), size=(600,400), window_title="Data Plotter",
+                 zero_centered=False, max_samples=200, x_label: str = "X", y_label: str = "Y"):
         orig_mgr = manager
         ui_mgr = manager
         if manager is None:
@@ -22,6 +23,10 @@ class PlotterWindow:
         self.position = position
         self.size = size
         self.window_title = window_title
+        self.zero_centered = zero_centered
+        self.max_samples = max_samples
+        self.x_label = x_label
+        self.y_label = y_label
         self.window = None
         self.plot_image = None
         self.plotter = None
@@ -42,14 +47,18 @@ class PlotterWindow:
             window_display_title=self.window_title,
             resizable=True
         )
-        plot_height = self.size[1] - 70
+        plot_height = self.size[1] - 90
         self.plot_image = pygame_gui.elements.UIImage(
             relative_rect=pygame.Rect(0, 60, self.size[0], plot_height),
             image_surface=pygame.Surface((self.size[0], plot_height)).convert(),
             manager=self.manager,
             container=self.window
         )
-        self.plotter = Plotter((self.size[0], plot_height), max_samples=120)
+        self.plotter = Plotter((self.size[0], plot_height),
+                               max_samples=self.max_samples,
+                               zero_centered=self.zero_centered,
+                               x_label=self.x_label,
+                               y_label=self.y_label)
 
     def _create_buttons(self):
         btn_defs = {
@@ -86,12 +95,13 @@ class PlotterWindow:
         )
 
     def _resize_plot_area(self):
-        new_w, new_h = self.window.rect.size
-        if new_w <= 0 or new_h <= 70: return
-        plot_height = new_h - 70
-        self.plotter.surface_size = (new_w, plot_height)
-        self.plotter.surface = pygame.Surface((new_w, plot_height), pygame.SRCALPHA)
-        self.plot_image.set_dimensions((new_w, plot_height))
+        new_w, new_h = self.window.rect.size[0]-30, self.window.rect.size[1]-30
+        if new_w <= self.plotter.MARGIN_LEFT or new_h <= 90: return
+        plot_height = new_h - 90
+        plot_w = new_w
+        self.plotter.surface_size = (plot_w, plot_height)
+        self.plotter.surface = pygame.Surface((plot_w, plot_height), pygame.SRCALPHA)
+        self.plot_image.set_dimensions((plot_w, plot_height))
         self.plot_image.set_image(self.plotter.get_surface())
 
     def handle_event(self, event: pygame.event.Event):
@@ -133,7 +143,7 @@ class PlotterWindow:
             Debug.log_exception("Failed to unregister PlotterWindow from UI wrapper.", "GUI")
         if self.window:
             self.window.kill()
-    def add_data(self, key, value, group="General"): self.plotter.add_data(key, value, group)
+    def add_data(self, key, y, x=None, group="General"): self.plotter.add_data(key, y, x, group)
     def clear_data(self): self.plotter.clear_data()
     def update(self, dt: float):
         if not self.is_open(): return

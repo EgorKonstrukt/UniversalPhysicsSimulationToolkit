@@ -1,17 +1,14 @@
 import os
-import uuid
 import time
 import math
 import random
 import threading
 import traceback
-import pickle
 from typing import Optional, Any, Callable, TypeVar, Dict, List, Tuple, Union, Set
 
 import pygame
 import pymunk
 
-from DemoSaves.PID import plotter
 from UPST.config import config
 from UPST.modules.camera import Camera
 from UPST.modules.profiler import profile
@@ -19,7 +16,6 @@ from UPST.sound.sound_synthesizer import synthesizer
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
 from UPST.gui.windows.plotter_window import PlotterWindow
-from UPST.modules.statistics import stats
 
 try:
     import numpy as np

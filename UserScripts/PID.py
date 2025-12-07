@@ -2,7 +2,6 @@ import time
 import pymunk
 from typing import Callable, Tuple
 
-
 class AdjustablePIDController:
     def __init__(self, kp=1.0, ki=0.0, kd=0.0):
         self.kp = kp
@@ -72,13 +71,10 @@ class AdjustablePIDController:
                          color=(255, 255, 0) if abs(self.last_error) < 10 else (255, 64, 64),
                          world_space=True)
 
-
 target_pos = pymunk.Vec2d(400, 300)
 pid_x = AdjustablePIDController(1.0, 0.1, 0.01)
 pid_y = AdjustablePIDController(1.0, 0.1, 0.01)
-last_time = time.perf_counter()
 plotter = None
-
 
 def save_state():
     return {
@@ -86,28 +82,28 @@ def save_state():
         "pid_y": pid_y.save()
     }
 
-
 def load_state(state):
     pid_x.load(state.get("pid_x", {}))
     pid_y.load(state.get("pid_y", {}))
 
-
 def start():
     global body, plotter
     body = owner
-    plotter = PlotterWindow(position=(700, 10), size=(600, 400), window_title="PID Error Plotter")
+    plotter = PlotterWindow(
+        position=(700, 10),
+        size=(650, 400),
+        window_title="PID vs Position (X-axis = Body X)",
+        zero_centered=True,
+        x_label="Body Position X",
+        y_label="Error / Output"
+    )
     plotter.show()
 
-
 def update(dt):
-    global last_time
-    now = time.perf_counter()
-    actual_dt = now - last_time or 1e-6
-    last_time = now
-
     pos = body.position
-    fx = pid_x.compute(target_pos.x, pos.x, actual_dt)
-    fy = pid_y.compute(target_pos.y, pos.y, actual_dt)
+
+    fx = pid_x.compute(target_pos.x, pos.x, dt)
+    fy = pid_y.compute(target_pos.y, pos.y, dt)
     body.apply_force_at_world_point((fx * 10, fy * 10), pos)
 
     Gizmos.draw_point(target_pos, color=(0, 255, 0), duration=0.1)
@@ -117,12 +113,12 @@ def update(dt):
     pid_y.draw_ui(pos=(100, 320), label="Y")
 
     if plotter:
-        plotter.add_data("X Error", pid_x.last_error, "Error")
-        plotter.add_data("Y Error", pid_y.last_error, "Error")
-        plotter.add_data("X Output", fx, "Output")
-        plotter.add_data("Y Output", fy, "Output")
+        # Ось X = горизонтальная позиция тела (pos.x)
+        plotter.add_data("X Error", pid_x.last_error, x=pos.x, group="Error")
+        plotter.add_data("Y Error", pid_y.last_error, x=pos.x, group="Error")
+        plotter.add_data("X Output", fx, x=pos.x, group="Output")
+        plotter.add_data("Y Output", fy, x=pos.x, group="Output")
         plotter.update(dt)
-
 
 def stop():
     if plotter:
