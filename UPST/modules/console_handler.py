@@ -17,9 +17,9 @@ class ConsoleHandler:
 
     def process_command(self, command):
         if command == 'help':
-            self.ui_manager.console_window.add_output_line_to_log(config.app.help_console_text)
+            self.ui_manager.console_ui.console_window.add_output_line_to_log(config.app.help_console_text)
         elif command == 'clear':
-            self.ui_manager.console_window.clear_log()
+            self.ui_manager.console_ui.console_window.clear_log()
         elif command == 'exit':
             pygame.event.post(pygame.event.Event(pygame.QUIT))
         elif command.startswith('exec '):
@@ -29,7 +29,7 @@ class ConsoleHandler:
         elif command == 'python':
             self.start_python_interpreter()
         else:
-            self.ui_manager.console_window.add_output_line_to_log(f"Unknown command: {command}")
+            self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Unknown command: {command}")
 
     def execute_code(self, code):
         try:
@@ -40,19 +40,19 @@ class ConsoleHandler:
     def evaluate_code(self, code):
         try:
             result = eval(code, globals(), locals())
-            self.ui_manager.console_window.add_output_line_to_log(str(result))
+            self.ui_manager.console_ui.console_window.add_output_line_to_log(str(result))
         except Exception as e:
-            self.ui_manager.console_window.add_output_line_to_log(f"Error: {e}")
+            self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Error: {e}")
 
     def start_python_interpreter(self):
 
-        self.ui_manager.console_window.add_output_line_to_log("Starting interactive Python shell...")
+        self.ui_manager.console_ui.console_window.add_output_line_to_log("Starting interactive Python shell...")
         try:
             self.python_process = subprocess.Popen(['python', '-i'],
                                                    stdin=subprocess.PIPE,
                                                    stdout=subprocess.PIPE,
-                                                   stderr=subprocess.STDOUT, shell=False)
-            self.ui_manager.console_window.add_output_line_to_log(
+                                                   stderr=subprocess.STDOUT, shell=True)
+            self.ui_manager.console_ui.console_window.add_output_line_to_log(
                 "Python interpreter started (limited functionality in refactor).")
         except Exception as e:
-            self.ui_manager.console_window.add_output_line_to_log(f"Failed to start Python interpreter: {e}")
+            self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Failed to start Python interpreter: {e}")

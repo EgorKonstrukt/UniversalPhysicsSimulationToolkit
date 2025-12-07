@@ -266,7 +266,7 @@ class ContextMenu:
                     text=text,
                     manager=self.manager,
                     container=self.submenu_window,
-                    object_id=pygame_gui.core.ObjectID(object_id=f'#submenu_btn_{i}', class_id='@submenu_button')
+                    object_id=pygame_gui.core.ObjectID(object_id=f'#submenu_btn_{i}', class_id='@context_button')
                 )
                 self.submenu_buttons.append((btn, opt))
 

@@ -1,6 +1,9 @@
 import pygame
 import pygame_gui
 from typing import Optional
+
+from pygame_gui.core import ObjectID
+
 from UPST.gui.plotter import Plotter
 from UPST.debug.debug_manager import Debug
 
@@ -68,7 +71,9 @@ class PlotterWindow:
                 relative_rect=pygame.Rect(rect),
                 text=txt,
                 manager=self.manager,
-                container=self.window
+                container=self.window,
+                object_id=ObjectID(class_id='@button',
+                                           object_id='#button'),
             )
 
     def _create_sample_controls(self):

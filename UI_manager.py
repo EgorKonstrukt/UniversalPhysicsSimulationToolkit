@@ -14,6 +14,7 @@ class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera, input_handler, screen, font, tool_system=None, network_manager=None, app=None):
         self.app = app
         self.manager = pygame_gui.UIManager((screen_width, screen_height), 'theme.json')
+        self.manager.get_theme().load_theme('theme.json')
         self.tool_system = tool_system
         self.screen = screen
         self.font = font
