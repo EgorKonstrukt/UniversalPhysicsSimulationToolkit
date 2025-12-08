@@ -159,7 +159,7 @@ class Plotter:
                 x_norm = (xs[i] - x_min) / x_range
                 y_norm = (ys[i] - draw_min) / draw_range
                 x_screen = self.MARGIN_LEFT + x_norm * w
-                y_screen = self.surface_size[1] - self.MARGIN_BOTTOM - y_norm * h
+                y_screen = self.MARGIN_TOP + y_norm * h
                 pts.append((x_screen, y_screen))
             if len(pts) > 1:
                 pygame.draw.lines(self.surface, col, False, pts, width=2)
@@ -220,7 +220,7 @@ class Plotter:
             val += step
         for y_val in y_vals:
             t = (y_val - min_y) / y_range
-            y = self.surface_size[1] - self.MARGIN_BOTTOM - t * h
+            y = self.MARGIN_TOP + t * h
             pygame.draw.line(self.surface, self.GRID_COLOR, (self.MARGIN_LEFT, y), (self.surface_size[0], y))
             if abs(y_val) < 0.01 or abs(y_val) > 1e5:
                 txt = f"{y_val:.2e}"
@@ -267,7 +267,7 @@ class Plotter:
                 x_norm = (xs[j] - x_min) / x_range
                 y_norm = (ys[j] - draw_min) / draw_range
                 x_screen = self.MARGIN_LEFT + x_norm * w
-                y_screen = y0 + bar_h - y_norm * scale_h
+                y_screen = y0 + y_norm * scale_h
                 pts.append((x_screen, y_screen))
             if len(pts) > 1:
                 pygame.draw.lines(self.surface, col, False, pts, width=2)

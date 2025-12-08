@@ -12,7 +12,7 @@ from UPST.debug.debug_manager import Debug
 
 class ContextPlotterWindow:
     def __init__(self, manager: Optional[object], ui_manager=None, position=(10,10), size=(600,400),
-                 window_title="Data Plotter", zero_centered=True, max_samples=200,
+                 window_title="Data Plotter", max_samples=200,
                  x_label: str = "X", y_label: str = "Y", tracked_object=None):
         self.tracked_object = tracked_object
         orig_mgr = manager
@@ -22,7 +22,6 @@ class ContextPlotterWindow:
         self.position = position
         self.size = size
         self.window_title = window_title
-        self.zero_centered = zero_centered
         self.max_samples = max_samples
         self.x_label = x_label
         self.y_label = y_label
@@ -158,19 +157,52 @@ class ContextPlotterWindow:
         )
 
     def _create_slider_controls(self):
+        # Time span slider
+        y_offset = 200
         self.slider_controls["time_span"] = pygame_gui.elements.UIHorizontalSlider(
-            relative_rect=pygame.Rect(10, 200, 180, 20),
+            relative_rect=pygame.Rect(10, y_offset, 180, 20),
             start_value=self.time_span,
             value_range=(0.1, 10.0),
             manager=self.manager,
             container=self.window
         )
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(10, y_offset - 25, 180, 20),
+            text="Time span (s)",
+            manager=self.manager,
+            container=self.window,
+            object_id=pygame_gui.core.ObjectID(class_id="@label", object_id="#slider_label")
+        )
+        self.slider_controls["time_span_entry"] = pygame_gui.elements.UITextEntryLine(
+            relative_rect=pygame.Rect(10, y_offset + 25, 180, 25),
+            initial_text=f"{self.time_span:.2f}",
+            manager=self.manager,
+            container=self.window,
+            object_id=pygame_gui.core.ObjectID(class_id="@entry_line", object_id="#time_span_entry")
+        )
+
+        # Smoothing slider
+        y_offset = 260
         self.slider_controls["smoothing"] = pygame_gui.elements.UIHorizontalSlider(
-            relative_rect=pygame.Rect(10, 260, 180, 20),
+            relative_rect=pygame.Rect(10, y_offset, 180, 20),
             start_value=self.smoothing,
             value_range=(0.0, 1.0),
             manager=self.manager,
             container=self.window
+        )
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(10, y_offset - 25, 180, 20),
+            text="Smoothing",
+            manager=self.manager,
+            container=self.window,
+            object_id=pygame_gui.core.ObjectID(class_id="@label", object_id="#slider_label")
+        )
+        self.slider_controls["smoothing_entry"] = pygame_gui.elements.UITextEntryLine(
+            relative_rect=pygame.Rect(10, y_offset + 25, 180, 25),
+            initial_text=f"{self.smoothing:.2f}",
+            manager=self.manager,
+            container=self.window,
+            object_id=pygame_gui.core.ObjectID(class_id="@entry_line", object_id="#smoothing_entry")
         )
 
     def _create_checkboxes(self):
@@ -204,7 +236,7 @@ class ContextPlotterWindow:
         )
 
     def _resize_plot_area(self):
-        new_w, new_h = self.window.rect.size[0]-235, self.window.rect.size[1]-60
+        new_w, new_h = self.window.rect.size[0]-295, self.window.rect.size[1]-125
         self.plotter.surface_size = (new_w, new_h)
         self.plotter.surface = pygame.Surface((new_w, new_h), pygame.SRCALPHA)
         self.plot_image.set_dimensions((new_w, new_h))
@@ -233,9 +265,29 @@ class ContextPlotterWindow:
         elif event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
             if event.ui_element == self.slider_controls["time_span"]:
                 self.time_span = event.value
+                self.slider_controls["time_span_entry"].set_text(f"{self.time_span:.2f}")
             elif event.ui_element == self.slider_controls["smoothing"]:
                 self.smoothing = event.value
+                self.slider_controls["smoothing_entry"].set_text(f"{self.smoothing:.2f}")
                 self.plotter.smoothing_factor = self.smoothing
+        elif event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED:
+            if event.ui_element == self.slider_controls["time_span_entry"]:
+                try:
+                    val = float(event.text)
+                    val = max(0.1, min(10.0, val))
+                    self.time_span = val
+                    self.slider_controls["time_span"].set_current_value(val)
+                except ValueError:
+                    self.slider_controls["time_span_entry"].set_text(f"{self.time_span:.2f}")
+            elif event.ui_element == self.slider_controls["smoothing_entry"]:
+                try:
+                    val = float(event.text)
+                    val = max(0.0, min(1.0, val))
+                    self.smoothing = val
+                    self.slider_controls["smoothing"].set_current_value(val)
+                    self.plotter.smoothing_factor = self.smoothing
+                except ValueError:
+                    self.slider_controls["smoothing_entry"].set_text(f"{self.smoothing:.2f}")
         elif event.type == pygame_gui.UI_CHECK_BOX_CHECKED or event.type == pygame_gui.UI_CHECK_BOX_UNCHECKED:
             if event.ui_element == self.checkboxes["show_axes"]:
                 self.show_axes = event.ui_element.checked
