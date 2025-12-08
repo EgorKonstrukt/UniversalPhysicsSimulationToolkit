@@ -115,6 +115,21 @@
       "text_vert_alignment_padding": 4
     }
   },
+    "text_entry_line":
+    {
+        "prototype": "#test_prototype_font",
+        "colours":
+        {
+            "text_cursor": "#A0A0FF"
+        },
+        "misc":
+        {
+            "shape": "rounded_rectangle",
+            "shape_corner_radius": "4",
+            "border_width": "1",
+            "padding": "2,0"
+        }
+    },
   "panel": {
     "colours": {
       "dark_bg": "rgba(34,34,34,201),rgba(20,20,20,201),270",
@@ -126,7 +141,10 @@
       "shape_corner_radius": 8
     },
     "misc": {
-      "shape": "rounded_rectangle"
+            "shape": "rounded_rectangle",
+            "shape_corner_radius": "4",
+            "border_width": "1",
+            "padding": "2,0"
     }
   },
   "text_box": {
@@ -225,7 +243,7 @@
       "shape": "rounded_rectangle",
       "shadow_width": 48,
       "shape_corner_radius": "7",
-      "border_width": "1"
+      "border_width": "2"
     }
   },
   "window.#title_bar": {

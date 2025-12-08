@@ -101,11 +101,11 @@ class ScriptEditorWindow:
                                           self.layout['checkbox_h']), text="Run in background thread",
                 manager=self.manager, container=self.window, object_id=ObjectID(class_id='@label'))
         y += self.layout['checkbox_h'] + int(self.layout['margin']*0.5)
-        btn_defs = [("Load from File", self.load_btn_cb, 0.02, "#load_btn", 0.18),
-                    ("Insert Stub", self.insert_stub_cb, 0.22, "#stub_btn", 0.14),
-                    ("Save to File", self.save_btn_cb, 0.38, "#save_btn", 0.14),
+        btn_defs = [("Load from File", self.load_btn_cb, 0.02, "#load_btn", 0.20),
+                    ("Insert Stub", self.insert_stub_cb, 0.22, "#stub_btn", 0.16),
+                    ("Save to File", self.save_btn_cb, 0.38, "#save_btn", 0.16),
                     ("Cancel", self.cancel_btn_cb, 0.54, "#cancel_btn", 0.14),
-                    ("Apply & Run", self.apply_btn_cb, 0.70, "#apply_script_btn", 0.18)]
+                    ("Apply & Run", self.apply_btn_cb, 0.68, "#apply_script_btn", 0.20)]
         for i, (text, cb, x_norm, obj_id, width_norm) in enumerate(btn_defs):
             x = int(x_norm * (self.layout['input_w'] + self.layout['input_x_offset']))
             width = int(width_norm * (self.layout['input_w'] + self.layout['input_x_offset']))
@@ -135,7 +135,6 @@ class ScriptEditorWindow:
         if not self.window:
             return
         self._update_layout_for_window()
-        self._create_elements()
 
     def load_btn_cb(self):
         self.load_script_from_file()
@@ -285,7 +284,7 @@ class ScriptEditorWindow:
 
     def process_event(self, event):
         handled = False
-        if event.type == pygame.WINDOWRESIZED:
+        if event.type == pygame_gui.UI_WINDOW_RESIZED:
             self._on_resize(); handled = True
         elif event.type == pygame.KEYDOWN:
             mods = pygame.key.get_mods()
