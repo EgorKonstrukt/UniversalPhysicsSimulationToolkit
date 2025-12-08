@@ -29,6 +29,7 @@ def update(dt):
 
     def project_4d_to_2d(point):
         p = point[:]
+
         rotate(p, 0, 1, angle_xy)
         rotate(p, 0, 2, angle_xz)
         rotate(p, 0, 3, angle_xw)
