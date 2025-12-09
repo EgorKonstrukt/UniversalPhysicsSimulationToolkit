@@ -36,7 +36,7 @@ class LaserTool(BaseTool):
         self.spectrum = None
         self._ui_refs = {}
     def create_settings_window(self):
-        win = pygame_gui.elements.UIWindow(pygame.Rect(200, 10, 420, 360),
+        win = pygame_gui.elements.UIWindow(pygame.Rect(200, config.app.screen_height-360, 300, 30),
                                            manager=self.ui_manager.manager,
                                            window_display_title="Laser Settings")
         pygame_gui.elements.UIImage(relative_rect=pygame.Rect(320, 10, 64, 64),

@@ -2,7 +2,7 @@
   "defaults": {
     "font": {
       "name": "Consolas",
-      "size": "14",
+      "size": "16",
       "bold": "0",
       "italic": "0",
       "regular_resource": {
@@ -42,7 +42,10 @@
       "text_vert_alignment": "center",
       "text_horiz_alignment_padding": 4,
       "text_vert_alignment_padding": 2,
-      "text_shadow_offset": [1, 1],
+      "text_shadow_offset": [
+        1,
+        1
+      ],
       "text_shadow_alpha": 128
     }
   },
@@ -115,21 +118,18 @@
       "text_vert_alignment_padding": 4
     }
   },
-    "text_entry_line":
-    {
-        "prototype": "#test_prototype_font",
-        "colours":
-        {
-            "text_cursor": "#A0A0FF"
-        },
-        "misc":
-        {
-            "shape": "rounded_rectangle",
-            "shape_corner_radius": "4",
-            "border_width": "1",
-            "padding": "2,0"
-        }
+  "text_entry_line": {
+    "prototype": "#test_prototype_font",
+    "colours": {
+      "text_cursor": "#A0A0FF"
     },
+    "misc": {
+      "shape": "rounded_rectangle",
+      "shape_corner_radius": "4",
+      "border_width": "1",
+      "padding": "2,0"
+    }
+  },
   "panel": {
     "colours": {
       "dark_bg": "rgba(34,34,34,201),rgba(20,20,20,201),270",
@@ -141,10 +141,10 @@
       "shape_corner_radius": 8
     },
     "misc": {
-            "shape": "rounded_rectangle",
-            "shape_corner_radius": "4",
-            "border_width": "1",
-            "padding": "2,0"
+      "shape": "rounded_rectangle",
+      "shape_corner_radius": "4",
+      "border_width": "1",
+      "padding": "2,0"
     }
   },
   "text_box": {
@@ -241,7 +241,6 @@
     },
     "misc": {
       "shape": "rounded_rectangle",
-      "shadow_width": 48,
       "shape_corner_radius": "7",
       "border_width": "2"
     }

@@ -18,7 +18,7 @@ class GearTool(BaseTool):
         self.snap_cb=None
 
     def create_settings_window(self):
-        win=pygame_gui.elements.UIWindow(rect=pygame.Rect(180,10,360,160),manager=self.ui_manager.manager,window_display_title="Gear Settings")
+        win=pygame_gui.elements.UIWindow(rect=pygame.Rect(200, config.app.screen_height-200, 300, 200),manager=self.ui_manager.manager,window_display_title="Gear Settings")
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10,10,80,20),text="Teeth:",manager=self.ui_manager.manager,container=win)
         self.teeth_entry=pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(90,10,60,20),initial_text="20",manager=self.ui_manager.manager,container=win)
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(160,10,80,20),text="Module:",manager=self.ui_manager.manager,container=win)

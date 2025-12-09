@@ -7,6 +7,8 @@ from UPST.gui.windows.about_window import AboutWindow
 from UPST.sound.sound_synthesizer import synthesizer
 from UPST.modules.profiler import get_profiler
 from UPST.gui.windows.theme_selection_dialog import ThemeSelectionDialog
+from UPST.gui.windows.theme_editor_window import ThemeEditorWindow
+from UPST.utils import get_resource_path
 
 class TopLeftBar:
     def __init__(self, screen_width, screen_height, ui_manager, bar_width=375, bar_height=45, app=None, physics_manager=None):
@@ -126,7 +128,7 @@ class TopLeftBar:
             elif event.ui_element == self.buttons['console']:
                 self._on_console_pressed()
             elif event.ui_element == self.buttons['settings']:
-                self._on_settings_pressed()
+                self.open_theme_editor()
             elif event.ui_element == self.buttons['about']:
                 self._on_about_pressed()
         if self.theme_dialog:
@@ -139,6 +141,16 @@ class TopLeftBar:
                 self.ui_manager,
                 self
             )
+
+    def open_theme_editor(self):
+        if hasattr(self, '_theme_editor') and self._theme_editor.alive():
+            self._theme_editor.kill()
+        self._theme_editor = ThemeEditorWindow(
+            rect=pygame.Rect(100, 50, 800, 600),
+            manager=self.ui_manager,
+            theme_path=get_resource_path('theme.json'),
+            ui_manager_ref=self
+        )
 
     def _on_open_scene_pressed(self):
         synthesizer.play_frequency(100, duration=0.2, waveform='sine')

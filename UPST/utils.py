@@ -1,5 +1,7 @@
 import pygame
 from tkinter import filedialog
+import sys
+import os
 
 def ensure_rgba_surface(surface):
     if not surface:
@@ -37,3 +39,9 @@ def safe_filedialog(func, *args, freeze_watcher=None, **kwargs):
         if freeze_watcher:
             freeze_watcher.resume()
 
+def get_resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)

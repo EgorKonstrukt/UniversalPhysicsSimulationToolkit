@@ -28,7 +28,7 @@ class DragTool(BaseTool):
 
     def create_settings_window(self):
         win = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect(200, 10, 340, 245),
+            rect=pygame.Rect(200, config.app.screen_height-245, 300, 245),
             manager=self.ui_manager.manager,
             window_display_title="Drag Settings"
         )

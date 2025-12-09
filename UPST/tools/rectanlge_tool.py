@@ -9,7 +9,7 @@ class RectangleTool(BaseTool):
     icon_path = "sprites/gui/spawn/rectangle.png"
 
     def create_settings_window(self):
-        win = pygame_gui.elements.UIWindow(pygame.Rect(200, 10, 400, 300), manager=self.ui_manager.manager,
+        win = pygame_gui.elements.UIWindow(pygame.Rect(200, config.app.screen_height-200, 300, 200), manager=self.ui_manager.manager,
                                            window_display_title="Rectangle Settings")
         pygame_gui.elements.UIImage(relative_rect=pygame.Rect(215, 5, 50, 50),
                                     image_surface=pygame.image.load(self.icon_path), container=win,

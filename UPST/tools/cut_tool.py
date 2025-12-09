@@ -17,7 +17,7 @@ class CutTool(BaseTool):
         self.keep_small_cb=None
         self._tmp_preview=None
     def create_settings_window(self):
-        win=pygame_gui.elements.UIWindow(rect=pygame.Rect(200,10,360,160),manager=self.ui_manager.manager,window_display_title="Cut Settings")
+        win=pygame_gui.elements.UIWindow(rect=pygame.Rect(200, config.app.screen_height-200, 300, 200),manager=self.ui_manager.manager,window_display_title="Cut Settings")
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10,10,120,20),text="Толщина (px):",manager=self.ui_manager.manager,container=win)
         self.thickness_entry=pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(130,10,80,20),initial_text="4",manager=self.ui_manager.manager,container=win)
         self.remove_circles_cb=pygame_gui.elements.UICheckBox(relative_rect=pygame.Rect(10,40,240,20),text="Удалять круги при пересечении",manager=self.ui_manager.manager,container=win)

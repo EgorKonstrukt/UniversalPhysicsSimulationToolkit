@@ -1,5 +1,7 @@
 import pygame
 import pygame_gui
+import os
+import sys
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
 from UPST.gui.contex_menu import ContextMenu
@@ -8,13 +10,16 @@ from UPST.gui.bars.top_left_bar import TopLeftBar
 from UPST.gui.bars.top_right_bar import TopRightBar
 from UPST.gui.force_field_ui import ForceFieldUI
 from UPST.gui.console_ui import ConsoleUI
+from UPST.utils import get_resource_path
+
+
 
 
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera, input_handler, screen, font, tool_system=None, network_manager=None, app=None):
         self.app = app
-        self.manager = pygame_gui.UIManager((screen_width, screen_height), 'theme.json')
-        self.manager.get_theme().load_theme('theme.json')
+        theme_path = get_resource_path('theme.json')
+        self.manager = pygame_gui.UIManager((screen_width, screen_height), theme_path)
         self.tool_system = tool_system
         self.screen = screen
         self.font = font
@@ -56,7 +61,8 @@ class UIManager:
         except ValueError: pass
 
     def _init_fonts(self):
-        self.manager.add_font_paths(font_name="consolas", regular_path="fonts/Consolas.ttf")
+        font_path = get_resource_path("fonts/Consolas.ttf")
+        self.manager.add_font_paths(font_name="consolas", regular_path=font_path)
         self.manager.preload_fonts([{'name':'consolas','size':14,'style':'regular'},{'name':'consolas','size':18,'style':'regular'},{'name':'consolas','size':20,'style':'bold'}])
 
     def show_inline_script_editor(self, script=None, owner=None):
@@ -76,7 +82,7 @@ class UIManager:
     def toggle_color_mode(self, shape_type):
         current = getattr(self, f"{shape_type}_color_random", True)
         setattr(self, f"{shape_type}_color_random", not current)
-        img_path = "sprites/gui/checkbox_true.png" if not current else "sprites/gui/checkbox_false.png"
+        img_path = get_resource_path("sprites/gui/checkbox_true.png" if not current else "sprites/gui/checkbox_false.png")
         img_element = getattr(self, f"{shape_type}_color_random_image")
         img_element.set_image(pygame.image.load(img_path))
 
