@@ -2,7 +2,7 @@ import collections
 import math
 from typing import Dict, List, Optional, Tuple
 import pygame
-
+import time
 
 
 
@@ -85,7 +85,9 @@ class Plotter:
 
     def add_data(self, key: str, y: float, x: Optional[float] = None, group: Optional[str] = None) -> None:
         self.data[key].append(y)
-        self.x_data[key].append(x if x is not None else len(self.data[key]))
+        if x is None:
+            x = time.perf_counter() * 1000
+        self.x_data[key].append(x)
         group = group or "ungrouped"
         self.groups[key] = group
         self.available_groups.add(group)

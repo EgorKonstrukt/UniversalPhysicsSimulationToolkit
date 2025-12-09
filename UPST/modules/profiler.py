@@ -290,7 +290,7 @@ class Profiler:
         now = time.perf_counter()
         if self.lock.acquire(blocking=False):
             try:
-                self.plotter.add_data(key, elapsed, group)
+                self.plotter.add_data(key, elapsed, group=group)
                 self.last_data_time[key] = now
                 self.needs_update = True
                 if group and group not in self.group_buttons:
