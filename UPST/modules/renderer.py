@@ -14,6 +14,8 @@ from UPST.modules.profiler import profile, start_profiling, stop_profiling
 from UPST.modules.cloud_manager import CloudManager, CloudRenderer
 from UPST.physics.thermal_manager import ThermalManager
 
+import pygame.gfxdraw
+
 class Renderer:
     def __init__(self, app, screen, camera, physics_manager, gizmos_manager,
                  grid_manager, input_handler, ui_manager, script_system=None, tool_manager=None):
@@ -36,10 +38,187 @@ class Renderer:
         self.clouds = CloudManager(folder="sprites/background", cell_size=3000, clouds_per_cell=2)
         self.clouds.set_physics_manager(physics_manager)
         self.cloud_renderer = CloudRenderer(screen, camera, self.clouds, min_px=10)
-        self.thermal_manager = ThermalManager(physics_manager, camera)
+        # self.thermal_manager = ThermalManager(physics_manager, camera)
 
-    def set_clouds_folder(self, folder):
-        self.clouds.set_folder(folder)
+    @profile("_draw_physics_shapes", "renderer")
+    def _draw_physics_shapes(self):
+        theme = config.world.themes[config.world.current_theme]
+        default_color = (255, 255, 255)
+        screen_w, screen_h = self.screen.get_size()
+        margin = 2000
+        clip_rect = pygame.Rect(-margin, -margin, screen_w + 2 * margin, screen_h + 2 * margin)
+        INT16_MIN, INT16_MAX = -32768, 32767
+        outline_color = (50, 50, 50, 180)
+        outline_thickness = 1
+
+        def safe_coord(v):
+            return max(INT16_MIN, min(INT16_MAX, int(round(v))))
+
+        def circle_intersects_rect(center, radius, rect):
+            cx, cy = center
+            rx, ry, rw, rh = rect.x, rect.y, rect.width, rect.height
+            closest_x = max(rx, min(cx, rx + rw))
+            closest_y = max(ry, min(cy, ry + rh))
+            dx, dy = cx - closest_x, cy - closest_y
+            return dx * dx + dy * dy <= radius * radius
+
+        def draw_circle_filled_and_outline(world_pos, radius_px, color, outline_col, thickness):
+            screen_pos = self.camera.world_to_screen(world_pos)
+            if radius_px <= 0: return
+            if not circle_intersects_rect(screen_pos, radius_px, clip_rect): return
+            ix, iy = safe_coord(screen_pos[0]), safe_coord(screen_pos[1])
+            ir = min(int(radius_px), 32767)
+            if ir <= 0: return
+            r, g, b, a = color
+            or_, og, ob, oa = outline_col
+
+            # filled
+            if a == 255:
+                pygame.gfxdraw.filled_circle(self.screen, ix, iy, ir, (r, g, b))
+            else:
+                size = ir * 2 + 2
+                if size <= 65535:
+                    temp = pygame.Surface((size, size), pygame.SRCALPHA)
+                    cx = ir + 1
+                    pygame.gfxdraw.filled_circle(temp, cx, cx, ir, (r, g, b, a))
+                    self.screen.blit(temp, (ix - ir - 1, iy - ir - 1))
+
+            # outline
+            if oa == 255:
+                for _ in range(thickness):
+                    pygame.gfxdraw.aacircle(self.screen, ix, iy, ir - _, (or_, og, ob))
+            else:
+                size = ir * 2 + 2
+                if size <= 65535:
+                    temp = pygame.Surface((size, size), pygame.SRCALPHA)
+                    cx = ir + 1
+                    for _ in range(thickness):
+                        pygame.gfxdraw.aacircle(temp, cx, cx, ir - _, (or_, og, ob, oa))
+                    self.screen.blit(temp, (ix - ir - 1, iy - ir - 1))
+
+            # rotation indicator
+            body_angle = body.angle  # radians
+            pointer_len = int(ir * 1)
+            wedge_angle = math.radians(20)  # 20 degrees wide
+            cos_a = math.cos(body_angle)
+            sin_a = math.sin(body_angle)
+            tip_x = ix + int(cos_a * pointer_len)
+            tip_y = iy + int(sin_a * pointer_len)
+            left_angle = body_angle - wedge_angle / 2
+            right_angle = body_angle + wedge_angle / 2
+            left_x = ix + int(math.cos(left_angle) * pointer_len)
+            left_y = iy + int(math.sin(left_angle) * pointer_len)
+            right_x = ix + int(math.cos(right_angle) * pointer_len)
+            right_y = iy + int(math.sin(right_angle) * pointer_len)
+
+            # Draw triangle (wedge)
+            wedge_points = [(ix, iy), (left_x, left_y), (right_x, right_y)]
+            if all(INT16_MIN <= p[0] <= INT16_MAX and INT16_MIN <= p[1] <= INT16_MAX for p in wedge_points):
+                pygame.gfxdraw.filled_polygon(self.screen, wedge_points, (0, 0, 0, 140))
+                pygame.gfxdraw.aapolygon(self.screen, wedge_points, (0, 0, 0, 140))
+
+        def draw_poly_filled_and_outline(vertices, color, outline_col, thickness):
+            if len(vertices) < 3: return
+            xs, ys = zip(*vertices)
+            obj_rect = pygame.Rect(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+            if not obj_rect.colliderect(clip_rect): return
+            int_vertices = [(safe_coord(vx), safe_coord(vy)) for vx, vy in vertices]
+            r, g, b, a = color
+            or_, og, ob, oa = outline_col
+            # filled
+            if a == 255:
+                pygame.gfxdraw.filled_polygon(self.screen, int_vertices, (r, g, b))
+            else:
+                min_xp = min(v[0] for v in int_vertices)
+                max_xp = max(v[0] for v in int_vertices)
+                min_yp = min(v[1] for v in int_vertices)
+                max_yp = max(v[1] for v in int_vertices)
+                w, h = max_xp - min_xp + 2, max_yp - min_yp + 2
+                if w > 0 and h > 0 and w <= 65535 and h <= 65535:
+                    temp = pygame.Surface((w, h), pygame.SRCALPHA)
+                    shifted = [(x - min_xp + 1, y - min_yp + 1) for x, y in int_vertices]
+                    pygame.gfxdraw.filled_polygon(temp, shifted, (r, g, b, a))
+                    self.screen.blit(temp, (min_xp - 1, min_yp - 1))
+            # outline
+            if oa == 255:
+                for _ in range(thickness):
+                    offset_verts = [(x + _, y) for x, y in int_vertices]  # simple inset; sufficient for 1px
+                    pygame.gfxdraw.aapolygon(self.screen, offset_verts, (or_, og, ob))
+            else:
+                min_xp = min(v[0] for v in int_vertices)
+                max_xp = max(v[0] for v in int_vertices)
+                min_yp = min(v[1] for v in int_vertices)
+                max_yp = max(v[1] for v in int_vertices)
+                w, h = max_xp - min_xp + 2, max_yp - min_yp + 2
+                if w > 0 and h > 0 and w <= 65535 and h <= 65535:
+                    temp = pygame.Surface((w, h), pygame.SRCALPHA)
+                    shifted = [(x - min_xp + 1, y - min_yp + 1) for x, y in int_vertices]
+                    for _ in range(thickness):
+                        pygame.gfxdraw.aapolygon(temp, shifted, (or_, og, ob, oa))
+                    self.screen.blit(temp, (min_xp - 1, min_yp - 1))
+
+        def draw_segment_with_outline(a_scr, b_scr, radius, color, outline_col, thickness):
+            ax, ay = a_scr
+            bx, by = b_scr
+            if not (clip_rect.collidepoint(ax, ay) or clip_rect.collidepoint(bx, by)):
+                dx = bx - ax
+                dy = by - ay
+                lsq = dx * dx + dy * dy
+                if lsq == 0: return
+                t = max(0, min(1, ((clip_rect.x - ax) * dx + (clip_rect.y - ay) * dy) / lsq))
+                cx, cy = ax + t * dx, ay + t * dy
+                if not clip_rect.collidepoint(cx, cy): return
+            ix1, iy1 = safe_coord(ax), safe_coord(ay)
+            ix2, iy2 = safe_coord(bx), safe_coord(by)
+            r, g, b_col, a_col = color
+            or_, og, ob, oa = outline_col
+            line_thickness = max(1, int(radius))
+            if a_col == 255:
+                pygame.draw.line(self.screen, (r, g, b_col), (ix1, iy1), (ix2, iy2), line_thickness)
+            else:
+                temp = pygame.Surface((abs(ix2 - ix1) + 4, abs(iy2 - iy1) + 4), pygame.SRCALPHA)
+                off_x, off_y = min(ix1, ix2) - 2, min(iy1, iy2) - 2
+                pygame.draw.line(temp, (r, g, b_col, a_col), (ix1 - off_x, iy1 - off_y), (ix2 - off_x, iy2 - off_y),
+                                 line_thickness)
+                self.screen.blit(temp, (off_x, off_y))
+            # outline
+            if oa == 255:
+                pygame.draw.line(self.screen, (or_, og, ob), (ix1, iy1), (ix2, iy2),
+                                 min(line_thickness + 2 * thickness, 32767))
+                pygame.draw.line(self.screen, (r, g, b_col), (ix1, iy1), (ix2, iy2), line_thickness)
+            else:
+                full_thick = line_thickness + 2 * thickness
+                temp = pygame.Surface((abs(ix2 - ix1) + full_thick + 2, abs(iy2 - iy1) + full_thick + 2),
+                                      pygame.SRCALPHA)
+                off_x = min(ix1, ix2) - full_thick // 2 - 1
+                off_y = min(iy1, iy2) - full_thick // 2 - 1
+                pygame.draw.line(temp, (or_, og, ob, oa), (ix1 - off_x, iy1 - off_y), (ix2 - off_x, iy2 - off_y),
+                                 full_thick)
+                pygame.draw.line(temp, (r, g, b_col, a_col), (ix1 - off_x, iy1 - off_y), (ix2 - off_x, iy2 - off_y),
+                                 line_thickness)
+                self.screen.blit(temp, (off_x, off_y))
+
+        for shape in self.physics_manager.space.shapes:
+            body = shape.body
+            color = getattr(shape, 'color', default_color)
+            if len(color) == 3: color = (*color, 255)
+
+            if isinstance(shape, pymunk.Circle):
+                world_pos = body.local_to_world(shape.offset)
+                radius_px = shape.radius * self.camera.scaling
+                draw_circle_filled_and_outline(world_pos, radius_px, color, outline_color, outline_thickness)
+
+            elif isinstance(shape, pymunk.Poly):
+                vertices = [self.camera.world_to_screen(body.local_to_world(v)) for v in shape.get_vertices()]
+                draw_poly_filled_and_outline(vertices, color, outline_color, outline_thickness)
+
+            elif isinstance(shape, pymunk.Segment):
+                a_world = body.local_to_world(shape.a)
+                b_world = body.local_to_world(shape.b)
+                a_screen = self.camera.world_to_screen(a_world)
+                b_screen = self.camera.world_to_screen(b_world)
+                radius_px = shape.radius * self.camera.scaling
+                draw_segment_with_outline(a_screen, b_screen, radius_px, color, outline_color, outline_thickness)
 
     def draw(self):
         dt = self.app.clock.get_time() / 1000.0
@@ -49,32 +228,28 @@ class Renderer:
         self.cloud_renderer.draw()
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw_debug_gizmos()
-
-        self.thermal_manager.draw_hover_temperature()
-        draw_opts = self.camera.get_draw_options(self.screen)
-        self.physics_manager.space.debug_draw(draw_opts)
+        # self.thermal_manager.draw_hover_temperature()
+        self._draw_physics_shapes()
         self.tool_manager.laser_processor.update()
         self.tool_manager.laser_processor.draw(self.screen, self.camera)
-
-        # if self.input_handler.creating_static_line:
-        #     start = draw_opts.transform @ self.input_handler.static_line_start
-        #     pygame.draw.line(self.screen, (255, 255, 255), start, pygame.mouse.get_pos(), 5)
-        # if self.input_handler.first_joint_body:
-        #     pos = self.camera.world_to_screen(self.input_handler.first_joint_body.position)
-        #     pygame.draw.line(self.screen, (255, 255, 0, 150), pos, pygame.mouse.get_pos(), 3)
         self._draw_textured_bodies()
         self.gizmos_manager.draw()
-        self.thermal_manager.render_heatmap(self.screen)
+        # self.thermal_manager.render_heatmap(self.screen)
         if self.script_system: self.script_system.draw(self.screen)
         self.ui_manager.draw(self.screen)
         self._draw_cursor_icon()
         self.app.debug_manager.draw_all_debug_info(self.screen, self.physics_manager, self.camera)
         if self.script_system: self._draw_script_info()
-
+        pygame.display.flip()
+        draw_ms = pygame.time.get_ticks() - start_time
+        self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
 
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
+
+    def set_clouds_folder(self, folder):
+        self.clouds.set_folder(folder)
 
     def _get_texture(self, path):
         if not path: return None
