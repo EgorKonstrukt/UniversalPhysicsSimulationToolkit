@@ -51,6 +51,9 @@ class RectangleTool(BaseTool):
         mass = (w * h) / 200
         body = pymunk.Body(mass, pymunk.moment_for_box(mass, (w * 2, h * 2)))
         body.position = pos
+        body.temperature = 20
+        body.heat_capacity = 1000
+        body.thermal_conductivity = 1.0
         shape = pymunk.Poly.create_box(body, (w * 2, h * 2))
         shape.friction = float(self.friction_entry.get_text())
         shape.elasticity = float(self.elasticity_entry.get_text())

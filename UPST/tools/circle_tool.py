@@ -47,6 +47,9 @@ class CircleTool(BaseTool):
         mass = r * math.pi / 10
         body = pymunk.Body(mass, pymunk.moment_for_circle(mass, 0, r))
         body.position = pos
+        body.temperature = 3000
+        body.heat_capacity = 1000
+        body.thermal_conductivity = 1.0
         shape = pymunk.Circle(body, r)
         shape.friction = float(self.friction_entry.get_text())
         shape.elasticity = float(self.elasticity_entry.get_text())

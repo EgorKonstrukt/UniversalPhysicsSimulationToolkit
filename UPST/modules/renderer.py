@@ -12,7 +12,7 @@ from UPST.utils import bytes_to_surface
 from UPST.modules.texture_processor import TextureProcessor, TextureState
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
 from UPST.modules.cloud_manager import CloudManager, CloudRenderer
-
+from UPST.physics.thermal_manager import ThermalManager
 
 class Renderer:
     def __init__(self, app, screen, camera, physics_manager, gizmos_manager,
@@ -36,6 +36,7 @@ class Renderer:
         self.clouds = CloudManager(folder="sprites/background", cell_size=3000, clouds_per_cell=2)
         self.clouds.set_physics_manager(physics_manager)
         self.cloud_renderer = CloudRenderer(screen, camera, self.clouds, min_px=10)
+        self.thermal_manager = ThermalManager(physics_manager, camera)
 
     def set_clouds_folder(self, folder):
         self.clouds.set_folder(folder)
@@ -48,6 +49,8 @@ class Renderer:
         self.cloud_renderer.draw()
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw_debug_gizmos()
+
+        self.thermal_manager.draw_hover_temperature()
         draw_opts = self.camera.get_draw_options(self.screen)
         self.physics_manager.space.debug_draw(draw_opts)
         self.tool_manager.laser_processor.update()
@@ -61,11 +64,14 @@ class Renderer:
         #     pygame.draw.line(self.screen, (255, 255, 0, 150), pos, pygame.mouse.get_pos(), 3)
         self._draw_textured_bodies()
         self.gizmos_manager.draw()
+        self.thermal_manager.render_heatmap(self.screen)
         if self.script_system: self.script_system.draw(self.screen)
         self.ui_manager.draw(self.screen)
         self._draw_cursor_icon()
         self.app.debug_manager.draw_all_debug_info(self.screen, self.physics_manager, self.camera)
         if self.script_system: self._draw_script_info()
+
+
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)

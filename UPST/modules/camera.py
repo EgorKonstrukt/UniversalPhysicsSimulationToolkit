@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import pymunk
 import pygame
 from pymunk import Vec2d
@@ -320,6 +322,12 @@ class Camera:
     def get_cursor_world_position(self):
         mouse_pos = pygame.mouse.get_pos()
         return self.screen_to_world(mouse_pos)
+
+    def get_viewport_size(self) -> Tuple[float, float]:
+        return (
+            self.screen_width / self.scaling,
+            self.screen_height / self.scaling
+        )
 
     @property
     def position(self):
