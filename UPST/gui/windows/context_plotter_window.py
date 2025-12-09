@@ -236,7 +236,7 @@ class ContextPlotterWindow:
         )
 
     def _resize_plot_area(self):
-        new_w, new_h = self.window.rect.size[0]-295, self.window.rect.size[1]-125
+        new_w, new_h = self.window.rect.size[0]-225, self.window.rect.size[1]-60
         self.plotter.surface_size = (new_w, new_h)
         self.plotter.surface = pygame.Surface((new_w, new_h), pygame.SRCALPHA)
         self.plot_image.set_dimensions((new_w, new_h))

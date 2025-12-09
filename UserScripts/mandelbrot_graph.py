@@ -6,7 +6,7 @@ class MandelbrotGraph:
         self.color = (0, 200, 255)
         self.max_iter = 500
         self.threshold = 4.0
-        self.detail_level = 0.0  # накапливается из dt
+        self.detail_level = 10.0  # накапливается из dt
         self._contour_cache = None
         self._last_view = None
 

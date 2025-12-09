@@ -155,7 +155,22 @@ class CutTool(BaseTool):
                     except Exception: pass
             except Exception: pass
             return False
-
+    def _point_in_poly(self, p, poly_pts):
+        x, y = p
+        inside = False
+        n = len(poly_pts)
+        p1x, p1y = poly_pts[0]
+        for i in range(1, n + 1):
+            p2x, p2y = poly_pts[i % n]
+            if y > min(p1y, p2y):
+                if y <= max(p1y, p2y):
+                    if x <= max(p1x, p2x):
+                        if p1y != p2y:
+                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                        if p1x == p2x or x <= xinters:
+                            inside = not inside
+            p1x, p1y = p2x, p2y
+        return inside
     def _process_cut(self, a, b, thickness):
         stats.increment('objects_cutted', delta=1)
         bodies_to_remove = set()
@@ -169,10 +184,12 @@ class CutTool(BaseTool):
                     bodies_to_remove.add(shape.body)
             elif isinstance(shape, pymunk.Circle):
                 if self._seg_circle_intersect(a, b, shape.body.position, shape.radius):
-                    bodies_to_remove.add(shape.body)
-                    if not self.remove_circles_cb.get_state():
+                    if self.remove_circles_cb.get_state():
+                        bodies_to_remove.add(shape.body)
+                    else:
                         res = self._split_circle_by_segment(shape, a, b)
                         if res:
+                            bodies_to_remove.add(shape.body)
                             for pts in res:
                                 new = self._create_poly_body(pts, shape, shape.body)
                                 if new:
@@ -186,10 +203,6 @@ class CutTool(BaseTool):
                     new2 = self._create_poly_body(p2_pts, shape, shape.body)
                     if new1: to_add.append(new1)
                     if new2: to_add.append(new2)
-                else:
-                    mind = min(self._point_line_dist(v, a, b) for v in self._polygon_world_pts(shape))
-                    if mind <= thickness:
-                        bodies_to_remove.add(shape.body)
 
         for body in bodies_to_remove:
             if body in self.pm.space.bodies:

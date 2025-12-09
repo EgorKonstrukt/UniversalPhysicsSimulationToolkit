@@ -36,17 +36,18 @@ class ToolSystem:
         self.undo_redo = get_undo_redo()
 
     def is_mouse_on_ui(self):
-        return self.ui_manager.manager.get_focus_set()
+        return bool(self.ui_manager.manager.get_focus_set())
 
     def set_ui_manager(self, ui_manager):
         self.ui_manager = ui_manager
-        self._create_tool_settings()
+        self._register_tool_settings()
 
     def set_input_handler(self, input_handler):
         self.input_handler = input_handler
 
     def _register_tools(self):
         from UPST.tools.laser_tool import LaserTool
+
         self.laser_processor = LaserProcessor(self.pm)
         spawn_tools = [
             CircleTool(self.pm),
@@ -75,15 +76,13 @@ class ToolSystem:
             CutTool(self.pm),
             ScriptTool(self.pm),
         ]
-
         self._pending_tools = spawn_tools + constraint_tools + special_tools
 
-    def _create_tool_settings(self):
+    def _register_tool_settings(self):
         if not self.ui_manager:
             return
         for tool in self._pending_tools:
             tool.set_ui_manager(self.ui_manager)
-            tool.create_settings_window()
             self.tools[tool.name] = tool
         self._pending_tools.clear()
 
@@ -91,17 +90,22 @@ class ToolSystem:
         if self.current_tool:
             self.current_tool.deactivate()
         self.current_tool = self.tools[tool_name]
+        if not hasattr(self.current_tool, 'settings_window') or self.current_tool.settings_window is None:
+            self.current_tool.create_settings_window()
         self.current_tool.activate()
         synthesizer.play_frequency(1630, duration=0.03, waveform='sine')
 
     def handle_input(self, world_pos):
-        if self.is_mouse_on_ui:
+        if self.is_mouse_on_ui():
             return
         if self.current_tool and hasattr(self.current_tool, 'handle_input'):
             self.current_tool.handle_input(world_pos)
 
     def handle_event(self, event, world_pos):
-        if self.is_mouse_on_ui:
+        if event.type == pygame_gui.UI_WINDOW_CLOSE:
+            # Пропускаем, чтобы инструмент сам обработал
+            pass
+        elif self.is_mouse_on_ui():
             return
         if self.current_tool:
             self.current_tool.handle_event(event, world_pos)
@@ -141,22 +145,9 @@ class ToolSystem:
             btn = add_tool_btn(name, self.tools[name].icon_path)
             btn.tool_name = name
         add_section("Tools")
-        btn = add_tool_btn("Explosion", self.tools["Explosion"].icon_path)
-        btn.tool_name = "Explosion"
-        btn = add_tool_btn("StaticLine", self.tools["StaticLine"].icon_path)
-        btn.tool_name = "StaticLine"
-        btn = add_tool_btn("Laser", self.tools["Laser"].icon_path)
-        btn.tool_name = "Laser"
-        btn = add_tool_btn("Drag", self.tools["Drag"].icon_path)
-        btn.tool_name = "Drag"
-        btn = add_tool_btn("Move", self.tools["Move"].icon_path)
-        btn.tool_name = "Move"
-        btn = add_tool_btn("Rotate", self.tools["Rotate"].icon_path)
-        btn.tool_name = "Rotate"
-        btn = add_tool_btn("Cut", self.tools["Cut"].icon_path)
-        btn.tool_name = "Cut"
-        btn = add_tool_btn("ScriptTool", self.tools["ScriptTool"].icon_path)
-        btn.tool_name = "ScriptTool"
+        for name in ["Explosion", "StaticLine", "Laser", "Drag", "Move", "Rotate", "Cut", "ScriptTool"]:
+            btn = add_tool_btn(name, self.tools[name].icon_path)
+            btn.tool_name = name
 
 class SpringTool(BaseTool):
     name = "Spring"

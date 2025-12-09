@@ -1,4 +1,5 @@
 import pygame
+import pygame_gui
 from UPST.modules.undo_redo_manager import get_undo_redo
 
 class BaseTool:
@@ -30,6 +31,9 @@ class BaseTool:
         self.preview = None
 
     def handle_event(self, event, world_pos):
+        if event.type == pygame_gui.UI_WINDOW_CLOSE and event.ui_element == self.settings_window:
+            self.settings_window = None
+
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.drag_start = world_pos
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
