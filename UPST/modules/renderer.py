@@ -39,6 +39,9 @@ class Renderer:
         self.clouds.set_physics_manager(physics_manager)
         self.cloud_renderer = CloudRenderer(screen, camera, self.clouds, min_px=10)
 
+        self.graph_expression = None
+        self._graph_cache = None
+
         self.theme = config.world.themes[config.world.current_theme]
         self.default_color = (255, 255, 255)
         self.screen_w, self.screen_h = self.screen.get_size()
@@ -66,7 +69,7 @@ class Renderer:
         seg_cache = {}
         if base_tex:
             tex_w, tex_h = base_tex.get_size()
-            scaled_h = max(1, int(tex_h * self.camera.scaling / 10))
+            scaled_h = max(1, int(tex_h * self.camera.scaling / 15))
             base_scaled = pygame.transform.smoothscale(base_tex, (tex_w, scaled_h)) if tex_h != scaled_h else base_tex
         else:
             base_scaled = None
@@ -145,29 +148,34 @@ class Renderer:
         safe = self.safe_coord
         bodies_to_render = []
 
-        # --- Pass 1: cull and collect ---
-        for shape in self.physics_manager.space.shapes:
-            body = shape.body
+        space_shapes = self.physics_manager.space.shapes
+        cam_scale = camera.scaling
+        for shape in space_shapes:
             if not hasattr(shape, 'color'): continue
             color = shape.color
             if len(color) == 3: color = (*color, 255)
+            body = shape.body
+
             if isinstance(shape, pymunk.Circle):
                 world_pos = body.local_to_world(shape.offset)
-                scr = camera.world_to_screen(world_pos)
-                r_px = shape.radius * camera.scaling
+                scr_x, scr_y = camera.world_to_screen(world_pos)
+                r_px = shape.radius * cam_scale
                 if r_px <= 0: continue
-                dx = max(clip.x, min(scr[0], clip.x + clip.w)) - scr[0]
-                dy = max(clip.y, min(scr[1], clip.y + clip.h)) - scr[1]
+                dx = max(clip.x, min(scr_x, clip.x + clip.w)) - scr_x
+                dy = max(clip.y, min(scr_y, clip.y + clip.h)) - scr_y
                 if dx * dx + dy * dy > r_px * r_px: continue
-                bodies_to_render.append(('circle', scr, r_px, color, body.angle))
+                bodies_to_render.append(('circle', scr_x, scr_y, r_px, color, body.angle))
+
             elif isinstance(shape, pymunk.Poly):
                 verts = [camera.world_to_screen(body.local_to_world(v)) for v in shape.get_vertices()]
                 if len(verts) < 3: continue
                 xs, ys = zip(*verts)
-                obj_rect = pygame.Rect(int(min(xs)), int(min(ys)), int(max(xs) - min(xs)), int(max(ys) - min(ys)))
+                obj_rect = pygame.Rect(int(min(xs)), int(min(ys)), int(max(xs) - min(xs)) + 1,
+                                       int(max(ys) - min(ys)) + 1)
                 if not obj_rect.colliderect(clip): continue
                 int_verts = [(safe(vx), safe(vy)) for vx, vy in verts]
                 bodies_to_render.append(('poly', int_verts, color))
+
             elif isinstance(shape, pymunk.Segment):
                 a_scr = camera.world_to_screen(body.local_to_world(shape.a))
                 b_scr = camera.world_to_screen(body.local_to_world(shape.b))
@@ -178,10 +186,9 @@ class Renderer:
                     t = max(0, min(1, ((clip.x - a_scr[0]) * dx + (clip.y - a_scr[1]) * dy) / lsq))
                     cx, cy = a_scr[0] + t * dx, a_scr[1] + t * dy
                     if not clip.collidepoint(cx, cy): continue
-                r_px = shape.radius * camera.scaling
-                bodies_to_render.append(('segment', a_scr, b_scr, r_px, color))
+                r_px = shape.radius * cam_scale
+                bodies_to_render.append(('segment', a_scr[0], a_scr[1], b_scr[0], b_scr[1], r_px, color))
 
-        # --- Pass 2: batch draw ---
         screen.lock()
         try:
             outline = self.outline_color
@@ -189,14 +196,14 @@ class Renderer:
             for item in bodies_to_render:
                 typ = item[0]
                 if typ == 'circle':
-                    _, pos, r, col, angle = item
-                    self._draw_circle_batched(screen, pos, r, col, outline, othick, angle, safe)
+                    _, x, y, r, col, ang = item
+                    self._draw_circle_batched(screen, (x, y), r, col, outline, othick, ang, safe)
                 elif typ == 'poly':
                     _, verts, col = item
                     self._draw_poly_batched(screen, verts, col, outline, othick)
                 elif typ == 'segment':
-                    _, a, b, r, col = item
-                    self._draw_segment_batched(screen, a, b, r, col, outline, othick, safe)
+                    _, x1, y1, x2, y2, r, col = item
+                    self._draw_segment_batched(screen, (x1, y1), (x2, y2), r, col, outline, othick, safe)
         finally:
             screen.unlock()
 
@@ -260,7 +267,7 @@ class Renderer:
             self._draw_circle_pointer(surf, ix, iy, ir, angle)
 
     def _draw_poly_batched(self, surf, verts, col, outline, othick):
-        r8, g8, b8, a8 = col;
+        r8, g8, b8, a8 = col
         or8, og8, ob8, oa8 = outline
         if a8 == 255:
             pygame.gfxdraw.filled_polygon(surf, verts, (r8, g8, b8))
@@ -269,11 +276,11 @@ class Renderer:
             self._draw_poly_transparent(surf, verts, col, outline, othick)
 
     def _draw_segment_batched(self, surf, a, b, r, col, outline, othick, safe):
-        ix1, iy1 = safe(a[0]), safe(a[1]);
+        ix1, iy1 = safe(a[0]), safe(a[1])
         ix2, iy2 = safe(b[0]), safe(b[1])
-        thick = max(1, int(r));
+        thick = max(1, int(r))
         othick2 = thick + 2 * othick
-        r8, g8, b8, a8 = col;
+        r8, g8, b8, a8 = col
         or8, og8, ob8, oa8 = outline
         if a8 == 255 and oa8 == 255:
             pygame.draw.line(surf, (or8, og8, ob8), (ix1, iy1), (ix2, iy2), othick2)
@@ -302,7 +309,7 @@ class Renderer:
         theme = config.world.themes[config.world.current_theme]
         self.screen.fill(theme.background_color)
         self.cloud_renderer.draw()
-        self.grid_manager.draw(self.screen)
+
         self.gizmos_manager.draw_debug_gizmos()
         # self.thermal_manager.draw_hover_temperature()
         self._draw_physics_shapes()
@@ -310,6 +317,8 @@ class Renderer:
         self.tool_manager.laser_processor.update()
         self.tool_manager.laser_processor.draw(self.screen, self.camera)
         self._draw_textured_bodies()
+
+        self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw()
         # self.thermal_manager.render_heatmap(self.screen)
         if self.script_system: self.script_system.draw(self.screen)
@@ -320,11 +329,59 @@ class Renderer:
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
-
+        self._draw_graph()
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
+    def _draw_graph(self):
+        if not hasattr(self.app, 'console_handler') or not self.app.console_handler.graph_expression:
+            self._graph_cache = None
+            return
+        expr = self.app.console_handler.graph_expression
+        cam = self.camera
+        screen_w, screen_h = self.screen.get_size()
+        vp_w, vp_h = cam.get_viewport_size()
+        cam_tx, cam_ty = cam.translation.tx, cam.translation.ty
+        cam_scale = cam.scaling
 
+        # Ключ кэша: выражение + позиция и масштаб камеры с округлением (допуск ±0.1 пикселя)
+        cache_key = (
+            expr,
+            round(cam_tx, 1), round(cam_ty, 1),
+            round(cam_scale, 3),
+            screen_w, screen_h
+        )
+
+        if self._graph_cache and self._graph_cache[0] == cache_key:
+            points = self._graph_cache[1]
+        else:
+            x_min = cam_tx - vp_w / 2
+            x_max = cam_tx + vp_w / 2
+            steps = max(100, min(2000, screen_w // 2))
+            dx = (x_max - x_min) / steps
+            points = []
+            local_env = {"math": math, "__builtins__": {}}
+            try:
+                for i in range(steps + 1):
+                    x = x_min + i * dx
+                    y = eval(expr, local_env, {"x": x})
+                    if not isinstance(y, (int, float)) or not math.isfinite(y):
+                        continue
+                    scr = cam.world_to_screen((x, y))
+                    if 0 <= scr[0] <= screen_w and 0 <= scr[1] <= screen_h:
+                        points.append((int(round(scr[0])), int(round(scr[1]))))
+            except Exception:
+                points = []
+            self._graph_cache = (cache_key, points)
+
+        if not points:
+            return
+        color = (0, 200, 255, 200)
+        for i in range(1, len(points)):
+            x0, y0 = points[i - 1]
+            x1, y1 = points[i]
+            # Используем gfxdraw для сглаживания
+            pygame.gfxdraw.line(self.screen, x0, y0, x1, y1, color)
     def set_clouds_folder(self, folder):
         self.clouds.set_folder(folder)
 

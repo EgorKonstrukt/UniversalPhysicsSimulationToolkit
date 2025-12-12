@@ -15,6 +15,7 @@ class PhysicsManager:
             self.script_manager = script_manager
             self.undo_redo_manager = undo_redo_manager
             self.space = pymunk.Space(threaded=config.multithreading.pymunk_threaded)
+            # self.space.use_spatial_hash(dim=1, count=10)
             self.space.threads = config.multithreading.pymunk_threads
             self.space.iterations = int(config.physics.iterations)
             self.space.sleep_time_threshold = float(config.physics.sleep_time_threshold)

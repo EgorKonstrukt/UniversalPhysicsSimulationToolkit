@@ -35,14 +35,7 @@ except Exception:
 T = TypeVar('T', bound=Callable)
 
 class ScriptInstance:
-    MAX_USER_THREADS = 16
-    _BUILTIN_NAMES = {
-        "owner", "Gizmos", "Debug", "synthesizer", "pymunk", "time", "math", "random",
-        "threading", "pygame", "self", "traceback", "profile", "thread_lock",
-        "spawn_thread", "log", "set_bg_fps", "threaded", "np", "njit", "Optional",
-        "Any", "Callable", "TypeVar", "Dict", "List", "Tuple", "Union", "Set",
-        "PlotterWindow", "load_script", "pause", "resume", "is_paused"
-    }
+
 
     def __init__(self, code: str, owner: Any, name: str = "Unnamed Script", threaded_default: bool = False, app=None):
         self.code = code
@@ -54,7 +47,7 @@ class ScriptInstance:
         self.thread: Optional[threading.Thread] = None
         self._user_threads: List[threading.Thread] = []
         self.thread_lock = threading.RLock()
-        self._bg_fps = 60.0
+        self._bg_fps = config.scripting.background_fps
         self._stop_event = threading.Event()
         self._last_bg_time: Optional[float] = None
         self.state: Dict[str, Any] = {}
@@ -139,7 +132,7 @@ class ScriptInstance:
             Debug.log_exception(f"Script '{self.name}' compilation error: {traceback.format_exc()}", "Scripting")
             ns = {}
         for k, v in ns.items():
-            if k.startswith('__') or k in self._BUILTIN_NAMES or callable(v) or isinstance(v, type):
+            if k.startswith('__') or k in config.scripting.BUILTIN_NAMES or callable(v) or isinstance(v, type):
                 continue
             if self._is_pickle_safe(v):
                 self.state[k] = v
@@ -194,8 +187,8 @@ class ScriptInstance:
             return None
         with self.thread_lock:
             self._user_threads = [t for t in self._user_threads if t.is_alive()]
-            if len(self._user_threads) >= self.MAX_USER_THREADS:
-                Debug.log_error(f"Script '{self.name}' exceeded thread limit ({self.MAX_USER_THREADS}). Ignoring spawn.", "Scripting")
+            if len(self._user_threads) >= config.scripting.MAX_USER_THREADS:
+                Debug.log_error(f"Script '{self.name}' exceeded thread limit ({config.scripting.MAX_USER_THREADS}). Ignoring spawn.", "Scripting")
                 return None
             t = threading.Thread(target=self._thread_wrapper, args=(target, args, kwargs), daemon=True)
             self._user_threads.append(t)

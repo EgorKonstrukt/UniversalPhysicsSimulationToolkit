@@ -140,7 +140,7 @@ class Application:
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
 
     def setup_screen(self):
-        flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE
+        flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE | pygame.SWSURFACE | pygame.SRCALPHA
         if config.app.fullscreen: flags |= pygame.FULLSCREEN
         if not config.app.use_system_dpi:
             try:

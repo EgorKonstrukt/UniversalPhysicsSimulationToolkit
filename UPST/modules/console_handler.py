@@ -14,6 +14,7 @@ class ConsoleHandler:
         self.python_process = None
         self.output_str = None
         self.data_lock = None
+        self.graph_expression = None
 
     def process_command(self, command):
         if command == 'help':
@@ -28,8 +29,26 @@ class ConsoleHandler:
             self.evaluate_code(command[5:])
         elif command == 'python':
             self.start_python_interpreter()
+        elif command.startswith('graph '):
+            self.handle_graph_command(command[6:])
         else:
             self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Unknown command: {command}")
+
+    def handle_graph_command(self, subcmd):
+        if subcmd == 'clear':
+            self.graph_expression = None
+            if hasattr(self, 'app') and hasattr(self.app, 'renderer'):
+                self.app.renderer._graph_cache = None
+            self.ui_manager.console_ui.console_window.add_output_line_to_log("Graph cleared.")
+        else:
+            try:
+                compile(subcmd, '<graph>', 'eval')
+                self.graph_expression = subcmd
+                if hasattr(self, 'app') and hasattr(self.app, 'renderer'):
+                    self.app.renderer._graph_cache = None
+                self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Graph set to: {subcmd}")
+            except SyntaxError as e:
+                self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Graph syntax error: {e}")
 
     def execute_code(self, code):
         try:
@@ -56,3 +75,5 @@ class ConsoleHandler:
                 "Python interpreter started (limited functionality in refactor).")
         except Exception as e:
             self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Failed to start Python interpreter: {e}")
+
+

@@ -52,6 +52,19 @@ class PhysicsConfig:
     air_density = 1.225
 
 @dataclass
+class ScriptingConfig:
+    MAX_USER_THREADS = 16
+    BUILTIN_NAMES = {
+        "owner", "Gizmos", "Debug", "synthesizer", "pymunk", "time", "math", "random",
+        "threading", "pygame", "self", "traceback", "profile", "thread_lock",
+        "spawn_thread", "log", "set_bg_fps", "threaded", "np", "njit", "Optional",
+        "Any", "Callable", "TypeVar", "Dict", "List", "Tuple", "Union", "Set",
+        "PlotterWindow", "load_script", "pause", "resume", "is_paused"
+    }
+    background_fps = 60
+
+
+@dataclass
 class PhysicsDebugConfig:
     smoothing = True
     smoothing_window = 5  # Глубина буфера (рекомендуется 3–5)
@@ -337,6 +350,7 @@ class Config:
     context_menu: "ContextMenuConfig"
     optics: "OpticsConfig"
     rendering: "RenderingConfig"
+    scripting: "ScriptingConfig"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -428,6 +442,7 @@ Config.register("save_load", SaveLoadConfig)
 Config.register("context_menu", ContextMenuConfig)
 Config.register("optics", OpticsConfig)
 Config.register("rendering", RenderingConfig)
+Config.register("scripting", ScriptingConfig)
 
 def grid_to_dict_custom(self, d: Dict) -> Dict:
     d["default_colors"] = asdict(self.default_colors)
