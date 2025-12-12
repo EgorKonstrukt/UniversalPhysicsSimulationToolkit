@@ -41,7 +41,7 @@ class ScriptInstance:
         "threading", "pygame", "self", "traceback", "profile", "thread_lock",
         "spawn_thread", "log", "set_bg_fps", "threaded", "np", "njit", "Optional",
         "Any", "Callable", "TypeVar", "Dict", "List", "Tuple", "Union", "Set",
-        "PlotterWindow", "load_script"
+        "PlotterWindow", "load_script", "pause", "resume", "is_paused"
     }
 
     def __init__(self, code: str, owner: Any, name: str = "Unnamed Script", threaded_default: bool = False, app=None):
@@ -50,6 +50,7 @@ class ScriptInstance:
         self.owner = owner
         self.name = name
         self.running = False
+        self.paused = False
         self.thread: Optional[threading.Thread] = None
         self._user_threads: List[threading.Thread] = []
         self.thread_lock = threading.RLock()
@@ -202,6 +203,8 @@ class ScriptInstance:
         return t
 
     def _thread_wrapper(self, target: Callable, args, kwargs):
+        while self.running and not self._stop_event.is_set() and self.is_paused():
+            time.sleep(0.01)
         try:
             target(*args, **kwargs)
         except Exception:
@@ -228,11 +231,14 @@ class ScriptInstance:
 
     @profile("update", "scripting")
     def update(self, dt: float):
-        if not self.running or not self._update_main: return
+        if not self.running or not self._update_main or self.is_paused():
+            return
+        start = time.perf_counter()
         try:
             self._update_main(dt)
         except Exception:
-            Debug.log_exception(f"Script '{self.name}' update() error: {traceback.format_exc()}", "Scripting")
+            Debug.log_exception(f"Script '{self.name}' update() error", "Scripting")
+        self._last_exec_time = time.perf_counter() - start
 
     def _join_user_threads(self, timeout_per_thread: float = 0.1):
         with self.thread_lock:
@@ -277,16 +283,33 @@ class ScriptInstance:
             except Exception as e:
                 Debug.log_exception(f"Error in load_state() of '{self.name}': {e}", "Scripting")
 
+    def pause(self):
+        with self.thread_lock:
+            self.paused = True
+
+    def resume(self):
+        with self.thread_lock:
+            self.paused = False
+
+    def is_paused(self) -> bool:
+        with self.thread_lock:
+            return self.paused
+
     def _bg_loop(self):
         self._last_bg_time = time.perf_counter()
         while self.running and not self._stop_event.is_set():
+            if self.is_paused():
+                time.sleep(0.01)
+                continue
             now = time.perf_counter()
             dt_t = self.get_bg_dt()
             if self._update_bg:
+                start = time.perf_counter()
                 try:
                     self._update_bg(dt_t)
                 except Exception:
-                    Debug.log_exception(f"Script '{self.name}' background update error: {traceback.format_exc()}", "Scripting")
+                    Debug.log_exception(f"Script '{self.name}' background update error", "Scripting")
+                self._last_exec_time = time.perf_counter() - start
             elapsed = time.perf_counter() - now
             st = max(0.0, dt_t - elapsed)
             if st > 0: time.sleep(st)

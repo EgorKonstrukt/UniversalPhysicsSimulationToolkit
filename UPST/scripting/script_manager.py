@@ -13,6 +13,19 @@ class ScriptManager:
         self.world_scripts: List[ScriptInstance] = []
         self._body_uuid_map: Dict[uuid.UUID, Any] = {}
 
+    def pause_all_scripts(self):
+        for s in self.get_all_scripts():
+            if s.running:
+                s.pause()
+
+    def resume_all_scripts(self):
+        for s in self.get_all_scripts():
+            if s.running:
+                s.resume()
+
+    def are_any_scripts_paused(self) -> bool:
+        return any(s.is_paused() for s in self.get_all_scripts() if s.running)
+
     def reload_all_scripts(self):
         all_s = self.get_all_scripts()
         r = 0
