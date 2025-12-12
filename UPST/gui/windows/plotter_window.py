@@ -97,7 +97,7 @@ class PlotterWindow:
         )
 
     def _resize_plot_area(self):
-        new_w, new_h = self.window.rect.size[0]-95, self.window.rect.size[1]-100
+        new_w, new_h = self.window.rect.size[0]-35, self.window.rect.size[1]-30
         if new_w <= self.plotter.MARGIN_LEFT or new_h <= 90: return
         plot_height = new_h - 90
         plot_w = new_w

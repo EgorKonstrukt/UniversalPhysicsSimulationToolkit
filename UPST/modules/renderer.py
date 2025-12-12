@@ -139,253 +139,147 @@ class Renderer:
 
     @profile("_draw_physics_shapes", "renderer")
     def _draw_physics_shapes(self):
+        screen = self.screen
+        camera = self.camera
+        clip = self.clip_rect
+        safe = self.safe_coord
+        bodies_to_render = []
 
-
-        draw_circle = self._draw_circle_opt
-        draw_poly = self._draw_poly_opt
-        draw_segment = self._draw_segment_opt
-
+        # --- Pass 1: cull and collect ---
         for shape in self.physics_manager.space.shapes:
             body = shape.body
-            color = (*getattr(shape, 'color', self.default_color[:3]), 255) if len(
-                getattr(shape, 'color', self.default_color)) == 3 else getattr(shape, 'color', self.default_color)
-
-            if isinstance(shape, pymunk.Circle):
-                world_pos = body.local_to_world(shape.offset)
-                radius_px = shape.radius * self.camera.scaling
-                draw_circle(world_pos, radius_px, color, self.outline_color, self.outline_thickness, body, self.clip_rect, self.safe_coord)
-            elif isinstance(shape, pymunk.Poly):
-                vertices = [self.camera.world_to_screen(body.local_to_world(v)) for v in shape.get_vertices()]
-                draw_poly(vertices, color, self.outline_color, self.outline_thickness, self.clip_rect, self.safe_coord)
-            elif isinstance(shape, pymunk.Segment):
-                a_scr = self.camera.world_to_screen(body.local_to_world(shape.a))
-                b_scr = self.camera.world_to_screen(body.local_to_world(shape.b))
-                radius_px = shape.radius * self.camera.scaling
-                draw_segment(a_scr, b_scr, radius_px, color, self.outline_color, self.outline_thickness, self.clip_rect, self.safe_coord)
-
-    def _draw_circle_opt(self, world_pos, radius_px, color, outline_col, thickness, body, clip_rect, safe_coord):
-        if radius_px <= 0: return
-        screen_pos = self.camera.world_to_screen(world_pos)
-        if not (clip_rect.collidepoint(*screen_pos) or (
-        dx := max(clip_rect.x, min(screen_pos[0], clip_rect.x + clip_rect.w)) - screen_pos[0]) ** 2 + (
-                dy := max(clip_rect.y, min(screen_pos[1], clip_rect.y + clip_rect.h)) - screen_pos[
-                    1]) ** 2 <= radius_px * radius_px): return
-        ix, iy = safe_coord(screen_pos[0]), safe_coord(screen_pos[1])
-        ir = min(int(radius_px), 32767)
-        if ir <= 0: return
-
-        r, g, b, a = color
-        or_, og, ob, oa = outline_col
-
-        if a == 255:
-            pygame.gfxdraw.filled_circle(self.screen, ix, iy, ir, (r, g, b))
-        else:
-            size = ir * 2 + 2
-            if size <= 65535:
-                temp = pygame.Surface((size, size), pygame.SRCALPHA)
-                pygame.gfxdraw.filled_circle(temp, ir + 1, ir + 1, ir, (r, g, b, a))
-                self.screen.blit(temp, (ix - ir - 1, iy - ir - 1))
-
-        if oa == 255:
-            for _ in range(thickness):
-                pygame.gfxdraw.aacircle(self.screen, ix, iy, ir - _, (or_, og, ob))
-        else:
-            size = ir * 2 + 2
-            if size <= 65535:
-                temp = pygame.Surface((size, size), pygame.SRCALPHA)
-                for _ in range(thickness):
-                    pygame.gfxdraw.aacircle(temp, ir + 1, ir + 1, ir - _, (or_, og, ob, oa))
-                self.screen.blit(temp, (ix - ir - 1, iy - ir - 1))
-
-        body_angle = body.angle
-        pointer_len = ir
-        wedge_angle = math.radians(20)
-        cos_a, sin_a = math.cos(body_angle), math.sin(body_angle)
-        tip = (ix + int(cos_a * pointer_len), iy + int(sin_a * pointer_len))
-        left = (ix + int(math.cos(body_angle - wedge_angle / 2) * pointer_len),
-                iy + int(math.sin(body_angle - wedge_angle / 2) * pointer_len))
-        right = (ix + int(math.cos(body_angle + wedge_angle / 2) * pointer_len),
-                 iy + int(math.sin(body_angle + wedge_angle / 2) * pointer_len))
-        wedge = [(ix, iy), left, right]
-        if all(self.INT16_MIN <= p[0] <= self.INT16_MAX and self.INT16_MIN <= p[1] <= self.INT16_MAX for p in wedge):
-            pygame.gfxdraw.filled_polygon(self.screen, wedge, (0, 0, 0, 140))
-            pygame.gfxdraw.aapolygon(self.screen, wedge, (0, 0, 0, 140))
-
-    def _draw_poly_opt(self, vertices, color, outline_col, thickness, clip_rect, safe_coord):
-        if len(vertices) < 3: return
-        xs, ys = zip(*vertices)
-        obj_rect = pygame.Rect(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
-        if not obj_rect.colliderect(clip_rect): return
-        int_v = [(safe_coord(vx), safe_coord(vy)) for vx, vy in vertices]
-        r, g, b, a = color
-        or_, og, ob, oa = outline_col
-
-        if a == 255:
-            pygame.gfxdraw.filled_polygon(self.screen, int_v, (r, g, b))
-        else:
-            min_x, max_x = min(v[0] for v in int_v), max(v[0] for v in int_v)
-            min_y, max_y = min(v[1] for v in int_v), max(v[1] for v in int_v)
-            w, h = max_x - min_x + 2, max_y - min_y + 2
-            if w > 0 and h > 0 and w <= 65535 and h <= 65535:
-                temp = pygame.Surface((w, h), pygame.SRCALPHA)
-                shifted = [(x - min_x + 1, y - min_y + 1) for x, y in int_v]
-                pygame.gfxdraw.filled_polygon(temp, shifted, (r, g, b, a))
-                self.screen.blit(temp, (min_x - 1, min_y - 1))
-
-        if oa == 255:
-            pygame.gfxdraw.aapolygon(self.screen, int_v, (or_, og, ob))
-        else:
-            min_x, max_x = min(v[0] for v in int_v), max(v[0] for v in int_v)
-            min_y, max_y = min(v[1] for v in int_v), max(v[1] for v in int_v)
-            w, h = max_x - min_x + 2, max_y - min_y + 2
-            if w > 0 and h > 0 and w <= 65535 and h <= 65535:
-                temp = pygame.Surface((w, h), pygame.SRCALPHA)
-                shifted = [(x - min_x + 1, y - min_y + 1) for x, y in int_v]
-                pygame.gfxdraw.aapolygon(temp, shifted, (or_, og, ob, oa))
-                self.screen.blit(temp, (min_x - 1, min_y - 1))
-
-    def _draw_segment_opt(self, a_scr, b_scr, radius, color, outline_col, thickness, clip_rect, safe_coord):
-        ax, ay, bx, by = a_scr[0], a_scr[1], b_scr[0], b_scr[1]
-        if not (clip_rect.collidepoint(ax, ay) or clip_rect.collidepoint(bx, by)):
-            dx, dy = bx - ax, by - ay
-            lsq = dx * dx + dy * dy
-            if lsq == 0: return
-            t = max(0, min(1, ((clip_rect.x - ax) * dx + (clip_rect.y - ay) * dy) / lsq))
-            cx, cy = ax + t * dx, ay + t * dy
-            if not clip_rect.collidepoint(cx, cy): return
-        ix1, iy1 = safe_coord(ax), safe_coord(ay)
-        ix2, iy2 = safe_coord(bx), safe_coord(by)
-        r, g, b_col, a_col = color
-        or_, og, ob, oa = outline_col
-        line_thick = max(1, int(radius))
-
-        if a_col == 255:
-            pygame.draw.line(self.screen, (r, g, b_col), (ix1, iy1), (ix2, iy2), line_thick)
-        else:
-            w, h = abs(ix2 - ix1) + 4, abs(iy2 - iy1) + 4
-            temp = pygame.Surface((w, h), pygame.SRCALPHA)
-            off_x, off_y = min(ix1, ix2) - 2, min(iy1, iy2) - 2
-            pygame.draw.line(temp, (r, g, b_col, a_col), (ix1 - off_x, iy1 - off_y), (ix2 - off_x, iy2 - off_y),
-                             line_thick)
-            self.screen.blit(temp, (off_x, off_y))
-
-        full_thick = line_thick + 2 * thickness
-        if oa == 255:
-            pygame.draw.line(self.screen, (or_, og, ob), (ix1, iy1), (ix2, iy2), full_thick)
-            pygame.draw.line(self.screen, (r, g, b_col), (ix1, iy1), (ix2, iy2), line_thick)
-        else:
-            w, h = abs(ix2 - ix1) + full_thick + 2, abs(iy2 - iy1) + full_thick + 2
-            temp = pygame.Surface((w, h), pygame.SRCALPHA)
-            off_x, off_y = min(ix1, ix2) - full_thick // 2 - 1, min(iy1, iy2) - full_thick // 2 - 1
-            pygame.draw.line(temp, (or_, og, ob, oa), (ix1 - off_x, iy1 - off_y), (ix2 - off_x, iy2 - off_y),
-                             full_thick)
-            pygame.draw.line(temp, (r, g, b_col, a_col), (ix1 - off_x, iy1 - off_y), (ix2 - off_x, iy2 - off_y),
-                             line_thick)
-            self.screen.blit(temp, (off_x, off_y))
-        @profile("draw_poly_filled_and_outline", "_draw_physics_shapes")
-        def draw_poly_filled_and_outline(vertices, color, outline_col, thickness):
-            if len(vertices) < 3: return
-            xs, ys = zip(*vertices)
-            obj_rect = pygame.Rect(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
-            if not obj_rect.colliderect(clip_rect): return
-            int_vertices = [(safe_coord(vx), safe_coord(vy)) for vx, vy in vertices]
-            r, g, b, a = color
-            or_, og, ob, oa = outline_col
-            # filled
-            if a == 255:
-                pygame.gfxdraw.filled_polygon(self.screen, int_vertices, (r, g, b))
-            else:
-                min_xp = min(v[0] for v in int_vertices)
-                max_xp = max(v[0] for v in int_vertices)
-                min_yp = min(v[1] for v in int_vertices)
-                max_yp = max(v[1] for v in int_vertices)
-                w, h = max_xp - min_xp + 2, max_yp - min_yp + 2
-                if w > 0 and h > 0 and w <= 65535 and h <= 65535:
-                    temp = pygame.Surface((w, h), pygame.SRCALPHA)
-                    shifted = [(x - min_xp + 1, y - min_yp + 1) for x, y in int_vertices]
-                    pygame.gfxdraw.filled_polygon(temp, shifted, (r, g, b, a))
-                    self.screen.blit(temp, (min_xp - 1, min_yp - 1))
-            # outline
-            if oa == 255:
-                for _ in range(thickness):
-                    offset_verts = [(x + _, y) for x, y in int_vertices]  # simple inset; sufficient for 1px
-                    pygame.gfxdraw.aapolygon(self.screen, offset_verts, (or_, og, ob))
-            else:
-                min_xp = min(v[0] for v in int_vertices)
-                max_xp = max(v[0] for v in int_vertices)
-                min_yp = min(v[1] for v in int_vertices)
-                max_yp = max(v[1] for v in int_vertices)
-                w, h = max_xp - min_xp + 2, max_yp - min_yp + 2
-                if w > 0 and h > 0 and w <= 65535 and h <= 65535:
-                    temp = pygame.Surface((w, h), pygame.SRCALPHA)
-                    shifted = [(x - min_xp + 1, y - min_yp + 1) for x, y in int_vertices]
-                    for _ in range(thickness):
-                        pygame.gfxdraw.aapolygon(temp, shifted, (or_, og, ob, oa))
-                    self.screen.blit(temp, (min_xp - 1, min_yp - 1))
-        @profile("draw_segment_with_outline", "_draw_physics_shapes")
-        def draw_segment_with_outline(a_scr, b_scr, radius, color, outline_col, thickness):
-            ax, ay = a_scr
-            bx, by = b_scr
-            if not (clip_rect.collidepoint(ax, ay) or clip_rect.collidepoint(bx, by)):
-                dx = bx - ax
-                dy = by - ay
-                lsq = dx * dx + dy * dy
-                if lsq == 0: return
-                t = max(0, min(1, ((clip_rect.x - ax) * dx + (clip_rect.y - ay) * dy) / lsq))
-                cx, cy = ax + t * dx, ay + t * dy
-                if not clip_rect.collidepoint(cx, cy): return
-            ix1, iy1 = safe_coord(ax), safe_coord(ay)
-            ix2, iy2 = safe_coord(bx), safe_coord(by)
-            r, g, b_col, a_col = color
-            or_, og, ob, oa = outline_col
-            line_thickness = max(1, int(radius))
-            if a_col == 255:
-                pygame.draw.line(self.screen, (r, g, b_col), (ix1, iy1), (ix2, iy2), line_thickness)
-            else:
-                temp = pygame.Surface((abs(ix2 - ix1) + 4, abs(iy2 - iy1) + 4), pygame.SRCALPHA)
-                off_x, off_y = min(ix1, ix2) - 2, min(iy1, iy2) - 2
-                pygame.draw.line(temp, (r, g, b_col, a_col), (ix1 - off_x, iy1 - off_y), (ix2 - off_x, iy2 - off_y),
-                                 line_thickness)
-                self.screen.blit(temp, (off_x, off_y))
-            # outline
-            if oa == 255:
-                pygame.draw.line(self.screen, (or_, og, ob), (ix1, iy1), (ix2, iy2),
-                                 min(line_thickness + 2 * thickness, 32767))
-                pygame.draw.line(self.screen, (r, g, b_col), (ix1, iy1), (ix2, iy2), line_thickness)
-            else:
-                full_thick = line_thickness + 2 * thickness
-                temp = pygame.Surface((abs(ix2 - ix1) + full_thick + 2, abs(iy2 - iy1) + full_thick + 2),
-                                      pygame.SRCALPHA)
-                off_x = min(ix1, ix2) - full_thick // 2 - 1
-                off_y = min(iy1, iy2) - full_thick // 2 - 1
-                pygame.draw.line(temp, (or_, og, ob, oa), (ix1 - off_x, iy1 - off_y), (ix2 - off_x, iy2 - off_y),
-                                 full_thick)
-                pygame.draw.line(temp, (r, g, b_col, a_col), (ix1 - off_x, iy1 - off_y), (ix2 - off_x, iy2 - off_y),
-                                 line_thickness)
-                self.screen.blit(temp, (off_x, off_y))
-
-        for shape in self.physics_manager.space.shapes:
-            body = shape.body
-            color = getattr(shape, 'color', self.default_color)
+            if not hasattr(shape, 'color'): continue
+            color = shape.color
             if len(color) == 3: color = (*color, 255)
-
             if isinstance(shape, pymunk.Circle):
                 world_pos = body.local_to_world(shape.offset)
-                radius_px = shape.radius * self.camera.scaling
-                self._draw_circle_opt(world_pos, radius_px, color, self.outline_color, self.outline_thickness)
-
+                scr = camera.world_to_screen(world_pos)
+                r_px = shape.radius * camera.scaling
+                if r_px <= 0: continue
+                dx = max(clip.x, min(scr[0], clip.x + clip.w)) - scr[0]
+                dy = max(clip.y, min(scr[1], clip.y + clip.h)) - scr[1]
+                if dx * dx + dy * dy > r_px * r_px: continue
+                bodies_to_render.append(('circle', scr, r_px, color, body.angle))
             elif isinstance(shape, pymunk.Poly):
-                vertices = [self.camera.world_to_screen(body.local_to_world(v)) for v in shape.get_vertices()]
-                draw_poly_filled_and_outline(vertices, color, self.outline_color, self.outline_thickness)
-
+                verts = [camera.world_to_screen(body.local_to_world(v)) for v in shape.get_vertices()]
+                if len(verts) < 3: continue
+                xs, ys = zip(*verts)
+                obj_rect = pygame.Rect(int(min(xs)), int(min(ys)), int(max(xs) - min(xs)), int(max(ys) - min(ys)))
+                if not obj_rect.colliderect(clip): continue
+                int_verts = [(safe(vx), safe(vy)) for vx, vy in verts]
+                bodies_to_render.append(('poly', int_verts, color))
             elif isinstance(shape, pymunk.Segment):
-                a_world = body.local_to_world(shape.a)
-                b_world = body.local_to_world(shape.b)
-                a_screen = self.camera.world_to_screen(a_world)
-                b_screen = self.camera.world_to_screen(b_world)
-                radius_px = shape.radius * self.camera.scaling
-                draw_segment_with_outline(a_screen, b_screen, radius_px, color, self.outline_color, self.outline_thickness)
+                a_scr = camera.world_to_screen(body.local_to_world(shape.a))
+                b_scr = camera.world_to_screen(body.local_to_world(shape.b))
+                if not (clip.collidepoint(*a_scr) or clip.collidepoint(*b_scr)):
+                    dx, dy = b_scr[0] - a_scr[0], b_scr[1] - a_scr[1]
+                    lsq = dx * dx + dy * dy
+                    if lsq == 0: continue
+                    t = max(0, min(1, ((clip.x - a_scr[0]) * dx + (clip.y - a_scr[1]) * dy) / lsq))
+                    cx, cy = a_scr[0] + t * dx, a_scr[1] + t * dy
+                    if not clip.collidepoint(cx, cy): continue
+                r_px = shape.radius * camera.scaling
+                bodies_to_render.append(('segment', a_scr, b_scr, r_px, color))
 
+        # --- Pass 2: batch draw ---
+        screen.lock()
+        try:
+            outline = self.outline_color
+            othick = self.outline_thickness
+            for item in bodies_to_render:
+                typ = item[0]
+                if typ == 'circle':
+                    _, pos, r, col, angle = item
+                    self._draw_circle_batched(screen, pos, r, col, outline, othick, angle, safe)
+                elif typ == 'poly':
+                    _, verts, col = item
+                    self._draw_poly_batched(screen, verts, col, outline, othick)
+                elif typ == 'segment':
+                    _, a, b, r, col = item
+                    self._draw_segment_batched(screen, a, b, r, col, outline, othick, safe)
+        finally:
+            screen.unlock()
+
+    def _draw_circle_transparent(self, surf, ix, iy, ir, col, outline, othick):
+        size = ir * 2 + 2
+        if size > 65535: return
+        temp = pygame.Surface((size, size), pygame.SRCALPHA)
+        pygame.gfxdraw.filled_circle(temp, ir + 1, ir + 1, ir, col)
+        for t in range(othick):
+            pygame.gfxdraw.aacircle(temp, ir + 1, ir + 1, ir - t, outline)
+        surf.blit(temp, (ix - ir - 1, iy - ir - 1))
+
+    def _draw_poly_transparent(self, surf, verts, col, outline, othick):
+        min_x = min(v[0] for v in verts)
+        max_x = max(v[0] for v in verts)
+        min_y = min(v[1] for v in verts)
+        max_y = max(v[1] for v in verts)
+        w, h = max_x - min_x + 2, max_y - min_y + 2
+        if w <= 0 or h <= 0 or w > 65535 or h > 65535: return
+        temp = pygame.Surface((w, h), pygame.SRCALPHA)
+        shifted = [(x - min_x + 1, y - min_y + 1) for x, y in verts]
+        pygame.gfxdraw.filled_polygon(temp, shifted, col)
+        pygame.gfxdraw.aapolygon(temp, shifted, outline)
+        surf.blit(temp, (min_x - 1, min_y - 1))
+
+    def _draw_segment_transparent(self, surf, x1, y1, x2, y2, thick, othick2, col, outline):
+        w = abs(x2 - x1) + othick2 + 2
+        h = abs(y2 - y1) + othick2 + 2
+        if w <= 0 or h <= 0: return
+        temp = pygame.Surface((w, h), pygame.SRCALPHA)
+        ox = min(x1, x2) - othick2 // 2 - 1
+        oy = min(y1, y2) - othick2 // 2 - 1
+        pygame.draw.line(temp, outline, (x1 - ox, y1 - oy), (x2 - ox, y2 - oy), othick2)
+        pygame.draw.line(temp, col, (x1 - ox, y1 - oy), (x2 - ox, y2 - oy), thick)
+        surf.blit(temp, (ox, oy))
+
+    def _draw_circle_pointer(self, surf, ix, iy, ir, angle):
+        plen = ir
+        wa = math.radians(20)
+        ca, sa = math.cos(angle), math.sin(angle)
+        tip = (ix + int(ca * plen), iy + int(sa * plen))
+        lft = (ix + int(math.cos(angle - wa / 2) * plen), iy + int(math.sin(angle - wa / 2) * plen))
+        rgt = (ix + int(math.cos(angle + wa / 2) * plen), iy + int(math.sin(angle + wa / 2) * plen))
+        wedge = [(ix, iy), lft, rgt]
+        if all(self.INT16_MIN <= x <= self.INT16_MAX and self.INT16_MIN <= y <= self.INT16_MAX for x, y in wedge):
+            pygame.gfxdraw.filled_polygon(surf, wedge, (0, 0, 0, 140))
+            pygame.gfxdraw.aapolygon(surf, wedge, (0, 0, 0, 140))
+    def _draw_circle_batched(self, surf, pos, r, col, outline, othick, angle, safe):
+        ix, iy = safe(pos[0]), safe(pos[1])
+        ir = int(r)
+        if ir <= 0: return
+        r8, g8, b8, a8 = col
+        or8, og8, ob8, oa8 = outline
+        if a8 == 255:
+            pygame.gfxdraw.filled_circle(surf, ix, iy, ir, (r8, g8, b8))
+            for t in range(othick):
+                pygame.gfxdraw.aacircle(surf, ix, iy, ir - t, (or8, og8, ob8))
+        else:
+            self._draw_circle_transparent(surf, ix, iy, ir, col, outline, othick)
+        if ir > 3:
+            self._draw_circle_pointer(surf, ix, iy, ir, angle)
+
+    def _draw_poly_batched(self, surf, verts, col, outline, othick):
+        r8, g8, b8, a8 = col;
+        or8, og8, ob8, oa8 = outline
+        if a8 == 255:
+            pygame.gfxdraw.filled_polygon(surf, verts, (r8, g8, b8))
+            pygame.gfxdraw.aapolygon(surf, verts, (or8, og8, ob8))
+        else:
+            self._draw_poly_transparent(surf, verts, col, outline, othick)
+
+    def _draw_segment_batched(self, surf, a, b, r, col, outline, othick, safe):
+        ix1, iy1 = safe(a[0]), safe(a[1]);
+        ix2, iy2 = safe(b[0]), safe(b[1])
+        thick = max(1, int(r));
+        othick2 = thick + 2 * othick
+        r8, g8, b8, a8 = col;
+        or8, og8, ob8, oa8 = outline
+        if a8 == 255 and oa8 == 255:
+            pygame.draw.line(surf, (or8, og8, ob8), (ix1, iy1), (ix2, iy2), othick2)
+            pygame.draw.line(surf, (r8, g8, b8), (ix1, iy1), (ix2, iy2), thick)
+        else:
+            self._draw_segment_transparent(surf, ix1, iy1, ix2, iy2, thick, othick2, col, outline)
     @profile("_get_scaled_texture_by_camera", "_draw_physics_shapes")
     def _get_scaled_texture_by_camera(self, path, base_scale=1.0):
         if not path:
