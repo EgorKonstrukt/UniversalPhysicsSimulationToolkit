@@ -138,7 +138,7 @@ class SaveLoadManager:
                 "moment": float(getattr(body, "moment", 1.0)), "body_type": int(body.body_type), "shapes": shapes_data,
                 "texture_path": texture_path, "texture_bytes": tex_bytes, "texture_size": tex_size,
                 "texture_scale": float(getattr(body, "texture_scale", 1.0)),
-                "stretch_texture": bool(getattr(body, "stretch_texture", True))
+                "stretch_texture": bool(getattr(body, "stretch_texture", True)),
             }
             data["bodies"].append(body_data)
 

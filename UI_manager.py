@@ -2,6 +2,9 @@ import pygame
 import pygame_gui
 import os
 import sys
+
+import pymunk
+
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
 from UPST.gui.contex_menu import ContextMenu
@@ -94,6 +97,14 @@ class UIManager:
         self.color_picker_for_shape = shape_type
 
     def process_event(self, event, game_app):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            if not self.manager.get_hovering_any_element():
+                if not self.manager.hovering_any_ui_element:
+                    world_pos = self.camera.screen_to_world(event.pos)
+                    shapes = self.physics_manager.space.point_query(world_pos, 0, pymunk.ShapeFilter())
+                    clicked_obj = shapes[0].shape.body if shapes else None
+                    self.open_context_menu(event.pos, clicked_obj)
+
         if event.type == pygame.USEREVENT:
             if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
                 self._handle_button_press(event, game_app)
@@ -126,7 +137,6 @@ class UIManager:
         for w in list(self.plotter_windows):
             try: w.handle_event(event)
             except Exception: Debug.log_exception("Error dispatching plotter event.", "GUI")
-
     def _handle_button_press(self, event, game_app):
         if event.ui_element in self.force_field_ui.force_field_buttons:
             self.force_field_ui.handle_button_press(event.ui_element, game_app)

@@ -73,6 +73,7 @@ class GearTool(BaseTool):
         body=pymunk.Body(mass,pymunk.moment_for_poly(mass,pts))
         body.position=pos
         body.angle=angle
+        body.custom_force = pygame.math.Vector2(0, 0)
         sh=pymunk.Poly(body,pts)
         sh.friction=0.9
         sh.elasticity=0.0

@@ -47,6 +47,7 @@ class TriangleTool(BaseTool):
         mass = (size ** 2) / 200
         body = pymunk.Body(mass, pymunk.moment_for_poly(mass, points))
         body.position = pos
+        body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Poly(body, points)
         shape.friction = float(self.friction_entry.get_text())
         shape.elasticity = float(self.elasticity_entry.get_text())
@@ -63,6 +64,7 @@ class TriangleTool(BaseTool):
         mass = (size ** 2) / 200
         body = pymunk.Body(mass, pymunk.moment_for_poly(mass, points))
         body.position = start
+        body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Poly(body, points)
         shape.friction = float(self.friction_entry.get_text())
         shape.elasticity = float(self.elasticity_entry.get_text())

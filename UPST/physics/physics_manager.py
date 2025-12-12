@@ -100,6 +100,7 @@ class PhysicsManager:
             prev_pos = {b: b.position for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}
             while self._accumulator >= effective_dt:
                 self._apply_air_friction()
+
                 self.space.step(effective_dt)
                 if self._angular_damping > 0.0:
                     k = max(0.0, min(1.0, 1.0 - self._angular_damping))

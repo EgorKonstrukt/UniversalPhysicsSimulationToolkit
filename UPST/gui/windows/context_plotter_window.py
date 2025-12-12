@@ -71,7 +71,11 @@ class ContextPlotterWindow:
         if key == "pot_grav_en": return -o.mass * 9.81 * o.position.y
         if key == "pot_en_sum": return -o.mass * 9.81 * o.position.y
         if key == "en_sum": return 0.5 * o.mass * (o.velocity.x**2 + o.velocity.y**2) + 0.5 * o.moment * o.angular_velocity**2 - o.mass * 9.81 * o.position.y
-
+        if key == "force_x": return getattr(o, 'custom_force', pygame.math.Vector2(0,0)).x
+        if key == "force_y": return getattr(o, 'custom_force', pygame.math.Vector2(0,0)).y
+        if key == "force_mag":
+            cf = getattr(o, 'custom_force', pygame.math.Vector2(0,0))
+            return (cf.x**2 + cf.y**2)**0.5
         return 0.0
 
     def fetch_and_add_data(self, elapsed_time):
