@@ -19,6 +19,12 @@ class OpticsConfig:
     ALPHA_EPS = 1e-6
 
 @dataclass
+class RenderingConfig:
+    spring_texture = "sprites/app/spring.png"
+    spring_point_a_texture = "sprites/app/spring_attachment.png"
+    spring_point_b_texture = "sprites/app/spring_attachment.png"
+
+@dataclass
 class ContextMenuConfig:
     button_height = 30
     button_spacing = -4
@@ -330,6 +336,7 @@ class Config:
     save_load: "SaveLoadConfig"
     context_menu: "ContextMenuConfig"
     optics: "OpticsConfig"
+    rendering: "RenderingConfig"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -420,6 +427,7 @@ Config.register("texture_editor", TextureEditorConfig)
 Config.register("save_load", SaveLoadConfig)
 Config.register("context_menu", ContextMenuConfig)
 Config.register("optics", OpticsConfig)
+Config.register("rendering", RenderingConfig)
 
 def grid_to_dict_custom(self, d: Dict) -> Dict:
     d["default_colors"] = asdict(self.default_colors)
