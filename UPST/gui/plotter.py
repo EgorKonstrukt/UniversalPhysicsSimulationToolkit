@@ -1,17 +1,11 @@
-import collections
-import math
+import collections, math, pygame, time
 from typing import Dict, List, Optional, Tuple
-import pygame
-import time
-
 
 
 class Plotter:
-    BASE_COLORS: List[Tuple[int, int, int]] = [
-        (0, 255, 255), (255, 105, 180), (147, 255, 180), (255, 215, 0),
-        (130, 130, 255), (255, 165, 0), (255, 99, 71), (128, 0, 128),
-        (255, 192, 203), (144, 238, 144), (255, 160, 122), (173, 216, 230)
-    ]
+    BASE_COLORS: List[Tuple[int, int, int]] = [(0, 255, 255), (255, 105, 180), (147, 255, 180), (255, 215, 0),
+                                               (130, 130, 255), (255, 165, 0), (255, 99, 71), (128, 0, 128),
+                                               (255, 192, 203), (144, 238, 144), (255, 160, 122), (173, 216, 230)]
     FONT_NAME: str = "Consolas"
     BG_COLOR: Tuple[int, int, int, int] = (0, 0, 0, 255)
     LABEL_BG_COLOR: Tuple[int, int, int] = (40, 40, 40)
@@ -20,6 +14,11 @@ class Plotter:
     TEXT_COLOR: Tuple[int, int, int] = (180, 180, 180)
     NO_DATA_COLOR: Tuple[int, int, int] = (128, 128, 128)
     FILTER_LABEL_COLOR: Tuple[int, int, int] = (200, 200, 200)
+    AXIS_COLOR: Tuple[int, int, int] = (200, 200, 200)
+    ZERO_COLOR: Tuple[int, int, int] = (255, 255, 100)
+    ENVELOPE_COLOR: Tuple[int, int, int] = (255, 120, 255)
+    SPECTRUM_BG: Tuple[int, int, int] = (30, 30, 40)
+    SPECTRUM_BAR_COLOR: Tuple[int, int, int] = (100, 200, 255)
     MARGIN_TOP: int = 20
     MARGIN_BOTTOM: int = 30
     MARGIN_LEFT: int = 60
@@ -27,13 +26,15 @@ class Plotter:
     LABEL_LINE_SPACING: int = 18
     FILTER_LABEL_X_OFFSET: int = 150
     GRID_LABEL_X_OFFSET: int = 60
-    AXIS_COLOR: Tuple[int, int, int] = (200, 200, 200)
     BASE_GRID_PIXEL_STEP: int = 50
     PADDING_RATIO: float = 0.1
 
     def __init__(self, surface_size: Tuple[int, int], max_samples: int = 120,
                  smoothing_factor: float = 0.15, font_size: int = 16, sort_by_value: bool = True,
-                 x_label: str = "", y_label: str = "", grid_density: float = 1.0):
+                 x_label: str = "", y_label: str = "", grid_density: float = 1.0,
+                 min_peaks_for_osc: int = 3, min_crossings_for_osc: int = 2,
+                 min_extrema_for_osc: int = 3, osc_cache_ttl: int = 10,
+                 enable_osc_analysis: bool = True):
         self.surface_size = surface_size
         self.max_samples = max(1, int(max_samples))
         self.smoothing_factor = smoothing_factor
@@ -41,10 +42,13 @@ class Plotter:
         self.x_label = x_label
         self.y_label = y_label
         self.grid_density = max(0.1, float(grid_density))
-        self.data: Dict[str, collections.deque] = collections.defaultdict(
-            lambda: collections.deque(maxlen=self.max_samples))
-        self.x_data: Dict[str, collections.deque] = collections.defaultdict(
-            lambda: collections.deque(maxlen=self.max_samples))
+        self.min_peaks_for_osc = min_peaks_for_osc
+        self.min_crossings_for_osc = min_crossings_for_osc
+        self.min_extrema_for_osc = min_extrema_for_osc
+        self.osc_cache_ttl = osc_cache_ttl
+        self.enable_osc_analysis = enable_osc_analysis
+        self.data: Dict[str, collections.deque] = collections.defaultdict(lambda: collections.deque(maxlen=self.max_samples))
+        self.x_data: Dict[str, collections.deque] = collections.defaultdict(lambda: collections.deque(maxlen=self.max_samples))
         self.colors: Dict[str, Tuple[int, int, int]] = {}
         self.hidden_keys: set = set()
         self.overlay_mode: bool = True
@@ -55,26 +59,21 @@ class Plotter:
         self.group_visibility: Dict[str, bool] = {}
         self.current_group_filter: str = "All"
         self.available_groups: set = {"ungrouped"}
+        self._osc_cache: Dict[str, Tuple[Dict, int]] = {}
+        self._frame_counter: int = 0
 
     @staticmethod
     def _nice_step(range_val: float, pixel_length: int, density: float = 1.0) -> float:
-        if range_val <= 0:
-            return 1.0
-
+        if range_val <= 0: return 1.0
         target_steps = max(2, int(pixel_length / 50))
         step_approx = range_val / target_steps
         exponent = int(math.floor(math.log10(step_approx)))
         mantissa = step_approx / (10 ** exponent)
-        if mantissa <= 0.5:
-            nice_mantissa = 0.5
-        elif mantissa <= 1:
-            nice_mantissa = 1.0
-        elif mantissa <= 2:
-            nice_mantissa = 2.0
-        elif mantissa <= 5:
-            nice_mantissa = 5.0
-        else:
-            nice_mantissa = 10.0
+        if mantissa <= 0.5: nice_mantissa = 0.5
+        elif mantissa <= 1: nice_mantissa = 1.0
+        elif mantissa <= 2: nice_mantissa = 2.0
+        elif mantissa <= 5: nice_mantissa = 5.0
+        else: nice_mantissa = 10.0
         base_step = nice_mantissa * (10 ** exponent)
         return base_step / max(0.1, density)
 
@@ -85,8 +84,7 @@ class Plotter:
 
     def add_data(self, key: str, y: float, x: Optional[float] = None, group: Optional[str] = None) -> None:
         self.data[key].append(y)
-        if x is None:
-            x = time.perf_counter() * 1000
+        if x is None: x = time.perf_counter() * 1000
         self.x_data[key].append(x)
         group = group or "ungrouped"
         self.groups[key] = group
@@ -96,16 +94,20 @@ class Plotter:
     def set_overlay_mode(self, mode: bool) -> None: self.overlay_mode = mode
     def set_sort_by_value(self, sort_by_value: bool) -> None: self.sort_by_value = sort_by_value
     def clear_data(self) -> None:
-        self.data.clear(); self.x_data.clear(); self.groups.clear(); self.available_groups = {"ungrouped"}; self.group_visibility.clear()
+        self.data.clear(); self.x_data.clear(); self.groups.clear()
+        self.available_groups = {"ungrouped"}; self.group_visibility.clear()
+        self._osc_cache.clear()
     def hide_key(self, key: str) -> None: self.hidden_keys.add(key)
     def show_key(self, key: str) -> None: self.hidden_keys.discard(key)
     def clear_key(self, key: str) -> None:
         self.data.pop(key, None); self.x_data.pop(key, None)
+        self._osc_cache.pop(key, None)
     def set_group_filter(self, group_name: str) -> None: self.current_group_filter = group_name
     def get_available_groups(self) -> List[str]:
         return ["All"] + sorted(self.available_groups - {"ungrouped"}) if len(self.available_groups) > 1 else ["All"]
     def set_group_visibility(self, group_name: str, visible: bool) -> None: self.group_visibility[group_name] = visible
     def is_group_visible(self, group_name: str) -> bool: return self.group_visibility.get(group_name, True)
+    def set_osc_analysis_enabled(self, enable: bool) -> None: self.enable_osc_analysis = enable
 
     def _get_filtered_keys(self) -> List[str]:
         keys = [k for k in self.data if k not in self.hidden_keys]
@@ -126,61 +128,186 @@ class Plotter:
         if len(ys) < 3: return [], []
         peaks, troughs = [], []
         for i in range(1, len(ys) - 1):
-            dy_prev, dy_next = ys[i] - ys[i-1], ys[i] - ys[i+1]
-            if dy_prev > 1e-9 and dy_next > 1e-9:
-                prominence = min(dy_prev, dy_next)
+            window = ys[max(0, i - 2):min(len(ys), i + 3)]
+            local_max = max(window); local_min = min(window)
+            if ys[i] == local_max and ys[i] > ys[i - 1] and ys[i] > ys[i + 1]:
+                prominence = ys[i] - max(ys[i - 1], ys[i + 1])
                 peaks.append((i, prominence))
-            elif dy_prev < -1e-9 and dy_next < -1e-9:
-                prominence = min(-dy_prev, -dy_next)
+            elif ys[i] == local_min and ys[i] < ys[i - 1] and ys[i] < ys[i + 1]:
+                prominence = min(ys[i - 1], ys[i + 1]) - ys[i]
                 troughs.append((i, prominence))
         return peaks, troughs
 
-    def _render_extrema_markers(self, pts: List[Tuple[float, float]], peaks: List[Tuple[int, float]],
-                                troughs: List[Tuple[int, float]]) -> None:
-        peak_tri, trough_tri = [], []
-        peak_labels, trough_labels = [], []
+    def _linear_regression(self, xs: List[float], ys: List[float]) -> Tuple[float, float]:
+        if len(xs) < 2: return 0.0, float('nan')
+        n = len(xs); sum_x = sum(xs); sum_y = sum(ys); sum_xy = sum(x*y for x, y in zip(xs, ys)); sum_x2 = sum(x*x for x in xs)
+        denom = n * sum_x2 - sum_x * sum_x
+        if abs(denom) < 1e-12: return 0.0, float('nan')
+        slope = (n * sum_xy - sum_x * sum_y) / denom
+        intercept = (sum_y - slope * sum_x) / n
+        return slope, intercept
 
+    def _detect_zero_crossings(self, ys: List[float], xs: List[float]) -> List[float]:
+        if len(ys) < 2: return []
+        crossings = []
+        for i in range(1, len(ys)):
+            y0, y1 = ys[i - 1], ys[i]
+            if y0 * y1 < 0:
+                t = abs(y0) / (abs(y0) + abs(y1))
+                x_cross = xs[i - 1] + t * (xs[i] - xs[i - 1])
+                crossings.append(x_cross)
+        return crossings
+
+    def _detect_frequency_components(self, ys: List[float], xs: List[float]) -> List[Tuple[float, float]]:
+        if len(ys) < 8: return []
+        dt = xs[-1] - xs[0]
+        if dt <= 0: return []
+        N = len(ys); Fs = N / dt
+        fft_vals = []
+        for k in range(1, min(N // 2, 20)):
+            real = imag = 0.0
+            for n in range(N):
+                angle = 2 * math.pi * k * n / N
+                real += ys[n] * math.cos(angle)
+                imag -= ys[n] * math.sin(angle)
+            mag = math.sqrt(real*real + imag*imag) / N
+            freq = k * Fs / N
+            fft_vals.append((mag, freq))
+        fft_vals.sort(reverse=True)
+        if not fft_vals: return []
+        dominant = fft_vals[0][0]
+        if dominant < 0.05 * sum(m for m, _ in fft_vals): return []
+        return fft_vals[:3]
+
+    def _estimate_period_from_crossings(self, crossings: List[float]) -> float:
+        if len(crossings) < 2: return float('inf')
+        intervals = [crossings[i] - crossings[i - 1] for i in range(1, len(crossings))]
+        return sum(intervals) / len(intervals) * 2 if intervals else float('inf')
+
+    def _estimate_amplitude_and_decay(self, ys: List[float], xs: List[float]) -> Tuple[float, float]:
+        if len(ys) < 3: return 0.0, 0.0
+        peaks, troughs = self._find_extrema(ys)
+        if len(peaks) + len(troughs) < self.min_peaks_for_osc: return 0.0, 0.0
+        extrema = [(i, abs(ys[i])) for i, _ in (peaks + troughs)]
+        if len(extrema) < 2: return sum(a for _, a in extrema) / len(extrema), 0.0
+        extrema.sort()
+        x_ext = [xs[i] for i, _ in extrema]
+        ln_amps = [math.log(a) for _, a in extrema if a > 1e-9]
+        if len(ln_amps) < 2: return sum(a for _, a in extrema) / len(extrema), 0.0
+        slope, _ = self._linear_regression(x_ext, ln_amps)
+        mean_amp = sum(a for _, a in extrema) / len(extrema)
+        return mean_amp, -slope
+
+    def get_oscillation_stats(self, key: str) -> Dict[str, float]:
+        if not self.enable_osc_analysis or key not in self.data or len(self.data[key]) < 6:
+            return {"period": float('inf'), "mean_amplitude": 0.0, "decay_rate": 0.0, "damping_ratio": 0.0,
+                    "valid": False, "weak": False}
+        ys = list(self.data[key])
+        xs = list(self.x_data[key])
+        base = sum(ys) / len(ys)
+        ys_centered = [y - base for y in ys]
+        crossings = self._detect_zero_crossings(ys_centered, xs)
+        peaks, troughs = self._find_extrema(ys_centered)
+        enough_extrema = (len(peaks) + len(troughs)) >= self.min_extrema_for_osc
+        enough_crossings = len(crossings) >= self.min_crossings_for_osc
+        weak_candidate = enough_extrema and enough_crossings and len(ys) >= 8
+        if not weak_candidate:
+            return {"period": float('inf'), "mean_amplitude": 0.0, "decay_rate": 0.0, "damping_ratio": 0.0,
+                    "valid": False, "weak": False}
+        period = self._estimate_period_from_crossings(crossings)
+        mean_amp, decay = self._estimate_amplitude_and_decay(ys_centered, xs)
+        omega = 2 * math.pi / period if period > 0 else 0
+        damping_ratio = min(decay / omega, 1.0) if omega > 1e-6 else 0.0
+        freqs = self._detect_frequency_components(ys_centered, xs)
+        dominant_freq = freqs[0][1] if freqs else (1.0 / period if period > 0 else 0.0)
+        strong_valid = (period > 0.01 and mean_amp > 1e-6 and len(crossings) >= 4 and len(freqs) > 0)
+        weak_valid = (period > 0.01 and mean_amp > 1e-6 and enough_crossings and enough_extrema)
+        valid = strong_valid or weak_valid
+        return {
+            "period": period if period != float('inf') else 0.0,
+            "mean_amplitude": mean_amp,
+            "decay_rate": decay,
+            "damping_ratio": damping_ratio,
+            "dominant_freq": dominant_freq,
+            "spectrum": freqs,
+            "valid": valid,
+            "weak": not strong_valid and weak_valid
+        }
+
+    def _get_cached_osc_stats(self, key: str) -> Dict[str, float]:
+        if not self.enable_osc_analysis:
+            return {"valid": False}
+        self._frame_counter += 1
+        current_stats = self.get_oscillation_stats(key)
+        if current_stats["valid"]:
+            self._osc_cache[key] = (current_stats, self._frame_counter)
+            return current_stats
+        cached = self._osc_cache.get(key)
+        if cached:
+            cached_stats, cache_time = cached
+            if self._frame_counter - cache_time <= self.osc_cache_ttl:
+                return cached_stats
+        return {"valid": False}
+
+    def _render_extrema_markers(self, pts: List[Tuple[float, float]], data_key: str,
+                                peaks: List[Tuple[int, float]], troughs: List[Tuple[int, float]]) -> None:
         for idx, prom in peaks:
             x, y = pts[idx]
-            size = max(4, min(10, int(5 + prom * 25)))
-            v_y = self.data[[k for k in self.data.keys() if k in self._get_filtered_keys()][0]][
-                idx]
-            peak_tri.append((x, y, size))
-            peak_labels.append((x, y - size - 15, f"{v_y:.2f}"))
-
+            s = max(5, min(14, int(7 + prom * 40)))
+            pygame.draw.polygon(self.surface, (255, 50, 50),
+                                [(x, y - s), (x - s * 0.6, y + s * 0.4), (x + s * 0.6, y + s * 0.4)])
         for idx, prom in troughs:
             x, y = pts[idx]
-            size = max(4, min(10, int(5 + prom * 25)))
-            v_y = self.data[[k for k in self.data.keys() if k in self._get_filtered_keys()][0]][idx]
-            trough_tri.append((x, y, size))
-            trough_labels.append((x, y + size + 15, f"{v_y:.2f}"))
-
-        for x, y, s in peak_tri:
-            pygame.draw.polygon(self.surface, (255, 60, 60),
-                                [(x, y - s), (x - s * 0.6, y + s * 0.4), (x + s * 0.6, y + s * 0.4)])
-            pygame.draw.polygon(self.surface, (255, 180, 180),
-                                [(x, y - s + 1), (x - s * 0.55, y + s * 0.35), (x + s * 0.55, y + s * 0.35)], 1)
-        for x, y, txt in peak_labels:
-            lbl = self.font.render(txt, True, (255, 220, 220))
-            bg = pygame.Surface((lbl.get_width() + 4, lbl.get_height() + 2))
-            bg.fill(self.LABEL_BG_COLOR);
-            bg.set_alpha(180)
-            self.surface.blit(bg, (x - bg.get_width() // 2, y - bg.get_height() // 2))
-            self.surface.blit(lbl, (x - lbl.get_width() // 2, y - lbl.get_height() // 2))
-
-        for x, y, s in trough_tri:
-            pygame.draw.polygon(self.surface, (60, 255, 60),
+            s = max(5, min(14, int(7 + prom * 40)))
+            pygame.draw.polygon(self.surface, (50, 255, 50),
                                 [(x, y + s), (x - s * 0.6, y - s * 0.4), (x + s * 0.6, y - s * 0.4)])
-            pygame.draw.polygon(self.surface, (180, 255, 180),
-                                [(x, y + s - 1), (x - s * 0.55, y - s * 0.35), (x + s * 0.55, y - s * 0.35)], 1)
-        for x, y, txt in trough_labels:
-            lbl = self.font.render(txt, True, (220, 255, 220))
-            bg = pygame.Surface((lbl.get_width() + 4, lbl.get_height() + 2))
-            bg.fill(self.LABEL_BG_COLOR);
-            bg.set_alpha(180)
-            self.surface.blit(bg, (x - bg.get_width() // 2, y - bg.get_height() // 2))
-            self.surface.blit(lbl, (x - lbl.get_width() // 2, y - lbl.get_height() // 2))
 
+    def _render_zero_crossings(self, ys_centered: List[float], xs: List[float],
+                               x_min: float, x_max: float, y_zero: float) -> None:
+        if not self.enable_osc_analysis: return
+        crossings = self._detect_zero_crossings(ys_centered, xs)
+        x_range = x_max - x_min or 1.0
+        w = self.surface_size[0] - self.MARGIN_LEFT
+        for xc in crossings:
+            t = (xc - x_min) / x_range
+            x = self.MARGIN_LEFT + t * w
+            pygame.draw.line(self.surface, self.ZERO_COLOR, (x, y_zero - 7), (x, y_zero + 7), width=2)
+
+    def _render_decay_envelope(self, pts: List[Tuple[float, float]], ys_centered: List[float],
+                               xs: List[float], decay: float, mean_amp: float) -> None:
+        if not self.enable_osc_analysis or decay <= 1e-6 or not pts: return
+        y_max_abs = max(abs(y) for y in ys_centered)
+        if y_max_abs < 1e-6: return
+        color = self.ENVELOPE_COLOR
+        t0 = xs[0]
+        env_pts = []
+        neg_env_pts = []
+        for (px, py), x in zip(pts, xs):
+            amp_t = mean_amp * math.exp(-decay * (x - t0))
+            ratio = amp_t / y_max_abs
+            env_y = py - ratio * (py - self.MARGIN_TOP)
+            neg_env_y = py + ratio * (py - self.MARGIN_TOP)
+            env_pts.append((px, env_y))
+            neg_env_pts.append((px, neg_env_y))
+        if len(env_pts) > 1:
+            pygame.draw.lines(self.surface, color, False, env_pts, width=2)
+            pygame.draw.lines(self.surface, color, False, neg_env_pts, width=2)
+
+    def _render_spectrum(self, stats: Dict[str, float], y_pos: int) -> None:
+        if not self.enable_osc_analysis or not stats.get("spectrum"): return
+        sp = stats["spectrum"]
+        bar_w = 14
+        bar_gap = 4
+        total_width = len(sp) * (bar_w + bar_gap) - bar_gap
+        start_x = self.surface_size[0] - total_width - 20
+        pygame.draw.rect(self.surface, self.SPECTRUM_BG, (start_x - 5, y_pos - 10, total_width + 10, 40))
+        max_mag = max(m for m, _ in sp)
+        for i, (mag, freq) in enumerate(sp):
+            h = 30 * (mag / max_mag if max_mag > 0 else 0)
+            x = start_x + i * (bar_w + bar_gap)
+            pygame.draw.rect(self.surface, self.SPECTRUM_BAR_COLOR, (x, y_pos + 20 - h, bar_w, h))
+            txt = self.font.render(f"{freq:.1f}Hz", True, self.TEXT_COLOR)
+            self.surface.blit(txt, (x - txt.get_width() // 2 + bar_w // 2, y_pos + 22))
 
     def _render_overlay_mode(self, keys: List[str]) -> None:
         all_vals = [v for k in keys for v in self.data[k]]
@@ -194,14 +321,11 @@ class Plotter:
         y_range = y_max - y_min or 1.0
         h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
         w = self.surface_size[0] - self.MARGIN_LEFT
-
-        if not all_x:
-            x_min, x_max = 0.0, 1.0
-        else:
+        x_min = x_max = 0.0
+        if all_x:
             x_min_raw, x_max_raw = min(all_x), max(all_x)
             x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
         x_range = x_max - x_min or 1.0
-
         smoothed_key = 'overlay'
         self._smoothed_range.setdefault(smoothed_key, (y_min, y_max))
         old_min, old_max = self._smoothed_range[smoothed_key]
@@ -210,7 +334,9 @@ class Plotter:
         self._smoothed_range[smoothed_key] = (new_min, new_max)
         draw_min, draw_max = new_min, new_max
         draw_range = draw_max - draw_min or 1.0
-
+        base_line_y = self.MARGIN_TOP + (-new_min) / draw_range * h if draw_range else self.MARGIN_TOP
+        pygame.draw.line(self.surface, self.ZERO_COLOR, (self.MARGIN_LEFT, base_line_y),
+                         (self.surface_size[0], base_line_y), width=1)
         for key in keys:
             ys = list(self.data[key])
             xs = list(self.x_data[key])
@@ -220,12 +346,17 @@ class Plotter:
                     self.MARGIN_TOP + (ys[i] - draw_min) / draw_range * h) for i in range(len(ys))]
             if len(pts) > 1:
                 pygame.draw.lines(self.surface, col, False, pts, width=2)
-            pks, trs = self._find_extrema(ys)
+            if not self.enable_osc_analysis:
+                continue
+            base = sum(ys) / len(ys)
+            ys_centered = [y - base for y in ys]
+            pks, trs = self._find_extrema(ys_centered)
             if pks or trs:
-                prom_scale = 1.0 / (y_range or 1.0)
-                pks_scaled = [(i, p * prom_scale) for i, p in pks]
-                trs_scaled = [(i, t * prom_scale) for i, t in trs]
-                self._render_extrema_markers(pts, pks_scaled, trs_scaled)
+                self._render_extrema_markers(pts, key, pks, trs)
+            stats = self._get_cached_osc_stats(key)
+            if stats["valid"]:
+                self._render_zero_crossings(ys_centered, xs, x_min, x_max, base_line_y)
+                self._render_decay_envelope(pts, ys_centered, xs, stats["decay_rate"], stats["mean_amplitude"])
         self._draw_labels_overlay(keys)
         self._draw_grid_range(draw_min, draw_max)
         self._draw_x_axis_labels(x_min, x_max)
@@ -235,13 +366,11 @@ class Plotter:
         total_h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
         bar_h = total_h / len(keys) if keys else 0
         all_x = [x for k in keys for x in self.x_data[k]]
-        if not all_x:
-            x_min, x_max = 0.0, 1.0
-        else:
+        x_min = x_max = 0.0
+        if all_x:
             x_min_raw, x_max_raw = min(all_x), max(all_x)
             x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
         x_range = x_max - x_min or 1.0
-
         for i, key in enumerate(keys):
             ys = list(self.data[key])
             xs = list(self.x_data[key])
@@ -265,16 +394,25 @@ class Plotter:
                     y0 + (ys[j] - draw_min) / draw_range * scale_h) for j in range(len(ys))]
             if len(pts) > 1:
                 pygame.draw.lines(self.surface, col, False, pts, width=2)
-            pks, trs = self._find_extrema(ys)
+            if not self.enable_osc_analysis:
+                self._draw_label_split(key, ys, col, y0)
+                continue
+            base = sum(ys) / len(ys)
+            ys_centered = [y - base for y in ys]
+            pks, trs = self._find_extrema(ys_centered)
             if pks or trs:
-                prom_scale = 1.0 / (y_range or 1.0)
-                pks_scaled = [(i, p * prom_scale) for i, p in pks]
-                trs_scaled = [(i, t * prom_scale) for i, t in trs]
-                self._render_extrema_markers(pts, pks_scaled, trs_scaled)
+                self._render_extrema_markers(pts, key, pks, trs)
+            stats = self._get_cached_osc_stats(key)
+            if stats["valid"]:
+                base_line_y = y0 + (-new_min) / (new_max - new_min or 1) * scale_h
+                self._render_zero_crossings(ys_centered, xs, x_min, x_max, base_line_y)
+                self._render_decay_envelope(pts, ys_centered, xs, stats["decay_rate"], stats["mean_amplitude"])
+                self._render_spectrum(stats, int(y0 + bar_h - 25))
             self._draw_label_split(key, ys, col, y0)
         for i in range(len(keys) + 1):
             y = self.MARGIN_TOP + i * bar_h
             pygame.draw.line(self.surface, self.DIVIDER_COLOR, (0, y), (self.surface_size[0], y), width=2)
+
     def _compute_grid_steps(self, axis_length: int) -> int:
         step_px = self.BASE_GRID_PIXEL_STEP * self.grid_density
         return max(1, int(axis_length / step_px))
@@ -304,6 +442,7 @@ class Plotter:
             self.surface.blit(lbl, (x - lbl.get_width() // 2, self.surface_size[1] - self.MARGIN_BOTTOM // 2))
 
     def _draw_labels_overlay(self, keys: List[str]) -> None:
+        y_offset = self.LABEL_Y_OFFSET
         for i, key in enumerate(keys):
             ys = self.data[key]
             avg = sum(ys) / len(ys)
@@ -311,9 +450,21 @@ class Plotter:
             lbl = self.font.render(txt, True, self._get_color(key))
             bg = pygame.Surface(lbl.get_size())
             bg.fill(self.LABEL_BG_COLOR); bg.set_alpha(200)
-            y_pos = self.LABEL_Y_OFFSET + i * self.LABEL_LINE_SPACING
-            self.surface.blit(bg, (10, y_pos))
-            self.surface.blit(lbl, (10, y_pos))
+            self.surface.blit(bg, (10, y_offset))
+            self.surface.blit(lbl, (10, y_offset))
+            y_offset += self.LABEL_LINE_SPACING
+            if self.enable_osc_analysis:
+                stats = self._get_cached_osc_stats(key)
+                if stats["valid"]:
+                    osc_txt = f"_Osc: T={stats['period']:.1f} A={stats['mean_amplitude']:.2f} γ={stats['decay_rate']:.4f} ζ={stats['damping_ratio']:.3f}"
+                    osc_lbl = self.font.render(osc_txt, True, (220, 220, 100))
+                    bg = pygame.Surface(osc_lbl.get_size())
+                    bg.fill(self.LABEL_BG_COLOR); bg.set_alpha(200)
+                    self.surface.blit(bg, (10, y_offset))
+                    self.surface.blit(osc_lbl, (10, y_offset))
+                    y_offset += self.LABEL_LINE_SPACING
+                    self._render_spectrum(stats, y_offset)
+                    y_offset += 40
 
     def _draw_grid_range(self, min_y: float, max_y: float) -> None:
         y_range = max_y - min_y or 1.0
