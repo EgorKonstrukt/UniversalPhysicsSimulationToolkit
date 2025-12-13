@@ -10,7 +10,8 @@ class BaseTool:
         self.preview = None
         self.settings_window = None
         self.undo_redo = get_undo_redo()
-        self.font = pygame.font.SysFont('Arial', 14)
+        self.font = pygame.font.SysFont('Consolas', 14)
+        self._last_hatch_offset = 0.0
 
     def set_ui_manager(self, ui_manager):
         self.ui_manager = ui_manager
@@ -33,7 +34,6 @@ class BaseTool:
     def handle_event(self, event, world_pos):
         if event.type == pygame_gui.UI_WINDOW_CLOSE and event.ui_element == self.settings_window:
             self.settings_window = None
-
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.drag_start = world_pos
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -51,6 +51,8 @@ class BaseTool:
 
     def draw_preview(self, screen, camera):
         if not self.preview: return
+        current_time = pygame.time.get_ticks() / 1000.0
+        self._last_hatch_offset = (current_time * 40) % 20
         self._draw_custom_preview(screen, camera)
         self._draw_metrics(screen, camera)
 
@@ -58,15 +60,20 @@ class BaseTool:
         pass
 
     def _draw_metrics(self, screen, camera):
-        pass
         if not self.preview: return
-        # pos = camera.world_to_screen(self.preview['position'])
-        # lines = self._get_metric_lines()
-        # dy = 0
-        # for line in lines:
-        #     surf = self.font.render(line, True, (255, 255, 255))
-        #     screen.blit(surf, (pos[0] + 10, pos[1] + dy))
-        #     dy += 16
+        lines = self._get_metric_lines()
+        base_pos = camera.world_to_screen(self.preview['position'])
+        zoom = camera.scaling
+        font_size = max(8, int(14))
+        try:
+            font = pygame.font.SysFont('Consolas', font_size)
+        except:
+            font = pygame.font.Font(None, font_size)
+        dy = 0
+        for line in lines:
+            surf = font.render(line, True, (255, 255, 255))
+            screen.blit(surf, (base_pos[0] + 10, base_pos[1] + dy))
+            dy += int(16)
 
     def _get_metric_lines(self):
         return []

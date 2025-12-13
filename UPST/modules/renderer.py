@@ -188,23 +188,19 @@ class Renderer:
                 r_px = shape.radius * cam_scale
                 bodies_to_render.append(('segment', a_scr[0], a_scr[1], b_scr[0], b_scr[1], r_px, color))
 
-        screen.lock()
-        try:
-            outline = self.outline_color
-            othick = self.outline_thickness
-            for item in bodies_to_render:
-                typ = item[0]
-                if typ == 'circle':
-                    _, x, y, r, col, ang = item
-                    self._draw_circle_batched(screen, (x, y), r, col, outline, othick, ang, safe)
-                elif typ == 'poly':
-                    _, verts, col = item
-                    self._draw_poly_batched(screen, verts, col, outline, othick)
-                elif typ == 'segment':
-                    _, x1, y1, x2, y2, r, col = item
-                    self._draw_segment_batched(screen, (x1, y1), (x2, y2), r, col, outline, othick, safe)
-        finally:
-            screen.unlock()
+        outline = self.outline_color
+        othick = self.outline_thickness
+        for item in bodies_to_render:
+            typ = item[0]
+            if typ == 'circle':
+                _, x, y, r, col, ang = item
+                self._draw_circle_batched(screen, (x, y), r, col, outline, othick, ang, safe)
+            elif typ == 'poly':
+                _, verts, col = item
+                self._draw_poly_batched(screen, verts, col, outline, othick)
+            elif typ == 'segment':
+                _, x1, y1, x2, y2, r, col = item
+                self._draw_segment_batched(screen, (x1, y1), (x2, y2), r, col, outline, othick, safe)
 
     def _draw_circle_transparent(self, surf, ix, iy, ir, col, outline, othick):
         size = ir * 2 + 2

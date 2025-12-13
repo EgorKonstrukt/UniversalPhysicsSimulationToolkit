@@ -1,9 +1,8 @@
 import random
 import pygame, math, pymunk
-from UPST.config import config
+from UPST.config import config, get_theme_and_palette, sample_color_from_def
 from UPST.tools.tool_manager import BaseTool
 import pygame_gui
-from UPST.config import config, get_theme_and_palette, sample_color_from_def
 
 class PolyhedronTool(BaseTool):
     name = "Polyhedron"
@@ -87,6 +86,7 @@ class PolyhedronTool(BaseTool):
         shape.color = self._get_color('polyhedron')
         self.pm.add_body_shape(body, shape)
         self.undo_redo.take_snapshot()
+        self.preview = None
 
     def _calc_preview(self, end_pos):
         delta = pymunk.Vec2d(end_pos[0] - self.drag_start[0], end_pos[1] - self.drag_start[1])
@@ -95,12 +95,57 @@ class PolyhedronTool(BaseTool):
         pts = [(size * math.cos(i * 2 * math.pi / faces), size * math.sin(i * 2 * math.pi / faces)) for i in range(faces)]
         area = abs(sum(pts[i][0]*pts[(i+1)%faces][1] - pts[(i+1)%faces][0]*pts[i][1] for i in range(faces))) / 2
         perimeter = sum(math.dist(pts[i], pts[(i+1)%faces]) for i in range(faces))
-        return {"type": "poly", "position": self.drag_start, "points": pts, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 100)}
+        return {"type": "poly", "position": self.drag_start, "points": pts, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 200)}
 
     def _draw_custom_preview(self, screen, camera):
         sp = camera.world_to_screen(self.preview['position'])
         pts = [(sp[0] + p[0], sp[1] + p[1]) for p in self.preview['points']]
         pygame.draw.polygon(screen, self.preview['color'], pts, 1)
+        world_pts = [(self.preview['position'][0] + p[0], self.preview['position'][1] + p[1]) for p in self.preview['points']]
+        self._draw_moving_hatch(screen, camera, world_pts)
+
+    def _draw_moving_hatch(self, screen, camera, world_pts):
+        xs = [p[0] for p in world_pts]
+        ys = [p[1] for p in world_pts]
+        x_min, x_max = min(xs), max(xs)
+        y_min, y_max = min(ys), max(ys)
+        period = 10.0
+        offset = self._last_hatch_offset
+        line_color = (*self.preview['color'][:3], 128)
+        max_lines = 100
+        c_low = (y_min - x_max) - offset
+        c_high = (y_max - x_min) - offset
+        c_start = int(c_low / period) * period
+        c_end = int(c_high / period + 1) * period
+        total_lines = int((c_end - c_start) / period)
+        if total_lines <= max_lines:
+            c_values = [c_start + i * period for i in range(total_lines)]
+        else:
+            step = total_lines / max_lines
+            c_values = [c_start + int(i * step) * period for i in range(max_lines)]
+        for c_unshifted in c_values:
+            const = c_unshifted + offset
+            points = []
+            # Левая грань
+            y = x_min + const
+            if y_min <= y <= y_max:
+                points.append((x_min, y))
+            # Правая грань
+            y = x_max + const
+            if y_min <= y <= y_max:
+                points.append((x_max, y))
+            # Верхняя грань
+            x = y_min - const
+            if x_min <= x <= x_max:
+                points.append((x, y_min))
+            # Нижняя грань
+            x = y_max - const
+            if x_min <= x <= x_max:
+                points.append((x, y_max))
+            if len(points) >= 2:
+                p1 = camera.world_to_screen(points[0])
+                p2 = camera.world_to_screen(points[1])
+                pygame.draw.line(screen, line_color, p1, p2, 2)
 
     def _get_metric_lines(self):
         a = self.preview['area']

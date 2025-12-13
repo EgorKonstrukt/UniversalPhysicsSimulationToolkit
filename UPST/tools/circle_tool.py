@@ -1,10 +1,8 @@
 import random
 import pygame, math, pymunk
-from UPST.config import config
+from UPST.config import config, get_theme_and_palette, sample_color_from_def
 from UPST.tools.tool_manager import BaseTool
 import pygame_gui
-from UPST.config import config, get_theme_and_palette, sample_color_from_def
-
 
 class CircleTool(BaseTool):
     name = "Circle"
@@ -56,6 +54,7 @@ class CircleTool(BaseTool):
         shape.elasticity = float(self.elasticity_entry.get_text())
         shape.color = self._get_color('circle')
         self.pm.add_body_shape(body, shape)
+        self.undo_redo.take_snapshot()
 
     def spawn_dragged(self, start, end):
         start_vec = pymunk.Vec2d(*start)
@@ -72,18 +71,70 @@ class CircleTool(BaseTool):
         shape.color = self._get_color('circle')
         self.pm.add_body_shape(body, shape)
         self.undo_redo.take_snapshot()
+        self.preview = None
 
     def _calc_preview(self, end_pos):
         start_vec = pymunk.Vec2d(*self.drag_start)
         end_vec = pymunk.Vec2d(*end_pos)
         r = (start_vec - end_vec).length
-        area = math.pi * r**2
+        area = math.pi * r ** 2
         perimeter = 2 * math.pi * r
-        return {"type": "circle", "position": self.drag_start, "radius": r, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 100)}
+        return {"type": "circle", "position": self.drag_start, "radius": r, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 200)}
 
     def _draw_custom_preview(self, screen, camera):
-        sp = camera.world_to_screen(self.preview['position'])
-        pygame.draw.circle(screen, self.preview['color'], sp, int(self.preview['radius']), 1)
+        center = self.preview['position']
+        r = self.preview['radius']
+        sp = camera.world_to_screen(center)
+        pygame.draw.circle(screen, self.preview['color'], sp, int(r), 1)
+        guide_end = (center[0] + r, center[1])
+        guide_screen = camera.world_to_screen(guide_end)
+        pygame.draw.line(screen, (255, 200, 200, 200), sp, guide_screen, 1)
+        self._draw_moving_hatch(screen, camera, center, r)
+
+    def _draw_moving_hatch(self, screen, camera, center, radius):
+        cx, cy = center
+        period = 10.0
+        offset = self._last_hatch_offset
+        line_color = (*self.preview['color'][:3], 128)
+        max_lines = 60
+        r = radius
+        x_min, x_max = cx - r, cx + r
+        y_min, y_max = cy - r, cy + r
+
+        c_low = (y_min - x_max) - offset
+        c_high = (y_max - x_min) - offset
+        c_start = int(c_low / period) * period
+        c_end = int(c_high / period + 1) * period
+        total_lines = int((c_end - c_start) / period)
+        if total_lines <= max_lines:
+            c_values = [c_start + i * period for i in range(total_lines)]
+        else:
+            step = total_lines / max_lines
+            c_values = [c_start + int(i * step) * period for i in range(max_lines)]
+
+        for c_unshifted in c_values:
+            const = c_unshifted + offset
+            points = []
+            # Пересечение диагонали y = x + const с окружностью
+            # Решаем (x - cx)^2 + (x + const - cy)^2 = r^2
+            a = 2
+            b = 2 * (const - cy - cx)
+            c = (cx ** 2 + (const - cy) ** 2 - r ** 2)
+            disc = b * b - 4 * a * c
+            if disc < 0: continue
+            sqrt_disc = math.sqrt(disc)
+            x1 = (-b + sqrt_disc) / (2 * a)
+            x2 = (-b - sqrt_disc) / (2 * a)
+            y1 = x1 + const
+            y2 = x2 + const
+            p1_in = (x_min <= x1 <= x_max) and (y_min <= y1 <= y_max)
+            p2_in = (x_min <= x2 <= x_max) and (y_min <= y2 <= y_max)
+            if p1_in: points.append((x1, y1))
+            if p2_in: points.append((x2, y2))
+            if len(points) == 2:
+                s1 = camera.world_to_screen(points[0])
+                s2 = camera.world_to_screen(points[1])
+                pygame.draw.line(screen, line_color, s1, s2, 2)
 
     def _get_metric_lines(self):
         r = self.preview['radius']

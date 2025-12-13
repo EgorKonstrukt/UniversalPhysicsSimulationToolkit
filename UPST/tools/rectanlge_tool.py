@@ -79,6 +79,7 @@ class RectangleTool(BaseTool):
         shape.color = self._get_color('rectangle')
         self.pm.add_body_shape(body, shape)
         self.undo_redo.take_snapshot()
+        self.preview = None
 
     def _calc_preview(self, end_pos):
         dx = end_pos[0] - self.drag_start[0]
@@ -87,13 +88,78 @@ class RectangleTool(BaseTool):
         center = (self.drag_start[0] + dx / 2, self.drag_start[1] + dy / 2)
         area = w * h
         perimeter = 2 * (w + h)
-        return {"type": "rect", "position": center, "width": w, "height": h, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 100)}
+        return {"type": "rect", "position": center, "width": w, "height": h, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 200)}
 
     def _draw_custom_preview(self, screen, camera):
-        sp = camera.world_to_screen(self.preview['position'])
-        r = pygame.Rect(0, 0, self.preview['width'], self.preview['height'])
-        r.center = sp
-        pygame.draw.rect(screen, self.preview['color'], r, 1)
+        w = self.preview['width']
+        h = self.preview['height']
+        cx, cy = self.preview['position']
+        p0 = (cx - w/2, cy - h/2)
+        p1 = (cx + w/2, cy - h/2)
+        p2 = (cx + w/2, cy + h/2)
+        p3 = (cx - w/2, cy + h/2)
+        world_pts = [p0, p1, p2, p3]
+        screen_pts = [camera.world_to_screen(p) for p in world_pts]
+
+        pygame.draw.polygon(screen, self.preview['color'], screen_pts, 1)
+
+        self._draw_moving_hatch(screen, camera, world_pts)
+
+    def _draw_moving_hatch(self, screen, camera, world_rect):
+        cx = (world_rect[0][0] + world_rect[2][0]) / 2
+        cy = (world_rect[0][1] + world_rect[2][1]) / 2
+        w = abs(world_rect[1][0] - world_rect[0][0])
+        h = abs(world_rect[2][1] - world_rect[1][1])
+        half_w, half_h = w / 2, h / 2
+
+        x_min = cx - half_w
+        x_max = cx + half_w
+        y_min = cy - half_h
+        y_max = cy + half_h
+
+        period = 10.0
+        offset = self._last_hatch_offset
+        line_color = (*self.preview['color'][:3], 128)
+        max_lines = 100
+
+        c_low = (y_min - x_max) - offset
+        c_high = (y_max - x_min) - offset
+
+        c_start = int(c_low / period) * period
+        c_end = int(c_high / period + 1) * period
+
+        total_lines = int((c_end - c_start) / period)
+        if total_lines <= max_lines:
+            c_values = [c_start + i * period for i in range(total_lines)]
+        else:
+            step = total_lines / max_lines
+            c_values = [c_start + int(i * step) * period for i in range(max_lines)]
+
+        for c_unshifted in c_values:
+            const = c_unshifted + offset
+            points = []
+
+            # Левая грань
+            y = x_min + const
+            if y_min <= y <= y_max:
+                points.append((x_min, y))
+            # Правая грань
+            y = x_max + const
+            if y_min <= y <= y_max:
+                points.append((x_max, y))
+            # Верхняя грань
+            x = y_min - const
+            if x_min <= x <= x_max:
+                points.append((x, y_min))
+            # Нижняя грань
+            x = y_max - const
+            if x_min <= x <= x_max:
+                points.append((x, y_max))
+
+            if len(points) >= 2:
+                p1 = camera.world_to_screen(points[0])
+                p2 = camera.world_to_screen(points[1])
+                pygame.draw.line(screen, line_color, p1, p2, 2)
 
     def _get_metric_lines(self):
         w = self.preview['width']
