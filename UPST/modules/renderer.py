@@ -39,8 +39,7 @@ class Renderer:
         self.clouds.set_physics_manager(physics_manager)
         self.cloud_renderer = CloudRenderer(screen, camera, self.clouds, min_px=10)
 
-        self.graph_expression = None
-        self._graph_cache = None
+
 
         self.theme = config.world.themes[config.world.current_theme]
         self.default_color = (255, 255, 255)
@@ -329,59 +328,11 @@ class Renderer:
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
-        self._draw_graph()
+        self.ui_manager.app.console_handler.draw_graph()
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
-    def _draw_graph(self):
-        if not hasattr(self.app, 'console_handler') or not self.app.console_handler.graph_expression:
-            self._graph_cache = None
-            return
-        expr = self.app.console_handler.graph_expression
-        cam = self.camera
-        screen_w, screen_h = self.screen.get_size()
-        vp_w, vp_h = cam.get_viewport_size()
-        cam_tx, cam_ty = cam.translation.tx, cam.translation.ty
-        cam_scale = cam.scaling
 
-        # Ключ кэша: выражение + позиция и масштаб камеры с округлением (допуск ±0.1 пикселя)
-        cache_key = (
-            expr,
-            round(cam_tx, 1), round(cam_ty, 1),
-            round(cam_scale, 3),
-            screen_w, screen_h
-        )
-
-        if self._graph_cache and self._graph_cache[0] == cache_key:
-            points = self._graph_cache[1]
-        else:
-            x_min = cam_tx - vp_w / 2
-            x_max = cam_tx + vp_w / 2
-            steps = max(100, min(2000, screen_w // 2))
-            dx = (x_max - x_min) / steps
-            points = []
-            local_env = {"math": math, "__builtins__": {}}
-            try:
-                for i in range(steps + 1):
-                    x = x_min + i * dx
-                    y = eval(expr, local_env, {"x": x})
-                    if not isinstance(y, (int, float)) or not math.isfinite(y):
-                        continue
-                    scr = cam.world_to_screen((x, y))
-                    if 0 <= scr[0] <= screen_w and 0 <= scr[1] <= screen_h:
-                        points.append((int(round(scr[0])), int(round(scr[1]))))
-            except Exception:
-                points = []
-            self._graph_cache = (cache_key, points)
-
-        if not points:
-            return
-        color = (0, 200, 255, 200)
-        for i in range(1, len(points)):
-            x0, y0 = points[i - 1]
-            x1, y1 = points[i]
-            # Используем gfxdraw для сглаживания
-            pygame.gfxdraw.line(self.screen, x0, y0, x1, y1, color)
     def set_clouds_folder(self, folder):
         self.clouds.set_folder(folder)
 
