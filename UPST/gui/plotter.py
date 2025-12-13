@@ -122,6 +122,66 @@ class Plotter:
         pad = val_range * self.PADDING_RATIO
         return val_min - pad, val_max + pad
 
+    def _find_extrema(self, ys: List[float]) -> Tuple[List[Tuple[int, float]], List[Tuple[int, float]]]:
+        if len(ys) < 3: return [], []
+        peaks, troughs = [], []
+        for i in range(1, len(ys) - 1):
+            dy_prev, dy_next = ys[i] - ys[i-1], ys[i] - ys[i+1]
+            if dy_prev > 1e-9 and dy_next > 1e-9:
+                prominence = min(dy_prev, dy_next)
+                peaks.append((i, prominence))
+            elif dy_prev < -1e-9 and dy_next < -1e-9:
+                prominence = min(-dy_prev, -dy_next)
+                troughs.append((i, prominence))
+        return peaks, troughs
+
+    def _render_extrema_markers(self, pts: List[Tuple[float, float]], peaks: List[Tuple[int, float]],
+                                troughs: List[Tuple[int, float]]) -> None:
+        peak_tri, trough_tri = [], []
+        peak_labels, trough_labels = [], []
+
+        for idx, prom in peaks:
+            x, y = pts[idx]
+            size = max(4, min(10, int(5 + prom * 25)))
+            v_y = self.data[[k for k in self.data.keys() if k in self._get_filtered_keys()][0]][
+                idx]
+            peak_tri.append((x, y, size))
+            peak_labels.append((x, y - size - 15, f"{v_y:.2f}"))
+
+        for idx, prom in troughs:
+            x, y = pts[idx]
+            size = max(4, min(10, int(5 + prom * 25)))
+            v_y = self.data[[k for k in self.data.keys() if k in self._get_filtered_keys()][0]][idx]
+            trough_tri.append((x, y, size))
+            trough_labels.append((x, y + size + 15, f"{v_y:.2f}"))
+
+        for x, y, s in peak_tri:
+            pygame.draw.polygon(self.surface, (255, 60, 60),
+                                [(x, y - s), (x - s * 0.6, y + s * 0.4), (x + s * 0.6, y + s * 0.4)])
+            pygame.draw.polygon(self.surface, (255, 180, 180),
+                                [(x, y - s + 1), (x - s * 0.55, y + s * 0.35), (x + s * 0.55, y + s * 0.35)], 1)
+        for x, y, txt in peak_labels:
+            lbl = self.font.render(txt, True, (255, 220, 220))
+            bg = pygame.Surface((lbl.get_width() + 4, lbl.get_height() + 2))
+            bg.fill(self.LABEL_BG_COLOR);
+            bg.set_alpha(180)
+            self.surface.blit(bg, (x - bg.get_width() // 2, y - bg.get_height() // 2))
+            self.surface.blit(lbl, (x - lbl.get_width() // 2, y - lbl.get_height() // 2))
+
+        for x, y, s in trough_tri:
+            pygame.draw.polygon(self.surface, (60, 255, 60),
+                                [(x, y + s), (x - s * 0.6, y - s * 0.4), (x + s * 0.6, y - s * 0.4)])
+            pygame.draw.polygon(self.surface, (180, 255, 180),
+                                [(x, y + s - 1), (x - s * 0.55, y - s * 0.35), (x + s * 0.55, y - s * 0.35)], 1)
+        for x, y, txt in trough_labels:
+            lbl = self.font.render(txt, True, (220, 255, 220))
+            bg = pygame.Surface((lbl.get_width() + 4, lbl.get_height() + 2))
+            bg.fill(self.LABEL_BG_COLOR);
+            bg.set_alpha(180)
+            self.surface.blit(bg, (x - bg.get_width() // 2, y - bg.get_height() // 2))
+            self.surface.blit(lbl, (x - lbl.get_width() // 2, y - lbl.get_height() // 2))
+
+
     def _render_overlay_mode(self, keys: List[str]) -> None:
         all_vals = [v for k in keys for v in self.data[k]]
         all_x = [x for k in keys for x in self.x_data[k]]
@@ -152,23 +212,69 @@ class Plotter:
         draw_range = draw_max - draw_min or 1.0
 
         for key in keys:
-            ys = self.data[key]
-            xs = self.x_data[key]
+            ys = list(self.data[key])
+            xs = list(self.x_data[key])
             if not ys or not xs: continue
             col = self._get_color(key)
-            pts = []
-            for i in range(len(ys)):
-                x_norm = (xs[i] - x_min) / x_range
-                y_norm = (ys[i] - draw_min) / draw_range
-                x_screen = self.MARGIN_LEFT + x_norm * w
-                y_screen = self.MARGIN_TOP + y_norm * h
-                pts.append((x_screen, y_screen))
+            pts = [(self.MARGIN_LEFT + (xs[i] - x_min) / x_range * w,
+                    self.MARGIN_TOP + (ys[i] - draw_min) / draw_range * h) for i in range(len(ys))]
             if len(pts) > 1:
                 pygame.draw.lines(self.surface, col, False, pts, width=2)
+            pks, trs = self._find_extrema(ys)
+            if pks or trs:
+                prom_scale = 1.0 / (y_range or 1.0)
+                pks_scaled = [(i, p * prom_scale) for i, p in pks]
+                trs_scaled = [(i, t * prom_scale) for i, t in trs]
+                self._render_extrema_markers(pts, pks_scaled, trs_scaled)
         self._draw_labels_overlay(keys)
         self._draw_grid_range(draw_min, draw_max)
         self._draw_x_axis_labels(x_min, x_max)
 
+    def _render_split_mode(self, keys: List[str]) -> None:
+        w = self.surface_size[0] - self.MARGIN_LEFT
+        total_h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
+        bar_h = total_h / len(keys) if keys else 0
+        all_x = [x for k in keys for x in self.x_data[k]]
+        if not all_x:
+            x_min, x_max = 0.0, 1.0
+        else:
+            x_min_raw, x_max_raw = min(all_x), max(all_x)
+            x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
+        x_range = x_max - x_min or 1.0
+
+        for i, key in enumerate(keys):
+            ys = list(self.data[key])
+            xs = list(self.x_data[key])
+            if not ys or not xs: continue
+            col = self._get_color(key)
+            y0 = self.MARGIN_TOP + i * bar_h
+            local_min = min(ys)
+            local_max = max(ys)
+            y_min, y_max = self._get_padded_range(local_min, local_max)
+            y_range = y_max - y_min or 1.0
+            scale_h = bar_h * 0.8
+            smoothed_key = f"bar_{key}"
+            self._smoothed_range.setdefault(smoothed_key, (y_min, y_max))
+            old_min, old_max = self._smoothed_range[smoothed_key]
+            new_min = old_min + (y_min - old_min) * self.smoothing_factor
+            new_max = old_max + (y_max - old_max) * self.smoothing_factor
+            self._smoothed_range[smoothed_key] = (new_min, new_max)
+            draw_min, draw_max = new_min, new_max
+            draw_range = draw_max - draw_min or 1.0
+            pts = [(self.MARGIN_LEFT + (xs[j] - x_min) / x_range * w,
+                    y0 + (ys[j] - draw_min) / draw_range * scale_h) for j in range(len(ys))]
+            if len(pts) > 1:
+                pygame.draw.lines(self.surface, col, False, pts, width=2)
+            pks, trs = self._find_extrema(ys)
+            if pks or trs:
+                prom_scale = 1.0 / (y_range or 1.0)
+                pks_scaled = [(i, p * prom_scale) for i, p in pks]
+                trs_scaled = [(i, t * prom_scale) for i, t in trs]
+                self._render_extrema_markers(pts, pks_scaled, trs_scaled)
+            self._draw_label_split(key, ys, col, y0)
+        for i in range(len(keys) + 1):
+            y = self.MARGIN_TOP + i * bar_h
+            pygame.draw.line(self.surface, self.DIVIDER_COLOR, (0, y), (self.surface_size[0], y), width=2)
     def _compute_grid_steps(self, axis_length: int) -> int:
         step_px = self.BASE_GRID_PIXEL_STEP * self.grid_density
         return max(1, int(axis_length / step_px))
@@ -232,51 +338,6 @@ class Plotter:
                     txt = str(int(round(y_val)))
             lbl = self.font.render(txt, True, self.TEXT_COLOR)
             self.surface.blit(lbl, (self.surface_size[0] - self.GRID_LABEL_X_OFFSET, y - 10))
-
-    def _render_split_mode(self, keys: List[str]) -> None:
-        w = self.surface_size[0] - self.MARGIN_LEFT
-        total_h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
-        bar_h = total_h / len(keys) if keys else 0
-        all_x = [x for k in keys for x in self.x_data[k]]
-        if not all_x:
-            x_min, x_max = 0.0, 1.0
-        else:
-            x_min_raw, x_max_raw = min(all_x), max(all_x)
-            x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
-        x_range = x_max - x_min or 1.0
-
-        for i, key in enumerate(keys):
-            ys = self.data[key]
-            xs = self.x_data[key]
-            if not ys or not xs: continue
-            col = self._get_color(key)
-            y0 = self.MARGIN_TOP + i * bar_h
-            local_min = min(ys)
-            local_max = max(ys)
-            y_min, y_max = self._get_padded_range(local_min, local_max)
-            y_range = y_max - y_min or 1.0
-            scale_h = bar_h * 0.8
-            smoothed_key = f"bar_{key}"
-            self._smoothed_range.setdefault(smoothed_key, (y_min, y_max))
-            old_min, old_max = self._smoothed_range[smoothed_key]
-            new_min = old_min + (y_min - old_min) * self.smoothing_factor
-            new_max = old_max + (y_max - old_max) * self.smoothing_factor
-            self._smoothed_range[smoothed_key] = (new_min, new_max)
-            draw_min, draw_max = new_min, new_max
-            draw_range = draw_max - draw_min or 1.0
-            pts = []
-            for j in range(len(ys)):
-                x_norm = (xs[j] - x_min) / x_range
-                y_norm = (ys[j] - draw_min) / draw_range
-                x_screen = self.MARGIN_LEFT + x_norm * w
-                y_screen = y0 + y_norm * scale_h
-                pts.append((x_screen, y_screen))
-            if len(pts) > 1:
-                pygame.draw.lines(self.surface, col, False, pts, width=2)
-            self._draw_label_split(key, ys, col, y0)
-        for i in range(len(keys) + 1):
-            y = self.MARGIN_TOP + i * bar_h
-            pygame.draw.line(self.surface, self.DIVIDER_COLOR, (0, y), (self.surface_size[0], y), width=2)
 
     def _draw_label_split(self, key: str, vals: collections.deque, col: Tuple[int, int, int], y0: float) -> None:
         avg = sum(vals) / len(vals)
