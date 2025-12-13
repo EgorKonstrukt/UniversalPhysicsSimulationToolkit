@@ -28,6 +28,7 @@ class Plotter:
     GRID_LABEL_X_OFFSET: int = 60
     BASE_GRID_PIXEL_STEP: int = 50
     PADDING_RATIO: float = 0.1
+    MAX_HOVER_LINES: int = 8
 
     def __init__(self, surface_size: Tuple[int, int], max_samples: int = 120,
                  smoothing_factor: float = 0.15, font_size: int = 16, sort_by_value: bool = True,
@@ -62,6 +63,35 @@ class Plotter:
         self._osc_cache: Dict[str, Tuple[Dict, int]] = {}
         self._frame_counter: int = 0
 
+        self._mouse_pos: Optional[Tuple[int, int]] = None
+        self._hovered_key: Optional[str] = None
+        self._hovered_slope: float = 0.0
+
+        self._hovered_x: Optional[float] = None
+        self._hovered_y: Optional[float] = None
+        self._hovered_idx: Optional[int] = None
+        self._hovered_area: float = 0.0
+        self._hovered_key: Optional[str] = None
+        self._hovered_info: Optional[Dict] = None
+
+    def _compute_integral(self, xs: List[float], ys: List[float], start_idx: int, end_idx: int) -> float:
+        if end_idx <= start_idx or len(xs) < 2: return 0.0
+        total = 0.0
+        for i in range(start_idx, end_idx):
+            dx = xs[i + 1] - xs[i]
+            avg_y = (ys[i] + ys[i + 1]) / 2
+            total += dx * avg_y
+        return total
+    def _compute_local_stats(self, xs: List[float], ys: List[float], idx: int) -> Dict[str, float]:
+        win = max(1, min(3, len(xs) // 4))
+        l = max(0, idx - win)
+        r = min(len(xs), idx + win + 1)
+        window_ys = ys[l:r]
+        window_xs = xs[l:r]
+        avg = sum(window_ys) / len(window_ys)
+        std = math.sqrt(sum((y - avg) ** 2 for y in window_ys) / len(window_ys)) if len(window_ys) > 1 else 0.0
+        slope, _ = self._linear_regression(window_xs, window_ys)
+        return {"x": xs[idx], "y": ys[idx], "local_avg": avg, "local_std": std, "slope": slope}
     @staticmethod
     def _nice_step(range_val: float, pixel_length: int, density: float = 1.0) -> float:
         if range_val <= 0: return 1.0
@@ -509,6 +539,52 @@ class Plotter:
             txt = pygame.transform.rotate(txt, 90)
             self.surface.blit(txt, (5, self.surface_size[1] // 2 - txt.get_height() // 2))
 
+
+
+    def set_mouse_position(self, pos: Optional[Tuple[int, int]]) -> None:
+        self._mouse_pos = pos
+        if pos is None:
+            self._hovered_key = None
+            return
+        mx, my = pos
+        w = self.surface_size[0] - self.MARGIN_LEFT
+        h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
+        if mx < self.MARGIN_LEFT or mx >= self.surface_size[0] or my < self.MARGIN_TOP or my >= self.surface_size[1] - self.MARGIN_BOTTOM:
+            self._hovered_key = None
+            return
+
+    def _point_distance(self, p1: Tuple[float, float], p2: Tuple[float, float]) -> float:
+        return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
+
+    def _render_hover_tooltip(self) -> None:
+        if self._hovered_key is None or self._hovered_info is None or self._mouse_pos is None:
+            return
+        info = self._hovered_info
+        lines = [
+            f"x = {info['x']:.3f} s",
+            f"y = {info['y']:.4f}",
+            f"dy/dx ≈ {info['slope']:.4f}",
+            f"∫ ≈ {self._hovered_area:.4f}"
+        ]
+        if info.get("osc_stats"):
+            osc = info["osc_stats"]
+            lines.extend([
+                f"T = {osc['period']:.2f} s",
+                f"A = {osc['mean_amplitude']:.3f}",
+                f"γ = {osc['decay_rate']:.4f}",
+                f"ζ = {osc['damping_ratio']:.3f}"
+            ])
+        lines = lines[:self.MAX_HOVER_LINES]
+        mx, my = self._mouse_pos
+        y_offset = 0
+        for line in lines:
+            lbl = self.font.render(line, True, (255, 255, 255))
+            bg = pygame.Surface(lbl.get_size(), pygame.SRCALPHA)
+            bg.fill((40, 40, 50, 220))
+            self.surface.blit(bg, (mx + 12, my + 12 + y_offset))
+            self.surface.blit(lbl, (mx + 12, my + 12 + y_offset))
+            y_offset += self.LABEL_LINE_SPACING
+
     def get_surface(self) -> pygame.Surface:
         self.surface.fill(self.BG_COLOR)
         keys = self._get_filtered_keys()
@@ -516,9 +592,142 @@ class Plotter:
             self._render_no_data()
         elif self.overlay_mode:
             self._render_overlay_mode(keys)
+            self._handle_hover_overlay(keys)
         else:
             self._render_split_mode(keys)
+            self._handle_hover_split(keys)
         flt = self.font.render(f"Filter: {self.current_group_filter}", True, self.FILTER_LABEL_COLOR)
         self.surface.blit(flt, (self.surface_size[0] - self.FILTER_LABEL_X_OFFSET, 5))
+
+        if self._hovered_key is not None and self._hovered_x is not None:
+            w = self.surface_size[0] - self.MARGIN_LEFT
+            h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
+            all_vals = [v for k in keys for v in self.data[k]]
+            all_x = [x for k in keys for x in self.x_data[k]]
+            if all_vals and all_x:
+                global_min = min(all_vals)
+                global_max = max(all_vals)
+                y_min, y_max = self._get_padded_range(global_min, global_max)
+                draw_min, draw_max = self._smoothed_range.get('overlay', (y_min, y_max))
+                draw_range = draw_max - draw_min or 1.0
+                x_min_raw, x_max_raw = min(all_x), max(all_x)
+                x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
+                x_range = x_max - x_min or 1.0
+                t = (self._hovered_x - x_min) / x_range
+                x = self.MARGIN_LEFT + t * w
+                pygame.draw.line(self.surface, (255, 255, 255, 180), (x, self.MARGIN_TOP),
+                                 (x, self.surface_size[1] - self.MARGIN_BOTTOM), width=1)
+                if self._hovered_idx is not None:
+                    ys = list(self.data[self._hovered_key])
+                    xs = list(self.x_data[self._hovered_key])
+                    start_idx = max(0, self._hovered_idx - 5)
+                    pts = [(self.MARGIN_LEFT + (xs[i] - x_min) / x_range * w,
+                            self.MARGIN_TOP + (ys[i] - draw_min) / draw_range * h) for i in
+                           range(start_idx, self._hovered_idx + 1)]
+                    if len(pts) > 1:
+                        bottom_y = self.surface_size[1] - self.MARGIN_BOTTOM
+                        poly = pts + [(pts[-1][0], bottom_y), (pts[0][0], bottom_y)]
+                        pygame.draw.polygon(self.surface, (*self._get_color(self._hovered_key), 80), poly)
+
+        self._render_hover_tooltip()
         self._draw_axis_labels()
         return self.surface
+
+    def _handle_hover_overlay(self, keys: List[str]) -> None:
+        if not self._mouse_pos:
+            self._hovered_key = None
+            self._hovered_info = None
+            self._hovered_x = None
+            self._hovered_y = None
+            self._hovered_idx = None
+            self._hovered_area = 0.0
+            return
+        mx, my = self._mouse_pos
+        w = self.surface_size[0] - self.MARGIN_LEFT
+        h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
+        if mx < self.MARGIN_LEFT or mx >= self.surface_size[0] or my < self.MARGIN_TOP or my >= self.surface_size[
+            1] - self.MARGIN_BOTTOM:
+            self._hovered_key = None
+            self._hovered_info = None
+            return
+        all_vals = [v for k in keys for v in self.data[k]]
+        all_x = [x for k in keys for x in self.x_data[k]]
+        if not all_vals or not all_x: return
+        global_min = min(all_vals)
+        global_max = max(all_vals)
+        y_min, y_max = self._get_padded_range(global_min, global_max)
+        draw_min, draw_max = self._smoothed_range.get('overlay', (y_min, y_max))
+        draw_range = draw_max - draw_min or 1.0
+        x_min_raw, x_max_raw = min(all_x), max(all_x)
+        x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
+        x_range = x_max - x_min or 1.0
+        best_dist = float('inf')
+        best_key = best_info = best_x = best_y = None
+        best_idx = None
+        for key in keys:
+            ys = list(self.data[key])
+            xs = list(self.x_data[key])
+            if not ys or not xs: continue
+            pts = [(self.MARGIN_LEFT + (xs[i] - x_min) / x_range * w,
+                    self.MARGIN_TOP + (ys[i] - draw_min) / draw_range * h) for i in range(len(ys))]
+            for i, (px, py) in enumerate(pts):
+                dist = self._point_distance((mx, my), (px, py))
+                if dist < 12 and dist < best_dist:
+                    best_dist = dist
+                    best_key = key
+                    best_x = xs[i]
+                    best_y = ys[i]
+                    best_idx = i
+                    best_info = self._compute_local_stats(xs, ys, i)
+                    stats = self._get_cached_osc_stats(key)
+                    best_info["osc_stats"] = stats if stats.get("valid") else None
+        self._hovered_key = best_key
+        self._hovered_info = best_info
+        self._hovered_x = best_x
+        self._hovered_y = best_y
+        self._hovered_idx = best_idx
+        if best_key and best_idx is not None:
+            xs = list(self.x_data[best_key])
+            ys = list(self.data[best_key])
+            start_idx = max(0, best_idx - 5)
+            self._hovered_area = self._compute_integral(xs, ys, start_idx, best_idx + 1)
+
+    def _handle_hover_split(self, keys: List[str]) -> None:
+        if not self._mouse_pos:
+            self._hovered_key = None
+            self._hovered_info = None
+            return
+        mx, my = self._mouse_pos
+        w = self.surface_size[0] - self.MARGIN_LEFT
+        total_h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
+        bar_h = total_h / len(keys) if keys else 0
+        all_x = [x for k in keys for x in self.x_data[k]]
+        if not all_x: return
+        x_min_raw, x_max_raw = min(all_x), max(all_x)
+        x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
+        x_range = x_max - x_min or 1.0
+        best_dist = float('inf')
+        best_key = best_info = None
+        for i, key in enumerate(keys):
+            ys = list(self.data[key])
+            xs = list(self.x_data[key])
+            if not ys or not xs: continue
+            y0 = self.MARGIN_TOP + i * bar_h
+            local_min = min(ys)
+            local_max = max(ys)
+            y_min, y_max = self._get_padded_range(local_min, local_max)
+            draw_min, draw_max = self._smoothed_range.get(f"bar_{key}", (y_min, y_max))
+            draw_range = draw_max - draw_min or 1.0
+            scale_h = bar_h * 0.8
+            pts = [(self.MARGIN_LEFT + (xs[j] - x_min) / x_range * w,
+                    y0 + (ys[j] - draw_min) / draw_range * scale_h) for j in range(len(ys))]
+            for j, (px, py) in enumerate(pts):
+                dist = self._point_distance((mx, my), (px, py))
+                if dist < 12 and dist < best_dist:
+                    best_dist = dist
+                    best_key = key
+                    best_info = self._compute_local_stats(xs, ys, j)
+                    stats = self._get_cached_osc_stats(key)
+                    best_info["osc_stats"] = stats if stats.get("valid") else None
+        self._hovered_key = best_key
+        self._hovered_info = best_info
