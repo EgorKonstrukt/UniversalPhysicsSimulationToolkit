@@ -326,8 +326,8 @@ class Plotter:
     def _render_spectrum(self, stats: Dict[str, float], y_pos: int) -> None:
         if not self.enable_osc_analysis or not stats.get("spectrum"): return
         sp = stats["spectrum"]
-        bar_w = 14
-        bar_gap = 4
+        bar_w = 24
+        bar_gap = 45
         total_width = len(sp) * (bar_w + bar_gap) - bar_gap
         start_x = self.surface_size[0] - total_width - 20
         pygame.draw.rect(self.surface, self.SPECTRUM_BG, (start_x - 5, y_pos - 10, total_width + 10, 40))
@@ -556,35 +556,92 @@ class Plotter:
     def _point_distance(self, p1: Tuple[float, float], p2: Tuple[float, float]) -> float:
         return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
 
-    def _render_hover_tooltip(self) -> None:
-        if self._hovered_key is None or self._hovered_info is None or self._mouse_pos is None:
-            return
+    def _render_hover_tooltip(self):
+        if not self._hovered_key or not self._hovered_info or not self._mouse_pos: return
+        mx, my = self._mouse_pos
         info = self._hovered_info
-        lines = [
-            f"x = {info['x']:.3f} s",
-            f"y = {info['y']:.4f}",
-            f"dy/dx ≈ {info['slope']:.4f}",
-            f"∫ ≈ {self._hovered_area:.4f}"
+        ls = [
+            f"x: {info['x']:.4f}",
+            f"y: {info['y']:.4f}",
+            f"slope: {info['slope']:.4f}",
+            f"area: {self._hovered_area:.4f}"
         ]
         if info.get("osc_stats"):
-            osc = info["osc_stats"]
-            lines.extend([
-                f"T = {osc['period']:.2f} s",
-                f"A = {osc['mean_amplitude']:.3f}",
-                f"γ = {osc['decay_rate']:.4f}",
-                f"ζ = {osc['damping_ratio']:.3f}"
+            o = info["osc_stats"]
+            ls.extend([
+                f"T: {o['period']:.3f}",
+                f"A: {o['mean_amplitude']:.3f}",
+                f"γ: {o['decay_rate']:.4f}",
+                f"ζ: {o['damping_ratio']:.3f}"
             ])
-        lines = lines[:self.MAX_HOVER_LINES]
-        mx, my = self._mouse_pos
-        y_offset = 0
-        for line in lines:
-            lbl = self.font.render(line, True, (255, 255, 255))
-            bg = pygame.Surface(lbl.get_size(), pygame.SRCALPHA)
-            bg.fill((40, 40, 50, 220))
-            self.surface.blit(bg, (mx + 12, my + 12 + y_offset))
-            self.surface.blit(lbl, (mx + 12, my + 12 + y_offset))
-            y_offset += self.LABEL_LINE_SPACING
+        ls = ls[:self.MAX_HOVER_LINES]
+        rend = [self.font.render(t, True, (255, 255, 255)) for t in ls]
+        w = max(r.get_width() for r in rend) + 14
+        h = len(rend) * self.LABEL_LINE_SPACING + 10
+        x = mx + 18;
+        y = my + 18
+        if x + w > self.surface_size[0] - 10: x = mx - w - 18
+        if y + h > self.surface_size[1] - 10: y = my - h - 18
+        pygame.draw.rect(self.surface, (25, 25, 35, 220), (x, y, w, h), border_radius=6)
+        pygame.draw.rect(self.surface, (180, 180, 255), (x, y, w, h), 1, border_radius=6)
+        off = 5
+        for r in rend:
+            self.surface.blit(r, (x + 7, y + off))
+            off += self.LABEL_LINE_SPACING
 
+    def _draw_tangent_and_area_overlay(self, key: str, xs: List[float], ys: List[float],
+                                       x_min: float, x_max: float, draw_min: float, draw_max: float,
+                                       px: float, py: float, idxf: float, slope: float, intercept: float, area: float) -> None:
+        w = self.surface_size[0] - self.MARGIN_LEFT
+        h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
+        x_range = x_max - x_min or 1.0
+        draw_range = draw_max - draw_min or 1.0
+        # tangent endpoints across whole plot
+        x_left_data = x_min
+        x_right_data = x_max
+        y_left = (py - draw_min) + slope * (x_left_data - xs[int(math.floor(idxf))]) if xs else 0.0
+        # compute intercept at hovered point: y = slope*(x - x0) + y0 -> intercept_data = y0 - slope*x0
+        y0 = ys[int(math.floor(idxf))] + (ys[min(len(ys)-1, int(math.floor(idxf))+1)] - ys[int(math.floor(idxf))]) * (idxf - math.floor(idxf)) if len(xs)>1 else ys[0]
+        x0 = xs[int(math.floor(idxf))] + (xs[min(len(xs)-1, int(math.floor(idxf))+1)] - xs[int(math.floor(idxf))]) * (idxf - math.floor(idxf)) if len(xs)>1 else xs[0]
+        intercept_data = y0 - slope * x0
+        sx = self.MARGIN_LEFT
+        ex = self.MARGIN_LEFT + w
+        data_x_s = x_min
+        data_x_e = x_max
+        y_s_data = slope * data_x_s + intercept_data
+        y_e_data = slope * data_x_e + intercept_data
+        y_s_screen = self.MARGIN_TOP + (y_s_data - draw_min) / draw_range * h
+        y_e_screen = self.MARGIN_TOP + (y_e_data - draw_min) / draw_range * h
+        col = self._get_color(key)
+        pygame.draw.line(self.surface, (col[0], col[1], col[2], 220), (sx, y_s_screen), (ex, y_e_screen), 2)
+        # draw small arrow indicating slope near hovered point
+        arr_len = 18
+        # compute screen slope
+        dx_data = (x_max - x_min) or 1.0
+        screen_slope = slope * (h / draw_range) / (w / x_range)
+        angle = math.atan(screen_slope)
+        ax = px + math.cos(angle) * arr_len
+        ay = py + math.sin(angle) * arr_len
+        pygame.draw.line(self.surface, col, (px, py), (ax, ay), 2)
+        pygame.draw.circle(self.surface, (col[0], col[1], col[2], 230), (int(px), int(py)), 4)
+        # area fill on separate surface with alpha
+        half_win = 10
+        xL = x0 - (xs[1] - xs[0]) * half_win if len(xs) > 1 else x0 - half_win
+        xR = x0 + (xs[1] - xs[0]) * half_win if len(xs) > 1 else x0 + half_win
+        seg = self._sample_segment(xs, ys, xL, xR)
+        if seg:
+            surf = pygame.Surface(self.surface_size, pygame.SRCALPHA)
+            poly = []
+            for xd, yd in seg:
+                sxp = self.MARGIN_LEFT + (xd - x_min) / x_range * w
+                syp = self.MARGIN_TOP + (yd - draw_min) / draw_range * h
+                poly.append((sxp, syp))
+            bottom = self.surface_size[1] - self.MARGIN_BOTTOM
+            if poly:
+                poly_full = poly + [(poly[-1][0], bottom), (poly[0][0], bottom)]
+                pygame.draw.polygon(surf, (*col, 60), poly_full)
+                pygame.draw.lines(surf, (*col, 120), False, poly, 2)
+                self.surface.blit(surf, (0, 0))
     def get_surface(self) -> pygame.Surface:
         self.surface.fill(self.BG_COLOR)
         keys = self._get_filtered_keys()
@@ -686,11 +743,20 @@ class Plotter:
         self._hovered_x = best_x
         self._hovered_y = best_y
         self._hovered_idx = best_idx
+        self._hovered_area = 0.0
+
         if best_key and best_idx is not None:
+            col = self._get_color(best_key)
             xs = list(self.x_data[best_key])
             ys = list(self.data[best_key])
-            start_idx = max(0, best_idx - 5)
-            self._hovered_area = self._compute_integral(xs, ys, start_idx, best_idx + 1)
+            x = xs[best_idx];
+            y = ys[best_idx]
+            xx = self.MARGIN_LEFT + (x - x_min) / x_range * w
+            yy = self.MARGIN_TOP + (y - draw_min) / draw_range * h
+
+            for r, a in [(16, 40), (10, 80), (6, 160)]:
+                pygame.draw.circle(self.surface, (*col, a), (xx, yy), r)
+
 
     def _handle_hover_split(self, keys: List[str]) -> None:
         if not self._mouse_pos:
