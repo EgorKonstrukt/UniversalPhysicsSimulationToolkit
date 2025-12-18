@@ -7,6 +7,21 @@ from typing import Any, Dict, Tuple, List, Type, Optional, get_type_hints
 import json
 
 @dataclass
+class PlotterConfig:
+    smoothing_factor: float = 0.15
+    font_size: int = 16
+    grid_density: float = 1.0
+    sort_by_value: bool = True
+    show_extrema_labels: bool = True
+    show_extrema: bool = True
+    enable_osc_analysis: bool = True
+    min_peaks_for_osc: int = 4
+    min_crossings_for_osc: int = 4
+    min_extrema_for_osc: int = 3
+    osc_cache_ttl: int = 10
+
+
+@dataclass
 class OpticsConfig:
     TRANSPARENCY = 0.75
     N_SAMPLES = 30
@@ -351,6 +366,7 @@ class Config:
     optics: "OpticsConfig"
     rendering: "RenderingConfig"
     scripting: "ScriptingConfig"
+    plotter: "PlotterConfig"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -443,6 +459,7 @@ Config.register("context_menu", ContextMenuConfig)
 Config.register("optics", OpticsConfig)
 Config.register("rendering", RenderingConfig)
 Config.register("scripting", ScriptingConfig)
+Config.register("plotter", PlotterConfig)
 
 def grid_to_dict_custom(self, d: Dict) -> Dict:
     d["default_colors"] = asdict(self.default_colors)

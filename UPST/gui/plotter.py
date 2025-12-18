@@ -1,6 +1,6 @@
 import collections, math, pygame, time
 from typing import Dict, List, Optional, Tuple
-
+from UPST.config import config
 
 class Plotter:
     BASE_COLORS: List[Tuple[int, int, int]] = [(0, 255, 255), (255, 105, 180), (147, 255, 180), (255, 215, 0),
@@ -31,12 +31,18 @@ class Plotter:
     MAX_HOVER_LINES: int = 8
 
     def __init__(self, surface_size: Tuple[int, int], max_samples: int = 120,
-                 smoothing_factor: float = 0.15, font_size: int = 16, sort_by_value: bool = True,
-                 x_label: str = "", y_label: str = "", grid_density: float = 1.0,
-                 min_peaks_for_osc: int = 4, min_crossings_for_osc: int = 4,
-                 min_extrema_for_osc: int = 5, osc_cache_ttl: int = 10,
-                 enable_osc_analysis: bool = True, show_extrema_labels: bool = True,
-                 show_extrema: bool = True):
+                 smoothing_factor: float = config.plotter.smoothing_factor,
+                 font_size: int = config.plotter.font_size,
+                 sort_by_value: bool = config.plotter.sort_by_value,
+                 x_label: str = "", y_label: str = "",
+                 grid_density: float = config.plotter.grid_density,
+                 min_peaks_for_osc: int = config.plotter.min_peaks_for_osc,
+                 min_crossings_for_osc: int = config.plotter.min_crossings_for_osc,
+                 min_extrema_for_osc: int = config.plotter.min_extrema_for_osc,
+                 osc_cache_ttl: int = config.plotter.osc_cache_ttl,
+                 enable_osc_analysis: bool = config.plotter.enable_osc_analysis,
+                 show_extrema_labels: bool = config.plotter.show_extrema_labels,
+                 show_extrema: bool = config.plotter.show_extrema):
         self.surface_size = surface_size
         self.max_samples = max(1, int(max_samples))
         self.smoothing_factor = smoothing_factor
