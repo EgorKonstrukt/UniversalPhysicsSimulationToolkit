@@ -115,39 +115,58 @@ class ToolSystem:
             self.current_tool.draw_preview(screen, camera)
 
     def create_tool_buttons(self):
-        if not self.ui_manager:
-            return
-        panel = UIPanel(relative_rect=pygame.Rect(5, 50, 200, 1040), manager=self.ui_manager.manager)
+        if not self.ui_manager: return
+        bs, pad, x0 = 50, 1, 10
+        tip_delay = getattr(config, 'TOOLTIP_DELAY', 0.1)
         y = 0
+        col = 0
+        items = []
+
+        def tt(name):
+            return getattr(self.tools[name], 'tooltip', name)
 
         def add_section(text):
-            nonlocal y
-            UILabel(relative_rect=pygame.Rect(0, y, 190, 25), text=f"-- {text} --", manager=self.ui_manager.manager,
-                    container=panel)
+            nonlocal y, col
+            items.append(("label", text, y))
             y += 30
+            col = 0
 
-        def add_tool_btn(name, icon_path):
-            nonlocal y
-            btn = UIButton(relative_rect=pygame.Rect(10, y, 120, 45), text=name, manager=self.ui_manager.manager,
-                           container=panel)
-            UIImage(relative_rect=pygame.Rect(135, y + 2, 40, 40), image_surface=pygame.image.load(icon_path),
-                    manager=self.ui_manager.manager, container=panel)
-            self.ui_manager.tool_buttons.append(btn)
-            y += 45
-            return btn
+        def add_btn(name, icon):
+            nonlocal y, col
+            x = x0 + col * (bs + pad)
+            items.append(("btn", name, icon, x, y))
+            col += 1
+            if col > 1: col = 0;y += bs + pad
 
         add_section("Primitives")
-        for name in ["Circle", "Rectangle", "Triangle", "Poly", "Polyhedron", "Spam", "Gear", "Chain", "Plane"]:
-            btn = add_tool_btn(name, self.tools[name].icon_path)
-            btn.tool_name = name
+        for n in ["Circle", "Rectangle", "Triangle", "Poly", "Polyhedron", "Spam", "Gear", "Chain", "Plane"]:
+            add_btn(n, self.tools[n].icon_path)
+        if col: y += bs + pad;col = 0
         add_section("Connections")
-        for name in ["Spring", "PivotJoint", "PinJoint", "Fixate"]:
-            btn = add_tool_btn(name, self.tools[name].icon_path)
-            btn.tool_name = name
+        for n in ["Spring", "PivotJoint", "PinJoint", "Fixate"]:
+            add_btn(n, self.tools[n].icon_path)
+        if col: y += bs + pad;col = 0
         add_section("Tools")
-        for name in ["Explosion", "StaticLine", "Laser", "Drag", "Move", "Rotate", "Cut", "ScriptTool"]:
-            btn = add_tool_btn(name, self.tools[name].icon_path)
-            btn.tool_name = name
+        for n in ["Explosion", "StaticLine", "Laser", "Drag", "Move", "Rotate", "Cut", "ScriptTool"]:
+            add_btn(n, self.tools[n].icon_path)
+        panel = UIPanel(relative_rect=pygame.Rect(5, 50, 75+bs, y + 10), manager=self.ui_manager.manager)
+        for it in items:
+            if it[0] == "label":
+                UILabel(relative_rect=pygame.Rect(0, it[2], 190, 25),
+                        text=f"-- {it[1]} --", manager=self.ui_manager.manager, container=panel)
+            else:
+                _, name, icon, x, y = it
+                tip = tt(name)
+                btn = UIButton(relative_rect=pygame.Rect(x, y, bs, bs), text="",
+                               manager=self.ui_manager.manager, container=panel)
+                img = UIImage(relative_rect=pygame.Rect(x + 2, y + 2, bs - 4, bs - 4),
+                              image_surface=pygame.image.load(icon),
+                              manager=self.ui_manager.manager, container=panel)
+                btn.set_tooltip(tip, delay=tip_delay)
+                img.set_tooltip(tip, delay=tip_delay)
+                btn.tool_name = name
+                self.ui_manager.tool_buttons.append(btn)
+
 
 class SpringTool(BaseTool):
     name = "Spring"

@@ -54,9 +54,9 @@ class BottomBar:
         self.buttons = {}
         self.icons = {}
         self.states = {
-            'paused': not physics_manager.running_physics,
+            'paused': physics_manager.running_physics,
             'grid': False,
-            'air': True,
+            'air': physics_manager.air_friction,
             'gravity': True
         }
 

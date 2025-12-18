@@ -32,6 +32,7 @@ class PhysicsManager:
             self._accumulator = 0.0
             self._ccd_bodies = set()
             self._angular_damping = 0.0
+            self.air_friction = True
             self.air_friction_linear = 0.0100
             self.air_friction_quadratic = 0.00100
             self.air_friction_multiplier = 1.0
@@ -100,7 +101,8 @@ class PhysicsManager:
             self._accumulator += max(0.0, float(dt) * self.simulation_speed_multiplier)
             prev_pos = {b: b.position for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}
             while self._accumulator >= effective_dt:
-                self._apply_air_friction()
+                if self.air_friction:
+                    self._apply_air_friction()
 
                 self.space.step(effective_dt)
                 if self._angular_damping > 0.0:
