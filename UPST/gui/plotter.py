@@ -33,9 +33,10 @@ class Plotter:
     def __init__(self, surface_size: Tuple[int, int], max_samples: int = 120,
                  smoothing_factor: float = 0.15, font_size: int = 16, sort_by_value: bool = True,
                  x_label: str = "", y_label: str = "", grid_density: float = 1.0,
-                 min_peaks_for_osc: int = 3, min_crossings_for_osc: int = 2,
-                 min_extrema_for_osc: int = 3, osc_cache_ttl: int = 10,
-                 enable_osc_analysis: bool = True):
+                 min_peaks_for_osc: int = 4, min_crossings_for_osc: int = 4,
+                 min_extrema_for_osc: int = 5, osc_cache_ttl: int = 10,
+                 enable_osc_analysis: bool = True, show_extrema_labels: bool = True,
+                 show_extrema: bool = True):
         self.surface_size = surface_size
         self.max_samples = max(1, int(max_samples))
         self.smoothing_factor = smoothing_factor
@@ -47,7 +48,11 @@ class Plotter:
         self.min_crossings_for_osc = min_crossings_for_osc
         self.min_extrema_for_osc = min_extrema_for_osc
         self.osc_cache_ttl = osc_cache_ttl
+
         self.enable_osc_analysis = enable_osc_analysis
+        self.show_extrema_labels = show_extrema_labels
+        self.show_extrema = show_extrema
+
         self.data: Dict[str, collections.deque] = collections.defaultdict(lambda: collections.deque(maxlen=self.max_samples))
         self.x_data: Dict[str, collections.deque] = collections.defaultdict(lambda: collections.deque(maxlen=self.max_samples))
         self.colors: Dict[str, Tuple[int, int, int]] = {}
@@ -79,6 +84,7 @@ class Plotter:
         return not (r1.right < r2.left or r1.left > r2.right or r1.bottom < r2.top or r1.top > r2.bottom)
 
     def _render_extrema_labels(self):
+        if not self.show_extrema_labels: return
         if not self._extrema_labels: return
         keep = []
         self._extrema_labels.sort(key=lambda x: abs(x["value"]), reverse=True)
@@ -237,81 +243,172 @@ class Plotter:
                 crossings.append(x_cross)
         return crossings
 
-    def _detect_frequency_components(self, ys: List[float], xs: List[float]) -> List[Tuple[float, float]]:
-        if len(ys) < 8: return []
-        dt = xs[-1] - xs[0]
-        if dt <= 0: return []
-        N = len(ys); Fs = N / dt
-        fft_vals = []
-        for k in range(1, min(N // 2, 20)):
-            real = imag = 0.0
+    def _detect_frequency_components(self, ys, xs):
+        N = len(ys)
+        if N < 8: return []
+        t0 = xs[0]
+        tN = xs[-1]
+        dt_raw = (x - xs[i - 1] for i, x in enumerate(xs[1:], start=1))
+        diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)]
+        dt_med = self._median([abs(d) for d in diffs]) if diffs else 1.0
+        scale = 1.0
+        if dt_med > 1.0: scale = 0.001
+        total_t = (xs[-1] - xs[0]) * scale
+        if total_t <= 0: return []
+        Fs = N / total_t
+        ys_d = [v - sum(ys) / N for v in ys]
+        w = self._hann_win(N)
+        ys_w = [ys_d[i] * w[i] for i in range(N)]
+        max_k = min(N // 2, 60)
+        comps = []
+        for k in range(1, max_k):
+            re = 0.0
+            im = 0.0
             for n in range(N):
-                angle = 2 * math.pi * k * n / N
-                real += ys[n] * math.cos(angle)
-                imag -= ys[n] * math.sin(angle)
-            mag = math.sqrt(real*real + imag*imag) / N
+                ang = 2 * math.pi * k * n / N
+                re += ys_w[n] * math.cos(ang)
+                im -= ys_w[n] * math.sin(ang)
+            mag = math.hypot(re, im) / N
             freq = k * Fs / N
-            fft_vals.append((mag, freq))
-        fft_vals.sort(reverse=True)
-        if not fft_vals: return []
-        dominant = fft_vals[0][0]
-        if dominant < 0.05 * sum(m for m, _ in fft_vals): return []
-        return fft_vals[:3]
+            comps.append((mag, freq, k))
+        comps.sort(reverse=True)
+        if not comps: return []
+        mags = [m for m, f, _ in comps]
+        maxm = max(mags)
+        medm = self._median(mags) if mags else 0.0
+        res = []
+        for m, f, k in comps[:10]:
+            if m > 1e-6 and (m > 0.2 * maxm or m > medm * 2):
+                res.append((m, f))
+        return res[:3]
 
     def _estimate_period_from_crossings(self, crossings: List[float]) -> float:
         if len(crossings) < 2: return float('inf')
         intervals = [crossings[i] - crossings[i - 1] for i in range(1, len(crossings))]
         return sum(intervals) / len(intervals) * 2 if intervals else float('inf')
 
-    def _estimate_amplitude_and_decay(self, ys: List[float], xs: List[float]) -> Tuple[float, float]:
-        if len(ys) < 3: return 0.0, 0.0
-        peaks, troughs = self._find_extrema(ys)
-        if len(peaks) + len(troughs) < self.min_peaks_for_osc: return 0.0, 0.0
-        extrema = [(i, abs(ys[i])) for i, _ in (peaks + troughs)]
-        if len(extrema) < 2: return sum(a for _, a in extrema) / len(extrema), 0.0
-        extrema.sort()
-        x_ext = [xs[i] for i, _ in extrema]
-        ln_amps = [math.log(a) for _, a in extrema if a > 1e-9]
-        if len(ln_amps) < 2: return sum(a for _, a in extrema) / len(extrema), 0.0
-        slope, _ = self._linear_regression(x_ext, ln_amps)
-        mean_amp = sum(a for _, a in extrema) / len(extrema)
-        return mean_amp, -slope
+    def _hann_win(self, n):
+        return [0.5 - 0.5 * math.cos(2 * math.pi * i / (n - 1)) for i in range(n)] if n > 1 else [1.0]
 
-    def get_oscillation_stats(self, key: str) -> Dict[str, float]:
-        if not self.enable_osc_analysis or key not in self.data or len(self.data[key]) < 6:
-            return {"period": float('inf'), "mean_amplitude": 0.0, "decay_rate": 0.0, "damping_ratio": 0.0,
-                    "valid": False, "weak": False}
+    def _median(self, arr):
+        a = sorted(arr)
+        m = len(a) // 2
+        return (a[m] if len(a) % 2 == 1 else 0.5 * (a[m - 1] + a[m])) if a else 0.0
+
+    def _autocorr_period(self, xs, ys):
+        n = len(ys)
+        if n < 8: return float('inf'), 0.0
+        y = [v - sum(ys) / n for v in ys]
+        ac = [0.0] * (n // 2)
+        for lag in range(1, n // 2):
+            num = 0.0
+            den = 0.0
+            for i in range(n - lag):
+                num += y[i] * y[i + lag]
+                den += y[i] * y[i]
+            ac[lag] = num / (den + 1e-12)
+        if not ac: return float('inf'), 0.0
+        mx = max(ac[1:]) if len(ac) > 1 else 0.0
+        if mx <= 0.05: return float('inf'), mx
+        # find first significant peak after lag=0
+        peak_lag = None
+        for i in range(2, len(ac) - 1):
+            if ac[i] > ac[i - 1] and ac[i] >= ac[i + 1] and ac[i] > 0.3 * mx:
+                peak_lag = i
+                break
+        if peak_lag is None:
+            # fallback: pick lag of global max
+            peak_lag = 1 + ac[1:].index(mx) if mx > 0 else None
+        if peak_lag is None: return float('inf'), mx
+        # compute dt (median)
+        diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)]
+        dt_med = self._median([abs(d) for d in diffs]) if diffs else 1.0
+        scale = 1.0
+        if dt_med > 1.0: scale = 0.001
+        period = peak_lag * dt_med * scale
+        return period, mx
+
+    def _estimate_amplitude_and_decay(self, ys, xs):
+        if len(ys) < 3: return 0.0, 0.0
+        pks, tr = self._find_extrema(ys)
+        ext = []
+        for i, _ in pks: ext.append((i, abs(ys[i]), xs[i]))
+        for i, _ in tr: ext.append((i, abs(ys[i]), xs[i]))
+        if len(ext) < 2:
+            mean_amp = sum(abs(v) for v in ys) / len(ys)
+            return mean_amp, 0.0
+        ext.sort()
+        times = [(t if t is not None else i) for i, _, t in ext]
+        amps = [a for _, a, _ in ext if a > 1e-9]
+        if len(amps) < 2: return sum(amps) / len(amps) if amps else 0.0, 0.0
+        # convert times to seconds if needed
+        diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)] if len(xs) > 1 else [1.0]
+        dt_med = self._median([abs(d) for d in diffs]) if diffs else 1.0
+        scale = 1.0
+        if dt_med > 1.0: scale = 0.001
+        tvals = [t * scale for _, _, t in ext]
+        lnamps = [math.log(a) for a in amps if a > 1e-9]
+        if len(lnamps) < 2: return sum(amps) / len(amps), 0.0
+        # linear regression ln(amp) = a + b*t  => decay = -b
+        n = len(lnamps)
+        xs_lr = tvals[:len(lnamps)]
+        sumx = sum(xs_lr)
+        sumy = sum(lnamps)
+        sumxy = sum(x * y for x, y in zip(xs_lr, lnamps))
+        sumx2 = sum(x * x for x in xs_lr)
+        denom = n * sumx2 - sumx * sumx
+        if abs(denom) < 1e-12: return sum(amps) / len(amps), 0.0
+        b = (n * sumxy - sumx * sumy) / denom
+        decay = -b if b < 0 else 0.0
+        mean_amp = sum(amps) / len(amps)
+        return mean_amp, decay
+
+    def get_oscillation_stats(self, key):
+        if not self.enable_osc_analysis or key not in self.data or len(self.data[key]) < 8:
+            return {"period": 0.0, "mean_amplitude": 0.0, "decay_rate": 0.0, "damping_ratio": 0.0, "dominant_freq": 0.0,
+                    "spectrum": [], "valid": False, "weak": False, "snr": 0.0, "peak_count": 0, "trough_count": 0,
+                    "half_life": 0.0, "confidence": 0.0}
         ys = list(self.data[key])
         xs = list(self.x_data[key])
+        # normalize to seconds if timestamps look like ms
+        diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)] if len(xs) > 1 else [1.0]
+        dt_med = self._median([abs(d) for d in diffs]) if diffs else 1.0
+        scale = 1.0
+        if dt_med > 1.0: scale = 0.001
+        xs_s = [x * scale for x in xs]
         base = sum(ys) / len(ys)
-        ys_centered = [y - base for y in ys]
-        crossings = self._detect_zero_crossings(ys_centered, xs)
-        peaks, troughs = self._find_extrema(ys_centered)
-        enough_extrema = (len(peaks) + len(troughs)) >= self.min_extrema_for_osc
-        enough_crossings = len(crossings) >= self.min_crossings_for_osc
-        weak_candidate = enough_extrema and enough_crossings and len(ys) >= 8
-        if not weak_candidate:
-            return {"period": float('inf'), "mean_amplitude": 0.0, "decay_rate": 0.0, "damping_ratio": 0.0,
-                    "valid": False, "weak": False}
-        period = self._estimate_period_from_crossings(crossings)
-        mean_amp, decay = self._estimate_amplitude_and_decay(ys_centered, xs)
-        omega = 2 * math.pi / period if period > 0 else 0
-        damping_ratio = min(decay / omega, 1.0) if omega > 1e-6 else 0.0
-        freqs = self._detect_frequency_components(ys_centered, xs)
-        dominant_freq = freqs[0][1] if freqs else (1.0 / period if period > 0 else 0.0)
-        strong_valid = (period > 0.01 and mean_amp > 1e-6 and len(crossings) >= 4 and len(freqs) > 0)
-        weak_valid = (period > 0.01 and mean_amp > 1e-6 and enough_crossings and enough_extrema)
-        valid = strong_valid or weak_valid
-        return {
-            "period": period if period != float('inf') else 0.0,
-            "mean_amplitude": mean_amp,
-            "decay_rate": decay,
-            "damping_ratio": damping_ratio,
-            "dominant_freq": dominant_freq,
-            "spectrum": freqs,
-            "valid": valid,
-            "weak": not strong_valid and weak_valid
-        }
+        ys_c = [y - base for y in ys]
+        crossings = self._detect_zero_crossings(ys_c, xs)
+        pks, tr = self._find_extrema(ys_c)
+        peak_count = len(pks)
+        trough_count = len(tr)
+        per_cross = self._estimate_period_from_crossings(crossings) if crossings else float('inf')
+        per_auto, acf_conf = self._autocorr_period(xs, ys_c)
+        freqs = self._detect_frequency_components(ys_c, xs)
+        mean_amp, decay = self._estimate_amplitude_and_decay(ys_c, xs)
+        period = per_auto if per_auto and per_auto != float('inf') else (
+            per_cross if per_cross and per_cross != float('inf') else float('inf'))
+        period_s = period * (0.001 if dt_med > 1.0 else 1.0)
+        dominant_freq = freqs[0][1] if freqs else (1.0 / period_s if period_s > 0 and period_s != float('inf') else 0.0)
+        # compute SNR
+        mags = [m for m, _ in freqs] if freqs else []
+        snr = (max(mags) / (self._median(mags) + 1e-12)) if mags else 0.0
+        # damping ratio
+        omega = 2 * math.pi / period_s if period_s > 0 and period_s != float('inf') else 0.0
+        damping = min(decay / omega, 1.0) if omega > 1e-12 else 0.0
+        half_life = math.log(2) / decay if decay > 1e-12 else float('inf')
+        # confidence heuristic
+        conf = 0.0
+        if peak_count + trough_count >= self.min_extrema_for_osc: conf += 0.3
+        if len(crossings) >= self.min_crossings_for_osc: conf += 0.3
+        if freqs and mags and mags[0] > 0: conf += 0.3
+        conf += min(0.1, acf_conf)
+        valid = conf >= 0.6 and mean_amp > 1e-6 and period_s > 0 and period_s != float('inf')
+        weak = (conf >= 0.4 and mean_amp > 1e-6)
+        spec = freqs
+        return {"period": period_s, "mean_amplitude": mean_amp, "decay_rate": decay, "damping_ratio": damping,
+                "dominant_freq": dominant_freq, "spectrum": spec, "valid": valid, "weak": weak, "snr": snr,
+                "peak_count": peak_count, "trough_count": trough_count, "half_life": half_life, "confidence": conf}
 
     def _get_cached_osc_stats(self, key: str) -> Dict[str, float]:
         if not self.enable_osc_analysis:
@@ -329,6 +426,8 @@ class Plotter:
         return {"valid": False}
 
     def _render_extrema_markers(self, pts, key, peaks, troughs):
+        if not self.show_extrema:
+            return
         col_peak = (255, 70, 70)
         col_trough = (70, 255, 70)
         self._extrema_labels = []
@@ -339,7 +438,7 @@ class Plotter:
                                 [(x, y - sz), (x - sz * 0.6, y + sz * 0.4), (x + sz * 0.6, y + sz * 0.4)])
             lbl = self.font.render(f"{pts[idx][1]:.3f}", True, (240, 240, 240))
             rect = lbl.get_rect()
-            fx = int(x - rect.width / 2);
+            fx = int(x - rect.width / 2)
             fy = int(y - sz - rect.height - 6)
             rect.move_ip(fx, fy)
             self._extrema_labels.append({"value": pts[idx][1], "x": fx, "y": fy, "rect": rect, "txt": lbl})
@@ -350,7 +449,7 @@ class Plotter:
                                 [(x, y + sz), (x - sz * 0.6, y - sz * 0.4), (x + sz * 0.6, y - sz * 0.4)])
             lbl = self.font.render(f"{pts[idx][1]:.3f}", True, (240, 240, 240))
             rect = lbl.get_rect()
-            fx = int(x - rect.width / 2);
+            fx = int(x - rect.width / 2)
             fy = int(y + sz + 4)
             rect.move_ip(fx, fy)
             self._extrema_labels.append({"value": pts[idx][1], "x": fx, "y": fy, "rect": rect, "txt": lbl})
@@ -650,7 +749,7 @@ class Plotter:
         rend = [self.font.render(t, True, (255, 255, 255)) for t in ls]
         w = max(r.get_width() for r in rend) + 14
         h = len(rend) * self.LABEL_LINE_SPACING + 10
-        x = mx + 18;
+        x = mx + 18
         y = my + 18
         if x + w > self.surface_size[0] - 10: x = mx - w - 18
         if y + h > self.surface_size[1] - 10: y = my - h - 18
@@ -859,7 +958,7 @@ class Plotter:
             # compute slope/intercept from local window and fractional index
             local = self._compute_local_stats(xs, ys, best_idx)
             slope_data = local.get("slope", 0.0)
-            x0 = xs[best_idx];
+            x0 = xs[best_idx]
             y0 = ys[best_idx]
             intercept = y0 - slope_data * x0
             # sample around x0 for area shading and area calculation
@@ -868,16 +967,16 @@ class Plotter:
                 dx = (xs[1] - xs[0]) if len(xs) > 1 else 1.0
             else:
                 dx = 1.0
-            xL = x0 - dx * half_win;
+            xL = x0 - dx * half_win
             xR = x0 + dx * half_win
             seg = self._sample_segment(xs, ys, xL, xR)
             area = 0.0
             if seg and len(seg) > 1:
-                sxs = [p[0] for p in seg];
+                sxs = [p[0] for p in seg]
                 sys = [p[1] for p in seg]
                 area = self._compute_integral(sxs, sys, 0, len(sxs) - 1)
                 self._hovered_area = area
-            # draw tangent and area overlay
+
             self._draw_tangent_and_area_overlay(best_key, xs, ys, x_min, x_max, draw_min, draw_max,
                                                 xx, yy, float(best_idx), slope_data, intercept, area)
 

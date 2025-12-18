@@ -8,6 +8,7 @@ from typing import Optional, Any, Callable, TypeVar, Dict, List, Tuple, Union, S
 
 import pygame
 import pymunk
+from pygame import gfxdraw
 
 from UPST.config import config
 from UPST.modules.camera import Camera
@@ -121,7 +122,8 @@ class ScriptInstance:
             "threaded": threaded_decorator, "np": np, "njit": njit,
             "Optional": Optional, "Any": Any, "Callable": Callable, "TypeVar": TypeVar,
             "Dict": Dict, "List": List, "Tuple": Tuple, "Union": Union, "Set": Set,
-            "PlotterWindow": plotter_factory, "load_script": self._load_script_wrapper
+            "PlotterWindow": plotter_factory, "load_script": self._load_script_wrapper,
+            "gfxdraw": gfxdraw,
         }
 
     def _init_namespace_and_compile(self):
