@@ -188,6 +188,15 @@ class Renderer:
                 r_px = shape.radius * cam_scale
                 bodies_to_render.append(('segment', a_scr[0], a_scr[1], b_scr[0], b_scr[1], r_px, color))
 
+            if hasattr(shape, "texture_path") and shape.texture_path:
+                tex = self._get_scaled_texture_by_camera(shape.texture_path)
+                if tex:
+                    cx = sum(v[0] for v in verts) / len(verts)
+                    cy = sum(v[1] for v in verts) / len(verts)
+                    rot = pygame.transform.rotate(tex, -math.degrees(body.angle))
+                    screen.blit(rot, (cx - rot.get_width() / 2, cy - rot.get_height() / 2))
+                    continue
+
         outline = self.outline_color
         othick = self.outline_thickness
         for item in bodies_to_render:

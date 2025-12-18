@@ -20,8 +20,11 @@ from UPST.tools.rotate_tool import RotateTool
 from UPST.tools.cut_tool import CutTool
 from UPST.tools.script_tool import ScriptTool
 from UPST.tools.drag_tool import DragTool
+from UPST.tools.plane_tool import PlaneTool
+from UPST.tools.poly_tool import PolyTool
 
 from UPST.modules.undo_redo_manager import get_undo_redo
+
 
 class ToolSystem:
     def __init__(self, physics_manager, sound_manager):
@@ -368,89 +371,6 @@ class StaticLineTool(BaseTool):
     def deactivate(self):
         self.start_pos = None
 
-
-
-
-
-
-class PolyTool(BaseTool):
-    name = "Poly"
-    icon_path = "sprites/gui/tools/polygon.png"
-
-    def __init__(self, pm):
-        super().__init__(pm)
-        self.points = []
-        self.preview_closed = False
-
-    def create_settings_window(self):
-        win = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect(200, 10, 300, 160),
-            manager=self.ui_manager.manager,
-            window_display_title="Poly Settings"
-        )
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 10, 120, 20), text="Min vertices:", manager=self.ui_manager.manager, container=win)
-        self.min_vertices_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 10, 60, 20), initial_text="3", manager=self.ui_manager.manager, container=win)
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 40, 120, 20), text="Friction:", manager=self.ui_manager.manager, container=win)
-        self.friction_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 40, 60, 20), initial_text="0.7", manager=self.ui_manager.manager, container=win)
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 70, 120, 20), text="Elasticity:", manager=self.ui_manager.manager, container=win)
-        self.elasticity_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 70, 60, 20), initial_text="0.3", manager=self.ui_manager.manager, container=win)
-        self.settings_window = win
-
-    def handle_event(self, event, world_pos):
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                self.points.append(world_pos)
-                synthesizer.play_frequency(300, 0.02, 'sine')
-            elif event.button == 3 and len(self.points) >= int(self.min_vertices_entry.get_text() or "3"):
-                self._finalize_polygon()
-        elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and len(self.points) >= int(self.min_vertices_entry.get_text() or "3"):
-            self._finalize_polygon()
-
-    def _finalize_polygon(self):
-        if len(self.points) < 3: return
-        try:
-            friction = float(self.friction_entry.get_text() or "0.7")
-            elasticity = float(self.elasticity_entry.get_text() or "0.3")
-            vertices = [pymunk.Vec2d(x, y) for x, y in self.points]
-            xs, ys = zip(*self.points)
-            centroid = pymunk.Vec2d(sum(xs) / len(xs), sum(ys) / len(ys))
-            local_vertices = [v - centroid for v in vertices]
-            if self._signed_area(local_vertices) < 0:
-                local_vertices.reverse()
-            body = pymunk.Body(1, 100)
-            body.position = centroid
-            shape = pymunk.Poly(body, local_vertices, radius=0)
-            shape.friction = friction
-            shape.elasticity = elasticity
-            self.pm.space.add(body, shape)
-            self.undo_redo.take_snapshot()
-        except Exception as e:
-            traceback.print_exc()
-        self.points.clear()
-
-    def _signed_area(self, vertices):
-        area = 0.0
-        n = len(vertices)
-        for i in range(n):
-            x1, y1 = vertices[i]
-            x2, y2 = vertices[(i + 1) % n]
-            area += (x2 - x1) * (y2 + y1)
-        return -area
-
-    def draw_preview(self, screen, camera):
-        if not self.points: return
-        pts = [camera.world_to_screen(p) for p in self.points]
-        if len(pts) > 1:
-            pygame.draw.lines(screen, (200, 200, 255), False, pts, 2)
-        for p in pts:
-            pygame.draw.circle(screen, (180, 180, 255), p, 3)
-        if len(self.points) >= 3:
-            pygame.draw.line(screen, (180, 255, 180), pts[-1], pts[0], 1)
-
-    def deactivate(self):
-        self.points.clear()
-
-
 class ChainTool(BaseTool):
     name = "Chain"
     icon_path = "sprites/gui/tools/chain.png"
@@ -494,7 +414,7 @@ class ChainTool(BaseTool):
 
     def handle_event(self, event, world_pos):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self.start_pos = pymunk.Vec2d(*world_pos)  # <-- wrap here
+            self.start_pos = pymunk.Vec2d(*world_pos)
             info = self.pm.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())
             body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None
             self.start_body = body
@@ -652,92 +572,3 @@ class FixateTool(BaseTool):
         self.first_body = None
         self.first_anchor = None
 
-class PlaneTool(BaseTool):
-    name = "Plane"
-    icon_path = "sprites/gui/tools/plane.png"
-
-    def __init__(self, pm):
-        super().__init__(pm)
-        self.start_pos = None
-
-    def create_settings_window(self):
-        win = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect(210, 10, 300, 100),
-            manager=self.ui_manager.manager,
-            window_display_title="Plane Settings"
-        )
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 10, 120, 20), text="Friction:", manager=self.ui_manager.manager, container=win)
-        self.friction_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 10, 60, 20), initial_text="1.0", manager=self.ui_manager.manager, container=win)
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 40, 120, 20), text="Elasticity:", manager=self.ui_manager.manager, container=win)
-        self.elasticity_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 40, 60, 20), initial_text="0.0", manager=self.ui_manager.manager, container=win)
-        self.settings_window = win
-
-    def handle_event(self, event, world_pos):
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self.start_pos = pymunk.Vec2d(*world_pos)
-            synthesizer.play_frequency(200, duration=0.05, waveform='sine')
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.start_pos:
-            end_pos = pymunk.Vec2d(*world_pos)
-            self._create_plane(self.start_pos, end_pos)
-            self.start_pos = None
-
-    def _create_plane(self, p1, p2):
-        try:
-            friction = float(self.friction_entry.get_text() or "1.0")
-            elasticity = float(self.elasticity_entry.get_text() or "0.0")
-        except ValueError:
-            return
-
-        direction = (p2 - p1)
-        if direction.length == 0:
-            normal = pymunk.Vec2d(0, 1)
-        else:
-            normal = direction.normalized().perpendicular()
-        center = (p1 + p2) * 0.5
-
-        # Define a huge half-space polygon (10km x 10km)
-        extent = 500000  # 5km in each direction
-        perp = normal.perpendicular()
-        corners = [
-            center + normal * 10 + perp * (-extent),
-            center + normal * 10 + perp * extent,
-            center - normal * extent + perp * extent,
-            center - normal * extent + perp * (-extent),
-        ]
-
-        body = self.pm.static_body
-        shape = pymunk.Poly(body, corners)
-        shape.friction = friction
-        shape.elasticity = elasticity
-        shape.filter = pymunk.ShapeFilter(group=1)
-
-        self.pm.space.add(shape)
-        self.pm.static_lines.append(shape)
-        self.undo_redo.take_snapshot()
-        synthesizer.play_frequency(150, duration=0.05, waveform='sine')
-
-    def draw_preview(self, screen, camera):
-        if self.start_pos is None:
-            return
-        mouse_world = camera.screen_to_world(pygame.mouse.get_pos())
-        p1 = self.start_pos
-        p2 = pymunk.Vec2d(*mouse_world)
-        direction = p2 - p1
-        normal = direction.normalized().perpendicular() if direction.length > 0 else pymunk.Vec2d(0, 1)
-        center = (p1 + p2) * 0.5
-
-        # Preview as a thick line with fill hint
-        perp = normal.perpendicular()
-        half_len = 2000
-        a = center + normal * 10 + perp * (-half_len)
-        b = center + normal * 10 + perp * half_len
-        a_scr = camera.world_to_screen(a)
-        b_scr = camera.world_to_screen(b)
-        pygame.draw.line(screen, (180, 220, 255), a_scr, b_scr, 4)
-        for offset in [0, 5, 10]:
-            line_a = camera.world_to_screen(center + normal * offset + perp * (-half_len))
-            line_b = camera.world_to_screen(center + normal * offset + perp * half_len)
-            pygame.draw.line(screen, (180, 220, 255, 100), line_a, line_b, 1)
-
-    def deactivate(self):
-        self.start_pos = None
