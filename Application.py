@@ -33,6 +33,7 @@ from UPST.modules.statistics import stats
 
 from UPST.tools.tool_manager import ToolSystem
 
+from UPST.network.repository_manager import RepositoryManager
 
 class Application:
     def __init__(self):
@@ -138,6 +139,7 @@ class Application:
                                  physics_manager=self.physics_manager, gizmos_manager=self.gizmos_manager,
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
+        self.repository_manager = RepositoryManager()
 
     def setup_screen(self):
         flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE | pygame.SWSURFACE | pygame.SRCALPHA

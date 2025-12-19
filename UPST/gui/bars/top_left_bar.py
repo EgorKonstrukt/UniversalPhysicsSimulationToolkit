@@ -123,6 +123,8 @@ class TopLeftBar:
                 self._on_open_scene_pressed()
             elif event.ui_element == self.buttons['save']:
                 self._on_save_scene_pressed()
+            elif event.ui_element == self.buttons['repository']:
+                self._on_repository_pressed()
             elif event.ui_element == self.buttons['profiler']:
                 self._on_profiler_pressed()
             elif event.ui_element == self.buttons['console']:
@@ -140,6 +142,15 @@ class TopLeftBar:
                 pygame.Rect(100, 100, 620, 480),
                 self.ui_manager,
                 self
+            )
+
+    def _on_repository_pressed(self):
+        if not hasattr(self, 'repo_window') or not self.repo_window.alive():
+            from UPST.gui.windows.repository_window import RepositoryWindow
+            self.repo_window = RepositoryWindow(
+                pygame.Rect(150, 80, 700, 500),
+                self.ui_manager,
+                self.app
             )
 
     def open_theme_editor(self):

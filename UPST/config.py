@@ -7,6 +7,13 @@ from typing import Any, Dict, Tuple, List, Type, Optional, get_type_hints
 import json
 
 @dataclass
+class RepositoryConfig:
+    enabled = True
+    server_url = "http://127.0.0.1:8080"
+    timeout_sec = 5
+
+
+@dataclass
 class PlotterConfig:
     smoothing_factor: float = 0.15
     font_size: int = 16
@@ -367,6 +374,7 @@ class Config:
     rendering: "RenderingConfig"
     scripting: "ScriptingConfig"
     plotter: "PlotterConfig"
+    repository: "RepositoryConfig"
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -460,6 +468,7 @@ Config.register("optics", OpticsConfig)
 Config.register("rendering", RenderingConfig)
 Config.register("scripting", ScriptingConfig)
 Config.register("plotter", PlotterConfig)
+Config.register("repository", RepositoryConfig)
 
 def grid_to_dict_custom(self, d: Dict) -> Dict:
     d["default_colors"] = asdict(self.default_colors)
