@@ -32,6 +32,18 @@ class SaveLoadManager:
         self._autosave_lock = threading.Lock()
         self._try_load_autosave()
 
+    def render_preview(self, data, size=(256, 256)):
+        surf = pygame.Surface(size)
+        surf.fill((30, 30, 30))
+        for bd in data.get("bodies", []):
+            for s in bd["shapes"]:
+                if s["type"] == "Circle":
+                    pygame.draw.circle(
+                        surf, s["color"][:3],
+                        (size[0] // 2, size[1] // 2),
+                        int(s["radius"]), 2)
+        return surf
+
     def _try_load_autosave(self):
         if not os.path.isfile(config.app.autosave_path):
             return
@@ -133,6 +145,7 @@ class SaveLoadManager:
             tex_size = tex_surface.get_size() if tex_surface else None
             body_data = {
                 "_script_uuid": str(body._script_uuid),
+                "name": str(body.name),
                 "position": tuple(body.position), "angle": float(body.angle), "velocity": tuple(body.velocity),
                 "angular_velocity": float(body.angular_velocity), "mass": float(getattr(body, "mass", 1.0)),
                 "moment": float(getattr(body, "moment", 1.0)), "body_type": int(body.body_type), "shapes": shapes_data,
@@ -186,6 +199,11 @@ class SaveLoadManager:
             except (lzma.LZMAError,gzip.BadGzipFile,UnicodeDecodeError,EOFError,ValueError): continue
         raise Exception("Unable to load file with any compression method")
 
+    def apply_meta(self, meta):
+        self.app.current_scene_meta = meta or {}
+        if hasattr(self.app, "set_window_title"):
+            self.app.set_window_title(meta.get("title", "Untitled Scene"))
+
     def _apply_loaded_data(self, data):
         self.physics_manager.delete_all()
         self.physics_manager.set_iterations(int(data.get("iterations",config.physics.iterations)))
@@ -222,6 +240,7 @@ class SaveLoadManager:
             if bt.body_type == pymunk.Body.DYNAMIC:
                 bt.mass = float(bd.get("mass",1.0))
                 bt.moment = float(bd.get("moment",1.0))
+            bt.name = bd.get("name",None)
             bt.position = pymunk.Vec2d(*bd.get("position",(0.0,0.0)))
             bt.angle = float(bd.get("angle",0.0))
             bt.velocity = pymunk.Vec2d(*bd.get("velocity",(0.0,0.0)))

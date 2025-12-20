@@ -35,6 +35,16 @@ from UPST.tools.tool_manager import ToolSystem
 
 from UPST.network.repository_manager import RepositoryManager
 
+
+class WorldWrapper:
+    def __init__(self, physics_manager):
+        self._physics = physics_manager
+
+    @property
+    def objects(self):
+        return [b for b in self._physics.space.bodies if b.body_type == pymunk.Body.DYNAMIC]
+
+
 class Application:
     def __init__(self):
         pygame.init()
@@ -55,6 +65,7 @@ class Application:
         Debug.log("SoundManager initialized successfully", "Init")
 
         self.physics_manager = PhysicsManager(self, undo_redo_manager=None, script_manager=self.script_manager)
+        self.world = WorldWrapper(self.physics_manager)
         Debug.log("PhysicsManager initialized successfully", "Init")
 
         self.camera = Camera(self, config.app.screen_width, config.app.screen_height, self.screen)
@@ -140,6 +151,8 @@ class Application:
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
         self.repository_manager = RepositoryManager()
+
+
 
     def setup_screen(self):
         flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE | pygame.SWSURFACE | pygame.SRCALPHA

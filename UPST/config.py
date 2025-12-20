@@ -246,7 +246,7 @@ class AppConfig:
     screen_height: int = 1080
     fullscreen: bool = False
     use_system_dpi: bool = True
-    version: str = "Universal Physics Simulation Toolkit"
+    version: str = "5"
     create_base_world: bool = True
     clock_tickrate: int = 1000
     background_color: Tuple[int, int, int] = (30, 30, 30)

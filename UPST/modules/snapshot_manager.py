@@ -79,6 +79,7 @@ class SnapshotManager:
 
                 bodies_data.append({
                     "_script_uuid": str(body._script_uuid),
+                    "name": str(body.name),
                     "position": tuple(body.position),
                     "angle": float(body.angle),
                     "velocity": tuple(body.velocity),
@@ -172,6 +173,7 @@ class SnapshotManager:
                 if bt.body_type == pymunk.Body.DYNAMIC:
                     bt.mass = float(bd.get("mass", 1.0))
                     bt.moment = float(bd.get("moment", 1.0))
+                bt.name = bd.get("name",None)
                 bt.position = pymunk.Vec2d(*bd.get("position", (0.0, 0.0)))
                 bt.angle = float(bd.get("angle", 0.0))
                 bt.velocity = pymunk.Vec2d(*bd.get("velocity", (0.0, 0.0)))

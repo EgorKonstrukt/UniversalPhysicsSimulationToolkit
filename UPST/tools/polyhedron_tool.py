@@ -56,6 +56,7 @@ class PolyhedronTool(BaseTool):
             area += x1 * y2 - x2 * y1
         mass = abs(area) / 2 / 100
         body = pymunk.Body(mass, pymunk.moment_for_poly(mass, points))
+        body.name = "Body"
         body.position = pos
         body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Poly(body, points)
@@ -78,6 +79,7 @@ class PolyhedronTool(BaseTool):
             area += x1 * y2 - x2 * y1
         mass = abs(area) / 2 / 100
         body = pymunk.Body(mass, pymunk.moment_for_poly(mass, points))
+        body.name = "Body"
         body.position = start
         body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Poly(body, points)

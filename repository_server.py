@@ -1,3 +1,6 @@
+import pickle
+from fastapi import Request
+
 from fastapi import FastAPI, UploadFile
 from fastapi.responses import Response
 import uuid
@@ -26,21 +29,31 @@ def list_scenes():
 @app.get("/download/{scene_id}")
 def download(scene_id:str):
     fp = os.path.join(SCENES,f"{scene_id}.bin")
-    if not os.path.isfile(fp):
-        return Response(status_code=404)
-    return Response(open(fp,"rb").read(),media_type="application/octet-stream")
+    if not os.path.isfile(fp): return Response(status_code=404)
+    with open(fp,"rb") as f: raw = f.read()
+    meta = next((m for m in load_meta() if m["id"]==scene_id),{})
+    return Response(
+        pickle.dumps({"data":raw,"meta":meta}),
+        media_type="application/octet-stream"
+    )
 
 @app.post("/upload")
-async def upload(file:UploadFile):
-    data = await file.read()
+async def upload(request: Request):
+    raw = await request.body()
     scene_id = str(uuid.uuid4())
     with open(os.path.join(SCENES,f"{scene_id}.bin"),"wb") as f:
-        f.write(data)
+        f.write(raw)
+    meta_in = {}
+    try:
+        meta_in = pickle.loads(raw).get("_repo_meta",{})
+    except:
+        pass
     meta = load_meta()
     meta.append({
         "id":scene_id,
-        "title":"Untitled Scene",
-        "author":"Anonymous"
+        "title":meta_in.get("title","Untitled Scene"),
+        "author":meta_in.get("author","Anonymous"),
+        "description":meta_in.get("description","")
     })
     save_meta(meta)
     return {"status":"ok","id":scene_id}

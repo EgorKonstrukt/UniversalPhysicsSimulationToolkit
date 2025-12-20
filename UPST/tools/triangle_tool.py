@@ -45,6 +45,7 @@ class TriangleTool(BaseTool):
         points = [(size * math.cos(i * 2 * math.pi / 3), size * math.sin(i * 2 * math.pi / 3)) for i in range(3)]
         mass = (size ** 2) / 200
         body = pymunk.Body(mass, pymunk.moment_for_poly(mass, points))
+        body.name = "Body"
         body.position = pos
         body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Poly(body, points)
@@ -61,6 +62,7 @@ class TriangleTool(BaseTool):
         points = [(size * math.cos(i * 2 * math.pi / 3), size * math.sin(i * 2 * math.pi / 3)) for i in range(3)]
         mass = (size ** 2) / 200
         body = pymunk.Body(mass, pymunk.moment_for_poly(mass, points))
+        body.name = "Body"
         body.position = start
         body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Poly(body, points)

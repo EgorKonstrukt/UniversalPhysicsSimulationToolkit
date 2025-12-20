@@ -8,7 +8,7 @@ from UPST.gui.windows.properties_window import PropertiesWindow
 from UPST.gui.windows.texture_window import TextureWindow
 from UPST.gui.windows.script_management_window import ScriptManagementWindow
 from UPST.gui.windows.context_plotter_window import ContextPlotterWindow
-
+from UPST.modules.undo_redo_manager import get_undo_redo
 
 class ConfigOption:
     def __init__(self, name, value=None, options=None, handler=None, children=None,
@@ -30,6 +30,7 @@ class ContextMenu:
     def __init__(self, manager, ui_manager):
         self.manager = manager
         self.ui_manager = ui_manager
+        self.undo_redo = get_undo_redo()
         self.context_menu = None
         self.context_menu_buttons = []
         self.clicked_object = None
@@ -66,6 +67,8 @@ class ContextMenu:
                              icon="sprites/gui/erase.png"),
                 ConfigOption("Properties", handler=self.open_properties_window,
                              icon="sprites/gui/settings.png"),
+                ConfigOption("Set Name...", handler=self.open_rename_dialog,
+                             icon="sprites/gui/text.png"),
                 ConfigOption("Duplicate", handler=self.duplicate_object,
                              icon="sprites/gui/clone.png"),
                 ConfigOption("Freeze/Unfreeze", handler=self.toggle_freeze_object,
@@ -101,6 +104,54 @@ class ContextMenu:
                 ConfigOption("Plot Data", handler=self.open_plotter,
                              icon="sprites/gui/plot.png")
             ]
+    def open_rename_dialog(self):
+        if not self.clicked_object: return
+        if hasattr(self, '_rename_win') and self._rename_win.alive():
+            self._rename_win.kill()
+        current = getattr(self.clicked_object, 'name', '')
+        win_w, win_h = 320, 160
+
+        if self.context_menu and self.context_menu.visible:
+            menu_rect = self.context_menu.get_abs_rect()
+            x = menu_rect.right
+            y = menu_rect.top
+        else:
+            scr_w, scr_h = pygame.display.get_surface().get_size()
+            x, y = (scr_w - win_w) // 2, (scr_h - win_h) // 2
+
+        max_x, max_y = pygame.display.get_surface().get_size()
+        x = min(x, max_x - win_w)
+        y = min(y, max_y - win_h)
+        x = max(x, 0)
+        y = max(y, 0)
+
+        self._rename_win = UIWindow(
+            rect=pygame.Rect(x, y, win_w, win_h),
+            manager=self.manager,
+            window_display_title="Set Object Name",
+            object_id=pygame_gui.core.ObjectID('#rename_window', '@floating_window'),
+            resizable=False
+        )
+        self._rename_win.set_blocking(True)
+        self._rename_entry = pygame_gui.elements.UITextEntryLine(
+            relative_rect=pygame.Rect(20, 40, 280, 30),
+            manager=self.manager,
+            container=self._rename_win,
+            initial_text=str(current) if current else ""
+        )
+        self._rename_entry.focus()
+        self._rename_ok = UIButton(
+            relative_rect=pygame.Rect(60, 90, 80, 30),
+            text="OK",
+            manager=self.manager,
+            container=self._rename_win
+        )
+        self._rename_cancel = UIButton(
+            relative_rect=pygame.Rect(180, 90, 80, 30),
+            text="Cancel",
+            manager=self.manager,
+            container=self._rename_win
+        )
 
     def open_plotter(self):
         plotter_win = ContextPlotterWindow(
@@ -209,6 +260,8 @@ class ContextMenu:
         if self.submenu_window:
             self.submenu_window.kill()
             self.submenu_window = None
+        # if hasattr(self, '_rename_win') and self._rename_win.alive():
+        #     self._rename_win.kill()
         self.submenu_buttons.clear()
         self.hover_start_time.clear()
         self.hovered_button = None
@@ -255,7 +308,6 @@ class ContextMenu:
                     container=self.submenu_window,
                     object_id=pygame_gui.core.ObjectID(object_id=f'#cb_{i}', class_id='@submenu_checkbox')
                 )
-                # Инициализация состояния
                 if getattr(opt, 'get_state', None):
                     cb.set_state(opt.get_state())
 
@@ -282,27 +334,17 @@ class ContextMenu:
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mouse_pos = event.pos
-            if self.context_menu and self.context_menu.visible:
-                if not self.is_point_inside_menu(mouse_pos) and not self.is_point_inside_submenu(mouse_pos):
-                    self.hide()
-                    return True
+            inside_main = self.is_point_inside_menu(mouse_pos)
+            inside_sub = self.is_point_inside_submenu(mouse_pos)
+            inside_rename = hasattr(self, '_rename_win') and self._rename_win.alive() and self._rename_win.get_abs_rect().collidepoint(mouse_pos)
 
-        if event.type == pygame.USEREVENT and event.user_type == pygame_gui.UI_BUTTON_PRESSED:
-            # Check main menu buttons
-            for btn, option in self.context_menu_buttons:
-                if event.ui_element == btn:
-                    if option.children:
-                        menu_rect = btn.get_abs_rect()
-                        submenu_pos = (menu_rect.right, menu_rect.top)
-                        self._show_submenu(option.children, submenu_pos)
-                    else:
-                        self._execute_option(option)
-                        self.hide()
-                    break
+            if not (inside_main or inside_sub or inside_rename):
+                self.hide()
+                return True
 
-            # Check submenu buttons
-            if self.submenu_window:
-                for btn, option in self.submenu_buttons:
+        if event.type == pygame.USEREVENT:
+            if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
+                for btn, option in self.context_menu_buttons:
                     if event.ui_element == btn:
                         if option.children:
                             menu_rect = btn.get_abs_rect()
@@ -311,34 +353,51 @@ class ContextMenu:
                         else:
                             self._execute_option(option)
                             self.hide()
+                        return True
+
+                if self.submenu_window:
+                    for btn, option in self.submenu_buttons:
+                        if event.ui_element == btn:
+                            if option.children:
+                                menu_rect = btn.get_abs_rect()
+                                submenu_pos = (menu_rect.right, menu_rect.top)
+                                self._show_submenu(option.children, submenu_pos)
+                            else:
+                                self._execute_option(option)
+                                self.hide()
+                            return True
+
+                if hasattr(self, '_rename_win') and self._rename_win.alive():
+                    if event.ui_element == self._rename_ok:
+                        new_name = self._rename_entry.get_text().strip()
+                        if new_name:
+                            self.clicked_object.name = new_name
+                            self.undo_redo.take_snapshot()
+                        self._rename_win.kill()
+                        return True
+                    elif event.ui_element == self._rename_cancel:
+                        self._rename_win.kill()
+                        return True
+
+            elif event.user_type in (pygame_gui.UI_CHECK_BOX_CHECKED, pygame_gui.UI_CHECK_BOX_UNCHECKED):
+                for cb, opt in self.submenu_buttons:
+                    if event.ui_element == cb and getattr(opt, 'is_checkbox', False):
+                        if opt.set_state:
+                            opt.set_state(cb.checked)
                         break
 
         elif event.type == pygame.MOUSEMOTION:
             mouse_pos = event.pos
             self.hovered_button = None
-
-            # Check if hovering over main menu
             if self.context_menu and self.context_menu.visible:
                 for btn, option in self.context_menu_buttons:
                     if btn.get_abs_rect().collidepoint(mouse_pos):
                         self.hovered_button = (btn, option)
                         break
-
-            # Check if hovering over submenu
             if self.submenu_window:
                 for btn, option in self.submenu_buttons:
                     if btn.get_abs_rect().collidepoint(mouse_pos):
                         self.hovered_button = (btn, option)
-                        break
-        if event.type == pygame.USEREVENT:
-            if event.user_type in (pygame_gui.UI_CHECK_BOX_CHECKED, pygame_gui.UI_CHECK_BOX_UNCHECKED):
-                for cb, opt in self.submenu_buttons:
-                    if event.ui_element == cb and getattr(opt, 'is_checkbox', False):
-                        # Обновляем состояние объекта
-                        if opt.set_state:
-                            opt.set_state(cb.checked)
-                        # Обновляем визуальный чекбокс, чтобы синхронизировать
-                        cb.set_state(cb.checked)
                         break
 
         return False
@@ -363,7 +422,6 @@ class ContextMenu:
         else:
             self.hover_start_time.clear()
 
-        # Update line start position if object moved
         if self.clicked_object and self.menu_line_start_pos and hasattr(self.clicked_object, 'position'):
             current_pos = self.clicked_object.position
             if self.last_object_pos != current_pos:
