@@ -45,6 +45,7 @@ class CircleTool(BaseTool):
         mass = r * math.pi / 10
         body = pymunk.Body(mass, pymunk.moment_for_circle(mass, 0, r))
         body.name = "Body"
+        body.color = self._get_color('circle')
         body.position = pos
         body.custom_force = pygame.math.Vector2(0, 0)
         body.temperature = 3000
@@ -65,6 +66,7 @@ class CircleTool(BaseTool):
         mass = r * math.pi / 10
         body = pymunk.Body(mass, pymunk.moment_for_circle(mass, 0, r))
         body.name = "Body"
+        body.color = self._get_color('circle')
         body.position = start
         body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Circle(body, r)

@@ -145,6 +145,7 @@ class SaveLoadManager:
             tex_size = tex_surface.get_size() if tex_surface else None
             body_data = {
                 "_script_uuid": str(body._script_uuid),
+                "color": tuple(getattr(body, "color", (200, 200, 200, 255))),
                 "name": str(body.name),
                 "position": tuple(body.position), "angle": float(body.angle), "velocity": tuple(body.velocity),
                 "angular_velocity": float(body.angular_velocity), "mass": float(getattr(body, "mass", 1.0)),
@@ -241,6 +242,7 @@ class SaveLoadManager:
                 bt.mass = float(bd.get("mass",1.0))
                 bt.moment = float(bd.get("moment",1.0))
             bt.name = bd.get("name",None)
+            bt.color = bd.get("color",(255,255,255,255))
             bt.position = pymunk.Vec2d(*bd.get("position",(0.0,0.0)))
             bt.angle = float(bd.get("angle",0.0))
             bt.velocity = pymunk.Vec2d(*bd.get("velocity",(0.0,0.0)))

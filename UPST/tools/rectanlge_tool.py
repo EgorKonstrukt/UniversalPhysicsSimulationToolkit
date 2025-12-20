@@ -51,6 +51,7 @@ class RectangleTool(BaseTool):
         mass = (w * h) / 200
         body = pymunk.Body(mass, pymunk.moment_for_box(mass, (w * 2, h * 2)))
         body.name = "Body"
+        body.color = self._get_color('rectangle')
         body.position = pos
         body.temperature = 20
         body.heat_capacity = 1000
@@ -73,6 +74,7 @@ class RectangleTool(BaseTool):
         mass = (w * h) / 200
         body = pymunk.Body(mass, pymunk.moment_for_box(mass, (w, h)))
         body.name = "Body"
+        body.color = self._get_color('rectangle')
         body.position = center
         body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Poly.create_box(body, (w, h))

@@ -46,6 +46,7 @@ class TriangleTool(BaseTool):
         mass = (size ** 2) / 200
         body = pymunk.Body(mass, pymunk.moment_for_poly(mass, points))
         body.name = "Body"
+        body.color = self._get_color('triangle')
         body.position = pos
         body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Poly(body, points)
@@ -63,6 +64,7 @@ class TriangleTool(BaseTool):
         mass = (size ** 2) / 200
         body = pymunk.Body(mass, pymunk.moment_for_poly(mass, points))
         body.name = "Body"
+        body.color = self._get_color('triangle')
         body.position = start
         body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Poly(body, points)

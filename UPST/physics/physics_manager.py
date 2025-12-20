@@ -97,6 +97,10 @@ class PhysicsManager:
         try:
             if not self.running_physics:
                 return
+            # for body in self.space.bodies:
+            #     if hasattr(body, 'color') and body.color is not None:
+            #         for shape in body.shapes:
+            #             shape.color = body.color
             effective_dt = self._fixed_dt * self.simulation_speed_multiplier
             self._accumulator += max(0.0, float(dt) * self.simulation_speed_multiplier)
             prev_pos = {b: b.position for b in self.space.bodies if b.body_type == pymunk.Body.DYNAMIC}

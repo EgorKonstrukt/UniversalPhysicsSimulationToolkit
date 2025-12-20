@@ -151,9 +151,10 @@ class Renderer:
         cam_scale = camera.scaling
         for shape in space_shapes:
             if not hasattr(shape, 'color'): continue
-            color = shape.color
-            if len(color) == 3: color = (*color, 255)
             body = shape.body
+            color = getattr(body, 'color', getattr(shape, 'color', (200, 200, 200, 255)))
+            if len(color) == 3: color = (*color, 255)
+
 
             if isinstance(shape, pymunk.Circle):
                 world_pos = body.local_to_world(shape.offset)
