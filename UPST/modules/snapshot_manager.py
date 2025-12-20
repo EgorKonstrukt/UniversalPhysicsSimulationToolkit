@@ -16,8 +16,6 @@ class SnapshotManager:
         self.camera = camera
         self.script_manager = script_manager
 
-
-
     def capture_snapshot_data(self) -> dict:
         return self._collect_snapshot_data()
 
@@ -79,7 +77,7 @@ class SnapshotManager:
 
                 bodies_data.append({
                     "_script_uuid": str(body._script_uuid),
-                    "name": str(body.name),
+                    "name": str(getattr(body, "name", "Body"),),
                     "color": tuple(getattr(body, "color", (200, 200, 200, 255))),
                     "position": tuple(body.position),
                     "angle": float(body.angle),

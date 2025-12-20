@@ -38,9 +38,6 @@ class Renderer:
         self.clouds = CloudManager(folder="sprites/background", cell_size=3000, clouds_per_cell=2)
         self.clouds.set_physics_manager(physics_manager)
         self.cloud_renderer = CloudRenderer(screen, camera, self.clouds, min_px=10)
-
-
-
         self.theme = config.world.themes[config.world.current_theme]
         self.default_color = (255, 255, 255)
         self.screen_w, self.screen_h = self.screen.get_size()
@@ -314,6 +311,7 @@ class Renderer:
         theme = config.world.themes[config.world.current_theme]
         self.screen.fill(theme.background_color)
         self.cloud_renderer.draw()
+        # self.thermal_manager.render_heatmap(self.screen)
 
         self.gizmos_manager.draw_debug_gizmos()
         # self.thermal_manager.draw_hover_temperature()
@@ -325,7 +323,7 @@ class Renderer:
 
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw()
-        # self.thermal_manager.render_heatmap(self.screen)
+
         if self.script_system: self.script_system.draw(self.screen)
         self.ui_manager.draw(self.screen)
         self._draw_cursor_icon()

@@ -16,7 +16,7 @@ from UPST.gui.console_ui import ConsoleUI
 from UPST.utils import get_resource_path
 
 
-
+REPO_LIST_LOADED_EVENT = pygame.event.custom_type()
 
 class UIManager:
     def __init__(self, screen_width, screen_height, physics_manager, camera, input_handler, screen, font, tool_system=None, network_manager=None, app=None):
@@ -111,6 +111,9 @@ class UIManager:
                     shapes = self.physics_manager.space.point_query(world_pos, 0, pymunk.ShapeFilter())
                     clicked_obj = shapes[0].shape.body if shapes else None
                     self.open_context_menu(event.pos, clicked_obj)
+        if event.type == REPO_LIST_LOADED_EVENT:
+            if hasattr(self.app, 'repo_window') and self.app.repo_window.alive():
+                self.app.repo_window.handle_repo_list_loaded(event.dict["items"])
 
         if event.type == pygame.USEREVENT:
             if event.user_type == pygame_gui.UI_BUTTON_PRESSED:

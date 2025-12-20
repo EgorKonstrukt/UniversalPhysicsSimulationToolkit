@@ -11,6 +11,7 @@ class RepositoryConfig:
     enabled = True
     server_url = "http://127.0.0.1:8080"
     timeout_sec = 5
+    max_scene_size_mb: int = 50
 
 
 @dataclass

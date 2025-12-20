@@ -24,6 +24,7 @@ class TopLeftBar:
 
         self.theme_dialog = None
         self.about_window = None
+        self.repo_window = None
 
         self.panel = UIPanel(
             relative_rect=pygame.Rect(0, 0, self.bar_width, self.bar_height),
@@ -145,7 +146,7 @@ class TopLeftBar:
             )
 
     def _on_repository_pressed(self):
-        if not hasattr(self, 'repo_window') or not self.repo_window.alive():
+        if self.repo_window is None or not self.repo_window.alive():
             from UPST.gui.windows.repository_window import RepositoryWindow
             self.repo_window = RepositoryWindow(
                 pygame.Rect(150, 80, 700, 500),
