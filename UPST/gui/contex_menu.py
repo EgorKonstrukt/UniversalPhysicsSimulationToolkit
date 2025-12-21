@@ -157,8 +157,8 @@ class ContextMenu:
             position=(100, 100),
             size=(700, 500),
             window_title=f"Plotter: {self.clicked_object.__class__.__name__ if self.clicked_object else 'World'}",
-            x_label="Time (s)",
-            y_label="Value",
+            x_label="X",
+            y_label="Y",
             tracked_object=self.clicked_object
         )
         plotter_win.show()

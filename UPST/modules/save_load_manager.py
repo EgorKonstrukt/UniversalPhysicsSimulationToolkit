@@ -33,16 +33,56 @@ class SaveLoadManager:
         self._try_load_autosave()
 
     def render_preview(self, data, size=(256, 256)):
-        surf = pygame.Surface(size)
-        surf.fill((30, 30, 30))
-        for bd in data.get("bodies", []):
-            for s in bd["shapes"]:
-                if s["type"] == "Circle":
-                    pygame.draw.circle(
-                        surf, s["color"][:3],
-                        (size[0] // 2, size[1] // 2),
-                        int(s["radius"]), 2)
-        return surf
+        w, h = size
+        assert w == h, "Preview must be square"
+        preview_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        preview_surf.fill((30, 30, 30, 255))
+        try:
+            if hasattr(self.app, 'screen'):
+                screen = self.app.screen
+                screen_w, screen_h = screen.get_size()
+                if screen_w == 0 or screen_h == 0:
+                    raise ValueError("Screen surface is invalid")
+                min_dim = min(screen_w, screen_h)
+                crop_x = (screen_w - min_dim) // 2
+                crop_y = (screen_h - min_dim) // 2
+                cropped = screen.subsurface((crop_x, crop_y, min_dim, min_dim))
+                scaled = pygame.transform.smoothscale(cropped, (w, h))
+                preview_surf.blit(scaled, (0, 0))
+            else:
+                raise AttributeError("Application has no screen attribute")
+        except Exception as e:
+            Debug.log(f"Failed to render preview: {e}")
+            pygame.draw.line(preview_surf, (80, 80, 80), (0, 0), (w, w), 2)
+            pygame.draw.line(preview_surf, (80, 80, 80), (w, 0), (0, w), 2)
+        return preview_surf
+
+    def _preview_scale(self, points, size):
+        if not points: return 1.0
+        xs = [p.x for p in points]
+        ys = [p.y for p in points]
+        w = max(xs) - min(xs) or 1.0
+        h = max(ys) - min(ys) or 1.0
+        scale_x = size[0] / w
+        scale_y = size[1] / h
+        return min(scale_x, scale_y) * 0.9
+
+    def _world_to_preview(self, world_pt, all_points, size):
+        if not all_points: return (size[0] // 2, size[1] // 2)
+        xs = [p.x for p in all_points]
+        ys = [p.y for p in all_points]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        w = max_x - min_x or 1.0
+        h = max_y - min_y or 1.0
+        sx = size[0] / w
+        sy = size[1] / h
+        scale = min(sx, sy) * 0.9
+        cx = (min_x + max_x) / 2
+        cy = (min_y + max_y) / 2
+        x = (world_pt.x - cx) * scale + size[0] // 2
+        y = (world_pt.y - cy) * scale + size[1] // 2
+        return (int(x), int(y))
 
     def _try_load_autosave(self):
         if not os.path.isfile(config.app.autosave_path):

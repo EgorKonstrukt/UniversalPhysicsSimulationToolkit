@@ -18,7 +18,7 @@ class RepositoryManager:
         os.makedirs(self.local_dir, exist_ok=True)
         self._list_cache = None
         self._list_cache_ts = 0
-        self.CACHE_TTL = 30  # seconds
+        self.CACHE_TTL = 3  # seconds
 
     def is_enabled(self) -> bool:
         return bool(self.cfg.enabled)

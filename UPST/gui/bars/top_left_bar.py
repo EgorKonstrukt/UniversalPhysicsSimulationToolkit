@@ -149,7 +149,7 @@ class TopLeftBar:
         if self.repo_window is None or not self.repo_window.alive():
             from UPST.gui.windows.repository_window import RepositoryWindow
             self.repo_window = RepositoryWindow(
-                pygame.Rect(150, 80, 700, 500),
+                pygame.Rect(150, 80, 1000, 600),
                 self.ui_manager,
                 self.app
             )
