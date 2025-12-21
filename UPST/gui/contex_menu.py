@@ -23,9 +23,6 @@ class ConfigOption:
         self.set_state = set_state
         self.icon = icon
 
-
-
-
 class ContextMenu:
     def __init__(self, manager, ui_manager):
         self.manager = manager
@@ -468,6 +465,7 @@ class ContextMenu:
     def delete_object(self):
         if self.clicked_object:
             self.ui_manager.physics_manager.remove_body(self.clicked_object)
+            self.undo_redo.take_snapshot()
 
     def duplicate_object(self):
         if not self.clicked_object or not self.clicked_object.shapes:
@@ -511,18 +509,22 @@ class ContextMenu:
     def reset_position(self):
         if self.clicked_object:
             self.clicked_object.position, self.clicked_object.velocity = (0, 0), (0, 0)
+            self.undo_redo.take_snapshot()
 
     def reset_rotation(self):
         if self.clicked_object:
             self.clicked_object.angle, self.clicked_object.angular_velocity = 0, 0
+            self.undo_redo.take_snapshot()
 
     def make_static(self):
         if self.clicked_object:
             self.clicked_object.body_type = pymunk.Body.STATIC
+            self.undo_redo.take_snapshot()
 
     def make_dynamic(self):
         if self.clicked_object:
             self.clicked_object.body_type = pymunk.Body.DYNAMIC
+            self.undo_redo.take_snapshot()
 
     def select_for_debug(self):
         if self.clicked_object and self.ui_manager.physics_debug_manager:

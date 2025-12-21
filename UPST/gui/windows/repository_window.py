@@ -3,7 +3,8 @@ import threading
 
 import pygame
 import pygame_gui
-from pygame_gui.elements import UIWindow, UIButton, UIPanel, UISelectionList, UILabel, UIProgressBar, UITextEntryLine, UITextBox
+from pygame_gui.elements import UIWindow, UIButton, UIPanel, UISelectionList, UILabel, UIProgressBar, UITextEntryLine, \
+    UITextBox, UITextEntryBox
 from UPST.config import config
 from UPST.utils import surface_to_bytes
 from UPST.debug.debug_manager import Debug
@@ -18,15 +19,16 @@ class PublishMetaWindow(UIWindow):
         meta = initial_meta or {}
         self.title = UITextEntryLine(pygame.Rect(10, 40, 300, 25), manager, container=self)
         self.author = UITextEntryLine(pygame.Rect(10, 80, 300, 25), manager, container=self)
-        self.desc = UITextBox("", pygame.Rect(10, 120, 300, 50), manager, container=self)
+        self.desc = UITextEntryBox(pygame.Rect(10, 120, 300, 50), manager=manager, container=self)
         self.ok = UIButton(pygame.Rect(110, 180, 100, 30), "Publish", manager, container=self)
         self.title.set_text(str(meta.get("title", "")))
         self.author.set_text(str(meta.get("author", "")))
         self.desc.set_text(str(meta.get("description", "")))
 
     def process_event(self, event):
+        super().process_event(event)
         if event.type == pygame_gui.UI_BUTTON_PRESSED and event.ui_element == self.ok:
-            meta = {"title": self.title.get_text(), "author": self.author.get_text(), "description": self.desc.html_text}
+            meta = {"title": self.title.get_text(), "author": self.author.get_text(), "description": self.desc.get_text()}
             self.on_submit(meta)
             self.kill()
 
@@ -106,6 +108,7 @@ class RepositoryWindow(UIWindow):
         threading.Thread(target=_bg, daemon=True).start()
 
     def process_event(self, event):
+        super().process_event(event)
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element == self.refresh_btn:
                 self._load_list()
@@ -130,13 +133,6 @@ class RepositoryWindow(UIWindow):
 
     def _update_progress(self, value: float):
         self.progress.set_current_progress(min(max(value, 0.0), 1.0) * 100)
-    def handle_repo_list_loaded(self, items: list):
-        self.items = items
-        display_items = [f"{it['title']} | {it['author']} | {it['id'][:8]}" for it in self.items]
-        self.item_map = {label: i for i, label in enumerate(display_items)}
-        self.list.set_item_list(display_items)
-        self.page_label.set_text(f"Page {self.page}")
-        self.status.set_text(f"Page {self.page}, {len(self.items)} items")
 
     def _download_selected(self):
         sel = self.list.get_single_selection()
@@ -148,10 +144,9 @@ class RepositoryWindow(UIWindow):
             self.status.set_text("Downloading...")
             fp = self.app.repository_manager.download(item["id"], item["title"], self._update_progress)
             with open(fp, "rb") as f:
-                data = pickle.load(f)  # ← это publish_data: сцена + _repo_meta + _preview
+                data = pickle.load(f)
             scene_data = dict(data)
             meta = scene_data.pop("_repo_meta", {})
-            # _preview можно игнорировать при загрузке сцены
             self.app.save_load_manager._apply_loaded_data(scene_data)
             self.app.current_scene_meta = meta
             self.status.set_text("Scene loaded")
