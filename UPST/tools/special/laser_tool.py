@@ -1,13 +1,13 @@
 
 import pygame, math, pymunk
-from UPST.tools.tool_manager import BaseTool
+from UPST.tools.base_tool import BaseTool
 import pygame_gui
 from pygame_gui.elements import UICheckBox
 
 from UPST.config import config
 
 class LaserEmitter:
-    def __init__(self, pos, angle, length=3000, color=(255,40,40), width=2, tex_path="sprites/effects/laser_emitter.png"):
+    def __init__(self, pos, angle, length=3000, color=(255,40,40), width=2, tex_path="sprites/app/laserpen.png"):
         self.pos = pos; self.angle = angle; self.length = length
         self.color = color; self.width = width
         self.ray = None

@@ -1,7 +1,7 @@
 import random
 import pygame, math, pymunk
 from UPST.config import config, get_theme_and_palette, sample_color_from_def
-from UPST.tools.tool_manager import BaseTool
+from UPST.tools.base_tool import BaseTool
 import pygame_gui
 
 class SpringTool(BaseTool):
@@ -60,3 +60,11 @@ class SpringTool(BaseTool):
     def deactivate(self):
         self.first_body = None
         self.first_pos = None
+
+    def _get_color(self, shape_type):
+        if getattr(self.ui_manager, f"{shape_type}_color_random", True):
+            theme, pal = get_theme_and_palette(config, None, getattr(self.ui_manager, "shape_palette", None))
+            pdef = theme.get_palette_def(pal)
+            return sample_color_from_def(pdef)
+        sc = getattr(self.ui_manager, "shape_colors", {})
+        return tuple(sc.get(shape_type, (200, 200, 200, 255)))

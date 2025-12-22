@@ -79,6 +79,8 @@ class Plotter:
         self._hovered_key: Optional[str] = None
         self._hovered_slope: float = 0.0
 
+        self.noise_floor: float = getattr(config.plotter, 'noise_floor', 1e-6)
+
         self._hovered_x: Optional[float] = None
         self._hovered_y: Optional[float] = None
         self._hovered_idx: Optional[int] = None
@@ -251,42 +253,40 @@ class Plotter:
 
     def _detect_frequency_components(self, ys, xs):
         N = len(ys)
-        if N < 8: return []
+        if N < 16 or not self.enable_osc_analysis: return []
         t0 = xs[0]
         tN = xs[-1]
-        dt_raw = (x - xs[i - 1] for i, x in enumerate(xs[1:], start=1))
-        diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)]
+        diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)] if len(xs) > 1 else [1.0]
         dt_med = self._median([abs(d) for d in diffs]) if diffs else 1.0
         scale = 1.0
         if dt_med > 1.0: scale = 0.001
         total_t = (xs[-1] - xs[0]) * scale
-        if total_t <= 0: return []
+        if total_t <= 1e-9: return []
         Fs = N / total_t
-        ys_d = [v - sum(ys) / N for v in ys]
+        mean_y = sum(ys) / N
+        ys_d = [v - mean_y for v in ys]
         w = self._hann_win(N)
         ys_w = [ys_d[i] * w[i] for i in range(N)]
-        max_k = min(N // 2, 60)
+        max_k = min(N // 2, 32)
         comps = []
         for k in range(1, max_k):
-            re = 0.0
-            im = 0.0
+            re = im = 0.0
             for n in range(N):
                 ang = 2 * math.pi * k * n / N
                 re += ys_w[n] * math.cos(ang)
                 im -= ys_w[n] * math.sin(ang)
             mag = math.hypot(re, im) / N
             freq = k * Fs / N
-            comps.append((mag, freq, k))
-        comps.sort(reverse=True)
+            if mag > 1e-9: comps.append((mag, freq, k))
         if not comps: return []
         mags = [m for m, f, _ in comps]
         maxm = max(mags)
         medm = self._median(mags) if mags else 0.0
         res = []
-        for m, f, k in comps[:10]:
+        for m, f, k in comps[:5]:
             if m > 1e-6 and (m > 0.2 * maxm or m > medm * 2):
                 res.append((m, f))
-        return res[:3]
+        return res[:2]
 
     def _estimate_period_from_crossings(self, crossings: List[float]) -> float:
         if len(crossings) < 2: return float('inf')
@@ -303,31 +303,26 @@ class Plotter:
 
     def _autocorr_period(self, xs, ys):
         n = len(ys)
-        if n < 8: return float('inf'), 0.0
-        y = [v - sum(ys) / n for v in ys]
-        ac = [0.0] * (n // 2)
-        for lag in range(1, n // 2):
-            num = 0.0
-            den = 0.0
-            for i in range(n - lag):
-                num += y[i] * y[i + lag]
-                den += y[i] * y[i]
-            ac[lag] = num / (den + 1e-12)
-        if not ac: return float('inf'), 0.0
-        mx = max(ac[1:]) if len(ac) > 1 else 0.0
+        if n < 16 or not self.enable_osc_analysis: return float('inf'), 0.0
+        mean_y = sum(ys) / n
+        y = [v - mean_y for v in ys]
+        max_lag = min(n // 4, 64)
+        ac = [0.0] * (max_lag + 1)
+        den = sum(v * v for v in y) + 1e-12
+        for lag in range(1, max_lag + 1):
+            num = sum(y[i] * y[i + lag] for i in range(n - lag))
+            ac[lag] = num / den
+        if not ac[1:]: return float('inf'), 0.0
+        mx = max(ac[1:])
         if mx <= 0.05: return float('inf'), mx
-        # find first significant peak after lag=0
         peak_lag = None
         for i in range(2, len(ac) - 1):
             if ac[i] > ac[i - 1] and ac[i] >= ac[i + 1] and ac[i] > 0.3 * mx:
                 peak_lag = i
                 break
         if peak_lag is None:
-            # fallback: pick lag of global max
-            peak_lag = 1 + ac[1:].index(mx) if mx > 0 else None
-        if peak_lag is None: return float('inf'), mx
-        # compute dt (median)
-        diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)]
+            peak_lag = 1 + ac[1:].index(mx)
+        diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)] if len(xs) > 1 else [1.0]
         dt_med = self._median([abs(d) for d in diffs]) if diffs else 1.0
         scale = 1.0
         if dt_med > 1.0: scale = 0.001
@@ -335,30 +330,25 @@ class Plotter:
         return period, mx
 
     def _estimate_amplitude_and_decay(self, ys, xs):
-        if len(ys) < 3: return 0.0, 0.0
-        pks, tr = self._find_extrema(ys)
-        ext = []
-        for i, _ in pks: ext.append((i, abs(ys[i]), xs[i]))
-        for i, _ in tr: ext.append((i, abs(ys[i]), xs[i]))
+        if len(ys) < 8 or not self.enable_osc_analysis: return 0.0, 0.0
+        pks, tr = self._find_extrema([y - sum(ys) / len(ys) for y in ys])
+        ext = [(i, abs(ys[i]), xs[i]) for i, _ in pks + tr]
         if len(ext) < 2:
             mean_amp = sum(abs(v) for v in ys) / len(ys)
             return mean_amp, 0.0
         ext.sort()
-        times = [(t if t is not None else i) for i, _, t in ext]
-        amps = [a for _, a, _ in ext if a > 1e-9]
-        if len(amps) < 2: return sum(amps) / len(amps) if amps else 0.0, 0.0
-        # convert times to seconds if needed
         diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)] if len(xs) > 1 else [1.0]
         dt_med = self._median([abs(d) for d in diffs]) if diffs else 1.0
         scale = 1.0
         if dt_med > 1.0: scale = 0.001
         tvals = [t * scale for _, _, t in ext]
+        amps = [a for _, a, _ in ext if a > 1e-9]
+        if len(amps) < 2: return sum(amps) / len(amps) if amps else 0.0, 0.0
         lnamps = [math.log(a) for a in amps if a > 1e-9]
         if len(lnamps) < 2: return sum(amps) / len(amps), 0.0
-        # linear regression ln(amp) = a + b*t  => decay = -b
         n = len(lnamps)
-        xs_lr = tvals[:len(lnamps)]
-        sumx = sum(xs_lr)
+        xs_lr = tvals[:n]
+        sumx = sum(xs_lr);
         sumy = sum(lnamps)
         sumxy = sum(x * y for x, y in zip(xs_lr, lnamps))
         sumx2 = sum(x * x for x in xs_lr)
@@ -370,13 +360,11 @@ class Plotter:
         return mean_amp, decay
 
     def get_oscillation_stats(self, key):
-        if not self.enable_osc_analysis or key not in self.data or len(self.data[key]) < 8:
-            return {"period": 0.0, "mean_amplitude": 0.0, "decay_rate": 0.0, "damping_ratio": 0.0, "dominant_freq": 0.0,
-                    "spectrum": [], "valid": False, "weak": False, "snr": 0.0, "peak_count": 0, "trough_count": 0,
-                    "half_life": 0.0, "confidence": 0.0}
+        if not self.enable_osc_analysis or key not in self.data or len(self.data[key]) < 16:
+            return {"valid": False}
         ys = list(self.data[key])
         xs = list(self.x_data[key])
-        # normalize to seconds if timestamps look like ms
+        if len(xs) != len(ys) or len(xs) < 16: return {"valid": False}
         diffs = [xs[i + 1] - xs[i] for i in range(len(xs) - 1)] if len(xs) > 1 else [1.0]
         dt_med = self._median([abs(d) for d in diffs]) if diffs else 1.0
         scale = 1.0
@@ -384,37 +372,35 @@ class Plotter:
         xs_s = [x * scale for x in xs]
         base = sum(ys) / len(ys)
         ys_c = [y - base for y in ys]
-        crossings = self._detect_zero_crossings(ys_c, xs)
+        crossings = self._detect_zero_crossings(ys_c, xs) if self.enable_osc_analysis else []
         pks, tr = self._find_extrema(ys_c)
         peak_count = len(pks)
         trough_count = len(tr)
+        if peak_count + trough_count < self.min_extrema_for_osc: return {"valid": False}
         per_cross = self._estimate_period_from_crossings(crossings) if crossings else float('inf')
         per_auto, acf_conf = self._autocorr_period(xs, ys_c)
         freqs = self._detect_frequency_components(ys_c, xs)
         mean_amp, decay = self._estimate_amplitude_and_decay(ys_c, xs)
-        period = per_auto if per_auto and per_auto != float('inf') else (
-            per_cross if per_cross and per_cross != float('inf') else float('inf'))
+        period = per_auto if per_auto != float('inf') else (per_cross if per_cross != float('inf') else float('inf'))
         period_s = period * (0.001 if dt_med > 1.0 else 1.0)
-        dominant_freq = freqs[0][1] if freqs else (1.0 / period_s if period_s > 0 and period_s != float('inf') else 0.0)
-        # compute SNR
+        dominant_freq = freqs[0][1] if freqs else (1.0 / period_s if period_s > 1e-9 else 0.0)
         mags = [m for m, _ in freqs] if freqs else []
         snr = (max(mags) / (self._median(mags) + 1e-12)) if mags else 0.0
-        # damping ratio
-        omega = 2 * math.pi / period_s if period_s > 0 and period_s != float('inf') else 0.0
+        omega = 2 * math.pi / period_s if period_s > 1e-9 else 0.0
         damping = min(decay / omega, 1.0) if omega > 1e-12 else 0.0
         half_life = math.log(2) / decay if decay > 1e-12 else float('inf')
-        # confidence heuristic
         conf = 0.0
         if peak_count + trough_count >= self.min_extrema_for_osc: conf += 0.3
         if len(crossings) >= self.min_crossings_for_osc: conf += 0.3
         if freqs and mags and mags[0] > 0: conf += 0.3
         conf += min(0.1, acf_conf)
-        valid = conf >= 0.6 and mean_amp > 1e-6 and period_s > 0 and period_s != float('inf')
+        valid = conf >= 0.6 and mean_amp > 1e-6 and period_s > 1e-9 and period_s != float('inf')
         weak = (conf >= 0.4 and mean_amp > 1e-6)
-        spec = freqs
-        return {"period": period_s, "mean_amplitude": mean_amp, "decay_rate": decay, "damping_ratio": damping,
-                "dominant_freq": dominant_freq, "spectrum": spec, "valid": valid, "weak": weak, "snr": snr,
-                "peak_count": peak_count, "trough_count": trough_count, "half_life": half_life, "confidence": conf}
+        return {
+            "period": period_s, "mean_amplitude": mean_amp, "decay_rate": decay, "damping_ratio": damping,
+            "dominant_freq": dominant_freq, "spectrum": freqs[:2], "valid": valid, "weak": weak, "snr": snr,
+            "peak_count": peak_count, "trough_count": trough_count, "half_life": half_life, "confidence": conf
+        }
 
     def _get_cached_osc_stats(self, key: str) -> Dict[str, float]:
         if not self.enable_osc_analysis:
@@ -893,13 +879,9 @@ class Plotter:
         return list(zip(seg_x, seg_y))
 
     def _handle_hover_overlay(self, keys: List[str]) -> None:
-        if not self._mouse_pos:
+        if not self._mouse_pos or not self.enable_osc_analysis:
             self._hovered_key = None
             self._hovered_info = None
-            self._hovered_x = None
-            self._hovered_y = None
-            self._hovered_idx = None
-            self._hovered_area = 0.0
             return
         mx, my = self._mouse_pos
         w = self.surface_size[0] - self.MARGIN_LEFT
@@ -907,11 +889,10 @@ class Plotter:
         if mx < self.MARGIN_LEFT or mx >= self.surface_size[0] or my < self.MARGIN_TOP or my >= self.surface_size[
             1] - self.MARGIN_BOTTOM:
             self._hovered_key = None
-            self._hovered_info = None
             return
         all_vals = [v for k in keys for v in self.data[k]]
         all_x = [x for k in keys for x in self.x_data[k]]
-        if not all_vals or not all_x: return
+        if not all_vals or not all_x or len(all_vals) < 16: return
         global_min = min(all_vals)
         global_max = max(all_vals)
         y_min, y_max = self._get_padded_range(global_min, global_max)
@@ -926,11 +907,11 @@ class Plotter:
         for key in keys:
             ys = list(self.data[key])
             xs = list(self.x_data[key])
-            if not ys or not xs: continue
+            if len(ys) < 16 or len(xs) < 16: continue
             pts = [(self.MARGIN_LEFT + (xs[i] - x_min) / x_range * w,
                     self.MARGIN_TOP + (ys[i] - draw_min) / draw_range * h) for i in range(len(ys))]
             for i, (px, py) in enumerate(pts):
-                dist = self._point_distance((mx, my), (px, py))
+                dist = math.hypot(mx - px, my - py)
                 if dist < 12 and dist < best_dist:
                     best_dist = dist
                     best_key = key
@@ -938,13 +919,12 @@ class Plotter:
                     best_y = ys[i]
                     best_idx = i
                     info = self._compute_local_stats(xs, ys, i)
-                    osc = self._get_cached_osc_stats(key)
+                    osc = self._get_cached_osc_stats(key) if self.enable_osc_analysis else {}
                     info["osc_stats"] = osc if osc.get("valid") else None
                     info["value"] = ys[i]
                     info["x"] = xs[i]
                     info["index"] = i
                     best_info = info
-
         self._hovered_key = best_key
         self._hovered_info = best_info
         self._hovered_x = best_x
@@ -955,24 +935,20 @@ class Plotter:
             col = self._get_color(best_key)
             xs = list(self.x_data[best_key])
             ys = list(self.data[best_key])
+            if len(xs) < 2 or len(ys) < 2: return
             x = xs[best_idx]
             y = ys[best_idx]
             xx = self.MARGIN_LEFT + (x - x_min) / x_range * w
             yy = self.MARGIN_TOP + (y - draw_min) / draw_range * h
             for r, a in [(16, 40), (10, 80), (6, 160)]:
                 pygame.draw.circle(self.surface, (*col, a), (xx, yy), r)
-            # compute slope/intercept from local window and fractional index
             local = self._compute_local_stats(xs, ys, best_idx)
             slope_data = local.get("slope", 0.0)
             x0 = xs[best_idx]
             y0 = ys[best_idx]
             intercept = y0 - slope_data * x0
-            # sample around x0 for area shading and area calculation
-            half_win = 10
-            if len(xs) > 1:
-                dx = (xs[1] - xs[0]) if len(xs) > 1 else 1.0
-            else:
-                dx = 1.0
+            half_win = 5
+            dx = (xs[1] - xs[0]) if len(xs) > 1 else 1.0
             xL = x0 - dx * half_win
             xR = x0 + dx * half_win
             seg = self._sample_segment(xs, ys, xL, xR)
@@ -981,8 +957,7 @@ class Plotter:
                 sxs = [p[0] for p in seg]
                 sys = [p[1] for p in seg]
                 area = self._compute_integral(sxs, sys, 0, len(sxs) - 1)
-                self._hovered_area = area
-
+            self._hovered_area = area
             self._draw_tangent_and_area_overlay(best_key, xs, ys, x_min, x_max, draw_min, draw_max,
                                                 xx, yy, float(best_idx), slope_data, intercept, area)
 

@@ -3,7 +3,7 @@ import traceback
 import pygame, math, pymunk
 from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
-from UPST.tools.tool_manager import BaseTool
+from UPST.tools.base_tool import BaseTool
 import pygame_gui
 from UPST.modules.statistics import stats
 

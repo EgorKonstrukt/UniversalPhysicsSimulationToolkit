@@ -1,34 +1,32 @@
-import pymunk, pygame, math, random, traceback
-from pygame_gui.elements import UIPanel, UILabel, UIButton, UIImage, UICheckBox
+import pygame
+from pygame_gui.elements import UIPanel, UILabel, UIButton, UIImage
 
 from UPST.config import config
 from UPST.sound.sound_synthesizer import synthesizer
 import pygame_gui
 
-from UPST.tools.chain_tool import ChainTool
-from UPST.tools.explosion_tool import ExplosionTool
-from UPST.tools.fixate_tool import FixateTool
-from UPST.tools.laser_processor import LaserProcessor
-from UPST.tools.base_tool import BaseTool
+from UPST.tools.shapes.chain_tool import ChainTool
+from UPST.tools.special.explosion_tool import ExplosionTool
+from UPST.tools.constraints.fixate_tool import FixateTool
+from UPST.tools.special.laser_processor import LaserProcessor
 
-from UPST.tools.circle_tool import CircleTool
-from UPST.tools.pin_joint_tool import PinJointTool
-from UPST.tools.pivot_joint_tool import PivotJointTool
-from UPST.tools.rectanlge_tool import RectangleTool
-from UPST.tools.spring_tool import SpringTool
-from UPST.tools.static_line_tool import StaticLineTool
-from UPST.tools.triangle_tool import TriangleTool
-from UPST.tools.polyhedron_tool import PolyhedronTool
-from UPST.tools.spam_tool import SpamTool
-from UPST.tools.human_tool import HumanTool
-from UPST.tools.gear_tool import GearTool
-from UPST.tools.move_tool import MoveTool
-from UPST.tools.rotate_tool import RotateTool
-from UPST.tools.cut_tool import CutTool
-from UPST.tools.script_tool import ScriptTool
-from UPST.tools.drag_tool import DragTool
-from UPST.tools.plane_tool import PlaneTool
-from UPST.tools.poly_tool import PolyTool
+from UPST.tools.shapes.circle_tool import CircleTool
+from UPST.tools.constraints.pin_joint_tool import PinJointTool
+from UPST.tools.constraints.pivot_joint_tool import PivotJointTool
+from UPST.tools.shapes.rectanlge_tool import RectangleTool
+from UPST.tools.constraints.spring_tool import SpringTool
+from UPST.tools.shapes.static_line_tool import StaticLineTool
+from UPST.tools.shapes.triangle_tool import TriangleTool
+from UPST.tools.shapes.polyhedron_tool import PolyhedronTool
+from UPST.tools.special.spam_tool import SpamTool
+from UPST.tools.special.gear_tool import GearTool
+from UPST.tools.manipulation.move_tool import MoveTool
+from UPST.tools.manipulation.rotate_tool import RotateTool
+from UPST.tools.manipulation.cut_tool import CutTool
+from UPST.tools.special.script_tool import ScriptTool
+from UPST.tools.manipulation.drag_tool import DragTool
+from UPST.tools.shapes.plane_tool import PlaneTool
+from UPST.tools.shapes.poly_tool import PolyTool
 
 from UPST.modules.undo_redo_manager import get_undo_redo
 
@@ -56,7 +54,7 @@ class ToolSystem:
         self.input_handler = input_handler
 
     def _register_tools(self):
-        from UPST.tools.laser_tool import LaserTool
+        from UPST.tools.special.laser_tool import LaserTool
 
         self.laser_processor = LaserProcessor(self.pm)
         spawn_tools = [

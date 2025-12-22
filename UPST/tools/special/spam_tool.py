@@ -1,7 +1,7 @@
 import random
 import pygame, math, pymunk
 from UPST.config import config
-from UPST.tools.tool_manager import BaseTool
+from UPST.tools.base_tool import BaseTool
 import pygame_gui
 
 class SpamTool(BaseTool):

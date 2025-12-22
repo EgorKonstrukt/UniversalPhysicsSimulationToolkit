@@ -1,7 +1,7 @@
 import random
 import pygame, math, pymunk
 from UPST.config import config, get_theme_and_palette, sample_color_from_def
-from UPST.tools.tool_manager import BaseTool
+from UPST.tools.base_tool import BaseTool
 import pygame_gui
 
 

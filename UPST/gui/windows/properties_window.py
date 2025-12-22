@@ -142,8 +142,8 @@ class PropertiesWindow:
         self.elements['pos_y'] = pos_y_entry
         y += 44
 
-        # Shapes section - create panel per shape
-        self._add_section_title("Shapes", y); y += 28
+        # shapes section - create panel per shape
+        self._add_section_title("shapes", y); y += 28
         self.elements['shapes_panels'] = []
         shapes = list(self.body.shapes)
         for idx, shape in enumerate(shapes):

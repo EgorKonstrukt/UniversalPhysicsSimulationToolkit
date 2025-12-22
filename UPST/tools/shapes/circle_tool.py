@@ -1,7 +1,7 @@
 import random
 import pygame, math, pymunk
 from UPST.config import config, get_theme_and_palette, sample_color_from_def
-from UPST.tools.tool_manager import BaseTool
+from UPST.tools.base_tool import BaseTool
 import pygame_gui
 
 class CircleTool(BaseTool):
@@ -87,7 +87,7 @@ class CircleTool(BaseTool):
 
     def _draw_custom_preview(self, screen, camera):
         center = self.preview['position']
-        r = self.preview['radius']
+        r = self.preview['radius'] * camera.scaling
         sp = camera.world_to_screen(center)
         pygame.draw.circle(screen, self.preview['color'], sp, int(r), 1)
         guide_end = (center[0] + r, center[1])
@@ -101,7 +101,7 @@ class CircleTool(BaseTool):
         offset = self._last_hatch_offset
         line_color = (*self.preview['color'][:3], 128)
         max_lines = 60
-        r = radius
+        r = radius / camera.scaling
         x_min, x_max = cx - r, cx + r
         y_min, y_max = cy - r, cy + r
 
