@@ -76,6 +76,10 @@ class Renderer:
                     constraint, 'hidden', False):
                 continue
 
+            constraint_color = getattr(constraint, 'color', default_color)
+            if len(constraint_color) == 3:
+                constraint_color = (*constraint_color, 200)
+
             a_world = constraint.a.local_to_world(constraint.anchor_a)
             b_world = constraint.b.local_to_world(constraint.anchor_b)
             a_scr = self.camera.world_to_screen(a_world)
@@ -102,6 +106,7 @@ class Renderer:
                 angle = math.atan2(dy_scr, dx_scr)
                 cos_a = math.cos(angle)
                 sin_a = math.sin(angle)
+                color_rgb = constraint_color[:3]
                 for i in range(num_segments):
                     seg_x0 = a_scr[0] + i * seg_len_scr * cos_a
                     seg_y0 = a_scr[1] + i * seg_len_scr * sin_a
@@ -111,13 +116,15 @@ class Renderer:
                                                                  (max(1, int(seg_len_scr)), base_scaled.get_height()))
                         rotated = pygame.transform.rotate(stretched, math.degrees(-angle))
                         seg_cache[key] = rotated
-                    sprite = seg_cache[key]
+                    base_sprite = seg_cache[key]
+                    colored_sprite = base_sprite.copy()
+                    colored_sprite.fill((*color_rgb, 255), special_flags=pygame.BLEND_RGBA_MULT)
                     cx = seg_x0 + seg_len_scr * cos_a * 0.5
                     cy = seg_y0 + seg_len_scr * sin_a * 0.5
-                    self.screen.blit(sprite, (int(cx - sprite.get_width() // 2), int(cy - sprite.get_height() // 2)))
+                    self.screen.blit(colored_sprite, (int(cx - colored_sprite.get_width() // 2), int(cy - colored_sprite.get_height() // 2)))
             else:
                 width = max(1, int(2 * self.camera.scaling))
-                pygame.draw.line(self.screen, default_color[:3], a_scr, b_scr, width)
+                pygame.draw.line(self.screen, constraint_color[:3], a_scr, b_scr, width)
 
             for anchor_scr, tex_key in [(a_scr, 'spring_point_a_texture'), (b_scr, 'spring_point_b_texture')]:
                 tex_path = getattr(config.rendering, tex_key, '')
@@ -129,7 +136,7 @@ class Renderer:
                 else:
                     r = max(1, int(1 * self.camera.scaling))
                     pygame.gfxdraw.filled_circle(self.screen, safe_coord(anchor_scr[0]), safe_coord(anchor_scr[1]), r,
-                                                 default_color)
+                                                 constraint_color)
                     pygame.gfxdraw.aacircle(self.screen, safe_coord(anchor_scr[0]), safe_coord(anchor_scr[1]), r,
                                             (50, 50, 50))
 

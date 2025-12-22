@@ -51,6 +51,7 @@ class SpringTool(BaseTool):
                         stiffness = float(self.stiffness_entry.get_text() or "200")
                         damping = float(self.damping_entry.get_text() or "10")
                         spring = pymunk.DampedSpring(self.first_body, body, anchor1, anchor2, rest_len, stiffness, damping)
+                        spring.color = self._get_color("spring")
                         self.pm.space.add(spring)
                         self.undo_redo.take_snapshot()
                     except ValueError:
