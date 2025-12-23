@@ -17,8 +17,3 @@ class SpamTool(BaseTool):
                 if tool:
                     tool.spawn_at(offset)
         self.undo_redo.take_snapshot()
-
-
-
-
-

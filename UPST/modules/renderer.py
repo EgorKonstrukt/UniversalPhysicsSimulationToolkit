@@ -156,9 +156,11 @@ class Renderer:
         for shape in space_shapes:
             if not hasattr(shape, 'color'): continue
             body = shape.body
-            color = getattr(body, 'color', getattr(shape, 'color', (200, 200, 200, 255)))
-            if len(color) == 3: color = (*color, 255)
+            color = getattr(shape, 'color', None)
+            if color is None:
+                color = getattr(body, 'color', (200, 200, 200, 255))
 
+            if len(color) == 3: color = (*color, 255)
 
             if isinstance(shape, pymunk.Circle):
                 world_pos = body.local_to_world(shape.offset)
@@ -218,14 +220,15 @@ class Renderer:
 
     def _draw_circle_transparent(self, surf, ix, iy, ir, col, outline, othick):
         size = ir * 2 + 2
-        if size > 65535: return
+        if size > 65535 or size <= 0: return
         temp = pygame.Surface((size, size), pygame.SRCALPHA)
-        pygame.gfxdraw.filled_circle(temp, ir + 1, ir + 1, ir, col)
+        pygame.draw.circle(temp, col, (ir + 1, ir + 1), ir)
         for t in range(othick):
-            pygame.gfxdraw.aacircle(temp, ir + 1, ir + 1, ir - t, outline)
+            pygame.draw.circle(temp, outline, (ir + 1, ir + 1), ir - t, 1)
         surf.blit(temp, (ix - ir - 1, iy - ir - 1))
 
     def _draw_poly_transparent(self, surf, verts, col, outline, othick):
+        if len(verts) < 3: return
         min_x = min(v[0] for v in verts)
         max_x = max(v[0] for v in verts)
         min_y = min(v[1] for v in verts)
@@ -234,14 +237,14 @@ class Renderer:
         if w <= 0 or h <= 0 or w > 65535 or h > 65535: return
         temp = pygame.Surface((w, h), pygame.SRCALPHA)
         shifted = [(x - min_x + 1, y - min_y + 1) for x, y in verts]
-        pygame.gfxdraw.filled_polygon(temp, shifted, col)
-        pygame.gfxdraw.aapolygon(temp, shifted, outline)
+        pygame.draw.polygon(temp, col, shifted)
+        pygame.draw.polygon(temp, outline, shifted, othick)
         surf.blit(temp, (min_x - 1, min_y - 1))
 
     def _draw_segment_transparent(self, surf, x1, y1, x2, y2, thick, othick2, col, outline):
-        w = abs(x2 - x1) + othick2 + 2
-        h = abs(y2 - y1) + othick2 + 2
-        if w <= 0 or h <= 0: return
+        w = int(abs(x2 - x1) + othick2 + 2)
+        h = int(abs(y2 - y1) + othick2 + 2)
+        if w <= 0 or h <= 0 or w > 65535 or h > 65535: return
         temp = pygame.Surface((w, h), pygame.SRCALPHA)
         ox = min(x1, x2) - othick2 // 2 - 1
         oy = min(y1, y2) - othick2 // 2 - 1

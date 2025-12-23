@@ -183,7 +183,7 @@ class GridConfig:
     snap_to_grid_enabled: bool = False
     snap_tolerance: int = 100
     snap_radius_pixels:int = 100
-    snap_strength: float = 1.0
+    snap_strength: float = 0.25
     max_lines: int = 1000
     skip_offscreen_lines: bool = True
     ruler_skip_factor = 2

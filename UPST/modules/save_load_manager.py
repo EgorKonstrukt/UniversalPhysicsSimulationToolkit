@@ -193,6 +193,8 @@ class SaveLoadManager:
                 "texture_path": texture_path, "texture_bytes": tex_bytes, "texture_size": tex_size,
                 "texture_scale": float(getattr(body, "texture_scale", 1.0)),
                 "stretch_texture": bool(getattr(body, "stretch_texture", True)),
+                "center_of_gravity": tuple(body.center_of_gravity),
+
             }
             data["bodies"].append(body_data)
 

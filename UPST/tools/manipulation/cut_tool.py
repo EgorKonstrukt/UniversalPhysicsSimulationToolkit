@@ -175,7 +175,6 @@ class CutTool(BaseTool):
         stats.increment('objects_cutted', delta=1)
         bodies_to_remove = set()
         to_add = []
-
         for shape in list(self.pm.space.shapes):
             if shape.body == self.pm.static_body:
                 continue
@@ -203,7 +202,6 @@ class CutTool(BaseTool):
                     new2 = self._create_poly_body(p2_pts, shape, shape.body)
                     if new1: to_add.append(new1)
                     if new2: to_add.append(new2)
-
         for body in bodies_to_remove:
             if body in self.pm.space.bodies:
                 try:
@@ -211,14 +209,12 @@ class CutTool(BaseTool):
                 except Exception:
                     pass
             self.pm.script_manager.remove_scripts_by_owner(body)
-
         for c in list(self.pm.space.constraints):
             if c.a in bodies_to_remove or c.b in bodies_to_remove:
                 try:
                     self.pm.space.remove(c)
                 except:
                     pass
-
         for body, shape in to_add:
             added = self._safe_add_body_shape(body, shape)
             if not added and self.keep_small_cb and self.keep_small_cb.get_state():
@@ -227,8 +223,6 @@ class CutTool(BaseTool):
                         self.pm.space.remove(body)
                 except:
                     pass
-
-
     def handle_event(self, event, world_pos):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.start_pos = world_pos
@@ -247,8 +241,6 @@ class CutTool(BaseTool):
             self._tmp_preview = None
             synthesizer.play_frequency(300, duration=0.05, waveform='sine')
             self.undo_redo.take_snapshot()
-
-
     def draw_preview(self,screen,camera):
         seg=self._tmp_preview
         if not seg: return
@@ -256,5 +248,3 @@ class CutTool(BaseTool):
         try: w=int(float(self.thickness_entry.get_text()) if self.thickness_entry else 4)
         except: w=4
         pygame.draw.line(screen,(255,100,100),a_screen,b_screen,w)
-
-

@@ -48,6 +48,65 @@ class PhysicsManager:
         except Exception as e:
             Debug.log_error(f"Failed to initialize PhysicsManager: {e}", "Physics")
 
+    def weld_bodies(self, b_master, b_slave):
+        if b_master is b_slave:
+            return
+        if b_slave.body_type != pymunk.Body.DYNAMIC:
+            return
+        mm, ms = b_master.mass, b_slave.mass
+        if mm + ms <= 0:
+            return
+
+        self.undo_redo_manager.take_snapshot()
+
+        wm, ws = b_master.position, b_slave.position
+        new_com_world = (wm * mm + ws * ms) / (mm + ms)
+        self.space.remove(b_master, *b_master.shapes)
+        self.space.remove(b_slave, *b_slave.shapes)
+        self.script_manager.remove_scripts_by_owner(b_slave)
+
+        new_body = pymunk.Body(0, 0, body_type=pymunk.Body.DYNAMIC)
+        new_body.position = new_com_world
+        shapes = []
+
+        for src_body in (b_master, b_slave):
+            src_color = getattr(src_body, 'color', (200, 200, 200, 255))
+            if len(src_color) == 3:
+                src_color = (*src_color, 255)
+            for s in list(src_body.shapes):
+                if isinstance(s, pymunk.Circle):
+                    wp = src_body.local_to_world(s.offset)
+                    off = wp - new_com_world
+                    ns = pymunk.Circle(new_body, s.radius, off)
+                elif isinstance(s, pymunk.Segment):
+                    wa = src_body.local_to_world(s.a)
+                    wb = src_body.local_to_world(s.b)
+                    na = wa - new_com_world
+                    nb = wb - new_com_world
+                    ns = pymunk.Segment(new_body, na, nb, s.radius)
+                elif isinstance(s, pymunk.Poly):
+                    verts = [src_body.local_to_world(v) - new_com_world for v in s.get_vertices()]
+                    ns = pymunk.Poly(new_body, verts)
+                else:
+                    continue
+                ns.friction = s.friction
+                ns.elasticity = s.elasticity
+                ns.collision_type = s.collision_type
+                ns.filter = s.filter
+                ns.color = getattr(s, 'color', src_color)
+                if hasattr(s, 'mass') and s.mass > 0:
+                    ns.mass = s.mass
+                elif src_body.mass > 0:
+                    total_area = sum(shape.area for shape in src_body.shapes if hasattr(shape, 'area'))
+                    if total_area > 0:
+                        ns.mass = src_body.mass * (ns.area / total_area)
+                    else:
+                        ns.mass = src_body.mass / len(src_body.shapes)
+                else:
+                    ns.mass = 1.0
+                shapes.append(ns)
+
+        self.space.add(new_body, *shapes)
     def update_scripts(self, dt: float):
         try:
             if self.running_scripts and self.running_physics:

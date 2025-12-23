@@ -45,8 +45,9 @@ class FixateTool(BaseTool):
                 pin.distance = dist
                 angle = self.first_body.angle
                 rot = pymunk.RotaryLimitJoint(self.first_body, target_body, angle, angle)
-                self.pm.space.add(pin, rot)
+                self.pm.weld_bodies(self.first_body, target_body)
                 self.undo_redo.take_snapshot()
+
                 synthesizer.play_frequency(400, duration=0.04, waveform='sine')
             except Exception:
                 pass

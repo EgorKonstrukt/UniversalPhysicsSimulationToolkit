@@ -92,6 +92,7 @@ class SnapshotManager:
                     "texture_size": tex_size,
                     "texture_scale": float(getattr(body, "texture_scale", 1.0)),
                     "stretch_texture": bool(getattr(body, "stretch_texture", True)),
+                    "center_of_gravity": tuple(body.center_of_gravity),
                 })
 
             constraints_data = []
@@ -183,6 +184,10 @@ class SnapshotManager:
                 bt.texture_size = bd.get("texture_size")
                 bt.texture_scale = float(bd.get("texture_scale", 1.0))
                 bt.stretch_texture = bool(bd.get("stretch_texture", True))
+                if bt.body_type == pymunk.Body.DYNAMIC:
+                    cog = bd.get("center_of_gravity")
+                    if cog:
+                        bt.center_of_gravity = pymunk.Vec2d(*cog)
 
                 shapes = []
                 for sd in bd.get("shapes", []):
