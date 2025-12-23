@@ -186,7 +186,7 @@ class SaveLoadManager:
             body_data = {
                 "_script_uuid": str(body._script_uuid),
                 "color": tuple(getattr(body, "color", (200, 200, 200, 255))),
-                "name": str(body.name),
+                "name": str(getattr(body, "name", "Body"),),
                 "position": tuple(body.position), "angle": float(body.angle), "velocity": tuple(body.velocity),
                 "angular_velocity": float(body.angular_velocity), "mass": float(getattr(body, "mass", 1.0)),
                 "moment": float(getattr(body, "moment", 1.0)), "body_type": int(body.body_type), "shapes": shapes_data,
