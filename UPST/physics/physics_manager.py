@@ -206,6 +206,222 @@ class PhysicsManager:
             Debug.log_error(f"Error in physics step: {e}", "Physics")
         self.simulation_time += effective_dt
 
+    def make_world_api(self):
+        class WorldAPI:
+            @staticmethod
+            def create_box(pos=(0, 0), size=(1, 1), angle=0, mass=1.0, friction=0.7, elasticity=0.5, color=None,
+                           parent=None, name="Box"):
+                w, h = size
+                body = pymunk.Body(mass, pymunk.moment_for_box(mass, (w, h)), body_type=pymunk.Body.DYNAMIC)
+                body.position = pos
+                body.angle = angle
+                shape = pymunk.Poly.create_box(body, (w, h))
+                shape.friction = friction
+                shape.elasticity = elasticity
+                shape.color = color or (200, 200, 200, 255)
+                self.add_body_shape(body, shape)
+                return body
+
+            @staticmethod
+            def create_circle(pos=(0, 0), radius=1.0, mass=1.0, friction=0.7, elasticity=0.5, color=None, parent=None,
+                              name="Circle"):
+                body = pymunk.Body(mass, pymunk.moment_for_circle(mass, 0, radius), body_type=pymunk.Body.DYNAMIC)
+                body.position = pos
+                shape = pymunk.Circle(body, radius)
+                shape.friction = friction
+                shape.elasticity = elasticity
+                shape.color = color or (200, 200, 200, 255)
+                self.add_body_shape(body, shape)
+                return body
+
+            @staticmethod
+            def create_segment(a=(0, 0), b=(1, 0), thickness=0.1, mass=1.0, friction=0.7, elasticity=0.5, color=None,
+                               parent=None, name="Segment"):
+                body = pymunk.Body(mass, pymunk.moment_for_segment(mass, a, b, thickness),
+                                   body_type=pymunk.Body.DYNAMIC)
+                shape = pymunk.Segment(body, a, b, thickness)
+                shape.friction = friction
+                shape.elasticity = elasticity
+                shape.color = color or (200, 200, 200, 255)
+                self.add_body_shape(body, shape)
+                return body
+
+            @staticmethod
+            def create_static_box(pos=(0, 0), size=(1, 1), angle=0, friction=0.7, elasticity=0.5, color=None,
+                                  parent=None, name="StaticBox"):
+                w, h = size
+                body = self.static_body
+                verts = [(-w / 2, -h / 2), (w / 2, -h / 2), (w / 2, h / 2), (-w / 2, h / 2)]
+                shape = pymunk.Poly(body, verts)
+                shape.friction = friction
+                shape.elasticity = elasticity
+                shape.color = color or self.theme.platform_color
+                self.space.add(shape)
+                self.static_lines.append(shape)
+                return shape
+
+            @staticmethod
+            def create_static_circle(pos=(0, 0), radius=1.0, friction=0.7, elasticity=0.5, color=None, parent=None,
+                                     name="StaticCircle"):
+                body = self.static_body
+                shape = pymunk.Circle(body, radius, offset=pos)
+                shape.friction = friction
+                shape.elasticity = elasticity
+                shape.color = color or self.theme.platform_color
+                self.space.add(shape)
+                self.static_lines.append(shape)
+                return shape
+
+            @staticmethod
+            def create_static_segment(a=(0, 0), b=(1, 0), thickness=0.1, friction=0.7, elasticity=0.5, color=None,
+                                      parent=None, name="StaticSegment"):
+                body = self.static_body
+                shape = pymunk.Segment(body, a, b, thickness)
+                shape.friction = friction
+                shape.elasticity = elasticity
+                shape.color = color or self.theme.platform_color
+                self.space.add(shape)
+                self.static_lines.append(shape)
+                return shape
+
+            @staticmethod
+            def delete(obj):
+                if isinstance(obj, pymunk.Body):
+                    self.remove_body(obj)
+                elif isinstance(obj, pymunk.Shape):
+                    self.remove_shape_body(obj)
+                else:
+                    Debug.log_error("Cannot delete non-physics object", "Scripting")
+
+            @staticmethod
+            def get_all():
+                return list(self.space.bodies) + list(self.space.shapes)
+
+            @staticmethod
+            def find_by_name(name: str):
+                for b in self.space.bodies:
+                    if getattr(b, 'name', None) == name:
+                        return b
+                return None
+
+            @staticmethod
+            def find_by_tag(tag: str):
+                return [b for b in self.space.bodies if hasattr(b, 'tags') and tag in b.tags]
+
+            @staticmethod
+            def add_tag(obj, tag: str):
+                if not hasattr(obj, 'tags'): obj.tags = set()
+                obj.tags.add(tag)
+
+            @staticmethod
+            def remove_tag(obj, tag: str):
+                if hasattr(obj, 'tags'): obj.tags.discard(tag)
+
+            @staticmethod
+            def set_transform(obj, pos=None, angle=None, scale=None):
+                if isinstance(obj, pymunk.Body):
+                    if pos is not None: obj.position = pos
+                    if angle is not None: obj.angle = angle
+                else:
+                    Debug.log_warning("Transform set on non-body", "Scripting")
+
+            @staticmethod
+            def get_position(obj):
+                return getattr(obj, 'position', (0, 0))
+
+            @staticmethod
+            def get_angle(obj):
+                return getattr(obj, 'angle', 0.0)
+
+            @staticmethod
+            def apply_force(obj, force, point=None):
+                if isinstance(obj, pymunk.Body) and obj.body_type == pymunk.Body.DYNAMIC:
+                    if point is None: point = obj.position
+                    obj.apply_force_at_world_point(force, point)
+
+            @staticmethod
+            def apply_impulse(obj, impulse, point=None):
+                if isinstance(obj, pymunk.Body) and obj.body_type == pymunk.Body.DYNAMIC:
+                    if point is None: point = obj.position
+                    obj.apply_impulse_at_world_point(impulse, point)
+
+            @staticmethod
+            def set_velocity(obj, velocity):
+                if isinstance(obj, pymunk.Body): obj.velocity = velocity
+
+            @staticmethod
+            def get_velocity(obj):
+                return getattr(obj, 'velocity', (0, 0))
+
+            @staticmethod
+            def set_angular_velocity(obj, omega):
+                if isinstance(obj, pymunk.Body): obj.angular_velocity = omega
+
+            @staticmethod
+            def get_angular_velocity(obj):
+                return getattr(obj, 'angular_velocity', 0.0)
+
+            @staticmethod
+            def set_mass(obj, mass):
+                if isinstance(obj, pymunk.Body): obj.mass = mass
+
+            @staticmethod
+            def set_friction(obj, friction):
+                if isinstance(obj, pymunk.Shape): obj.friction = friction
+
+            @staticmethod
+            def set_elasticity(obj, elasticity):
+                if isinstance(obj, pymunk.Shape): obj.elasticity = elasticity
+
+            @staticmethod
+            def set_color(obj, color):
+                if not isinstance(color, (tuple, list)) or len(color) not in (3, 4):
+                    Debug.log_error("Color must be (R,G,B) or (R,G,B,A)", "Scripting")
+                    return
+                if isinstance(obj, pymunk.Shape):
+                    obj.color = color if len(color) == 4 else (*color, 255)
+                elif isinstance(obj, pymunk.Body):
+                    for s in obj.shapes: s.color = color if len(color) == 4 else (*color, 255)
+
+            @staticmethod
+            def get_color(obj):
+                if isinstance(obj, pymunk.Shape):
+                    return getattr(obj, 'color', (200, 200, 200, 255))
+                elif isinstance(obj, pymunk.Body) and obj.shapes:
+                    return getattr(obj.shapes[0], 'color', (200, 200, 200, 255))
+                return (200, 200, 200, 255)
+
+            @staticmethod
+            def attach_script(obj, code: str, name: str = "AttachedScript"):
+                if isinstance(obj, (pymunk.Body, pymunk.Shape)):
+                    self.script_manager.add_script(code=code, owner=obj, name=name, app=self.app)
+
+            @staticmethod
+            def get_script(obj, name: str):
+                return self.script_manager.get_script_by_name(owner=obj, name=name)
+
+            @staticmethod
+            def remove_script(obj, name: str):
+                self.script_manager.remove_script_by_name(owner=obj, name=name)
+
+            @staticmethod
+            def pause_simulation():
+                self.pause_physics()
+
+            @staticmethod
+            def resume_simulation():
+                self.resume_physics()
+
+            @staticmethod
+            def set_simulation_speed(speed: float):
+                self.set_simulation_speed_multiplier(speed)
+
+            @staticmethod
+            def get_simulation_time():
+                return self.simulation_time
+
+        return WorldAPI()
+
     def remove_shape_body(self, shape):
         try:
             Debug.log_info(f"Attempting to remove shape and its body if empty. Shape ID: {shape.__hash__()}.", "Physics")
@@ -302,17 +518,30 @@ class PhysicsManager:
         except Exception:
             return 0.0, 1.0
 
-
-
     def update(self, rotation):
         try:
             self.step(1.0 / max(1, self.simulation_frequency))
         except Exception as e:
             Debug.log_error(f"Error in update: {e}", "Physics")
 
+    def pause_physics(self):
+        """Ставит физику и скрипты на паузу"""
+        self.running_physics = False
+        self.script_manager.pause_all_scripts()
+        Debug.log_info("Physics and scripts paused", "Physics")
+
+    def resume_physics(self):
+        """Снимает с паузы физику и скрипты"""
+        self.running_physics = True
+        self.script_manager.resume_all_scripts()
+        Debug.log_info("Physics and scripts resumed", "Physics")
+
     def toggle_pause(self):
         try:
-            self.running_physics = not self.running_physics
+            if self.running_physics:
+                self.pause_physics()
+            else:
+                self.resume_physics()
             # self.undo_redo_manager.take_snapshot()
             stats.increment('paused_times', delta=1)
             stats.save()
@@ -350,12 +579,9 @@ class PhysicsManager:
         except Exception as e:
             Debug.log_error(f"Error in add_constraint: {e}", "Physics")
 
-
-
     def get_body_at_position(self, position):
         try:
             Debug.log_info(f"Querying body at position: {position}.", "Physics")
-            self.undo_redo_manager.take_snapshot()
             query = self.space.point_query_nearest(position, 0, pymunk.ShapeFilter())
             if query and query.shape and query.shape.body:
                 Debug.log_info(f"Found body {query.shape.body.__hash__()} at position.", "Physics")

@@ -70,11 +70,6 @@ class UIManager:
         try: self.plotter_windows.remove(w)
         except ValueError: pass
 
-    def _init_fonts(self):
-        font_path = get_resource_path("fonts/Consolas.ttf")
-        self.manager.add_font_paths(font_name="consolas", regular_path=font_path)
-        self.manager.preload_fonts([{'name':'consolas','size':14,'style':'regular'},{'name':'consolas','size':18,'style':'regular'},{'name':'consolas','size':20,'style':'bold'}])
-
     def show_inline_script_editor(self, script=None, owner=None):
         if hasattr(self, '_script_editor') and self.script_editor:
             self.script_editor.window.kill()

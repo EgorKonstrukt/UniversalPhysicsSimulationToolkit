@@ -52,6 +52,7 @@ class GizmoData:
     _adjusted_screen_pos: Optional[Tuple[int, int]] = None
     on_click: Optional[Callable[[], None]] = None
     unique_id: Optional[str] = None
+    owner: Any = None
 
 def _process_gizmo_chunk(args):
     gizmos_chunk, cam_pos, cam_scale, screen_size, cull_margin, distance_culling_enabled = args
@@ -557,7 +558,7 @@ class GizmosManager:
 
     def draw_text(self, position, text, color='white', background_color=None, duration=0.1, layer=0,
                   world_space=True, font_name="Consolas", font_size=14, font_world_space=False,
-                  cull_distance=-1.0, cull_bounds=None, collision=False):
+                  cull_distance=-1.0, cull_bounds=None, collision=False, owner=None):
         g = GizmoData(
             gizmo_type=GizmoType.TEXT,
             position=position,
@@ -572,7 +573,8 @@ class GizmosManager:
             cull_distance=cull_distance,
             cull_bounds=cull_bounds,
             background_color=background_color,
-            collision=collision
+            collision=collision,
+            owner=owner,
         )
         self._add_gizmo(g)
 

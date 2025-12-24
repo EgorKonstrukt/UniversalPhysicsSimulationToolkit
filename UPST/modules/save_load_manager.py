@@ -12,6 +12,7 @@ import os
 
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
+from UPST.gizmos.gizmos_manager import get_gizmos, Gizmos, GizmoType, GizmoData
 from UPST.utils import surface_to_bytes, bytes_to_surface, safe_filedialog
 from UPST.modules.undo_redo_manager import get_undo_redo
 import pygame
@@ -94,7 +95,7 @@ class SaveLoadManager:
             self.physics_manager.set_simulation_paused(paused=False)
             Debug.log_success("Autosave loaded from root directory.", category="SaveLoadManager")
         except Exception as e:
-            Debug.log_error(f"Failed to load autosave: {e}", category="SaveLoadManager")
+            Debug.log_exception(f"Failed to load autosave: {e}", category="SaveLoadManager")
 
     def _write_autosave_background(self, data):
         if not self._autosave_lock.acquire(blocking=False):
@@ -217,6 +218,28 @@ class SaveLoadManager:
             data["static_lines"].append(ld)
         script_data = self.physics_manager.script_manager.serialize_for_save()
         data["scripts"] = script_data
+        gizmos_mgr = get_gizmos()
+        if gizmos_mgr:
+            text_gizmos = []
+            all_gizmos_with_persistence = [(g, False) for g in gizmos_mgr.gizmos] + [(g, True) for g in gizmos_mgr.persistent_gizmos]
+            for g, is_persistent in all_gizmos_with_persistence:
+                if g.gizmo_type == GizmoType.TEXT:
+                    owner_id = str(getattr(g.owner, '_script_uuid', None)) if g.owner else None
+                    text_gizmos.append({
+                        'position': tuple(g.position),
+                        'text': g.text,
+                        'color': g.color,
+                        'background_color': g.background_color,
+                        'collision': g.collision,
+                        'font_name': g.font_name,
+                        'font_size': g.font_size,
+                        'font_world_space': g.font_world_space,
+                        'world_space': g.world_space,
+                        'duration': g.duration,
+                        'owner_id': owner_id,
+                        'persistent': is_persistent
+                    })
+            data['text_gizmos'] = text_gizmos
         return data
 
     def load_world(self):
@@ -345,6 +368,33 @@ class SaveLoadManager:
                     if surf: unique_textures[tex_bytes] = surf
             renderer.texture_cache.clear()
             for tex_bytes,surf in unique_textures.items(): renderer.texture_cache[tex_bytes] = surf
+
+        gizmos_mgr = get_gizmos()
+        if gizmos_mgr and "text_gizmos" in data:
+            gizmos_mgr.clear()
+            gizmos_mgr.clear_persistent()
+
+            uuid_map = {str(b._script_uuid): b for b in loaded_bodies if hasattr(b, '_script_uuid')}
+            for tg in data['text_gizmos']:
+                owner = uuid_map.get(tg['owner_id'], None)
+                g = GizmoData(
+                    gizmo_type=GizmoType.TEXT,
+                    position=pymunk.Vec2d(*tg['position']),
+                    text=tg['text'],
+                    color=tg['color'],
+                    background_color=tg['background_color'],
+                    collision=tg['collision'],
+                    font_name=tg['font_name'],
+                    font_size=tg['font_size'],
+                    font_world_space=tg['font_world_space'],
+                    world_space=tg['world_space'],
+                    duration=tg['duration'],
+                    owner=owner
+                )
+                if tg.get('persistent', True):
+                    gizmos_mgr.persistent_gizmos.append(g)
+                else:
+                    gizmos_mgr.gizmos.append(g)
         self.undo_redo.take_snapshot()
 
     def set_compression_enabled(self, enabled): self.enable_compression = bool(enabled)

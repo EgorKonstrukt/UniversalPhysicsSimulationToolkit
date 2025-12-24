@@ -123,7 +123,7 @@ class ScriptInstance:
             "Optional": Optional, "Any": Any, "Callable": Callable, "TypeVar": TypeVar,
             "Dict": Dict, "List": List, "Tuple": Tuple, "Union": Union, "Set": Set,
             "PlotterWindow": plotter_factory, "load_script": self._load_script_wrapper,
-            "gfxdraw": gfxdraw,
+            "gfxdraw": gfxdraw, "world": self.app.physics_manager.make_world_api(),
         }
 
     def _init_namespace_and_compile(self):
@@ -218,11 +218,26 @@ class ScriptInstance:
         if gm: gm.scripts_paused = False
         try:
             if self._start_fn: self._start_fn()
-        except Exception:
-            Debug.log_exception(f"Script '{self.name}' start() error: {traceback.format_exc()}", "Scripting")
+        except Exception as e:
+            tb = traceback.format_exc()
+            try:
+                lines = self.code.splitlines()
+                for line in tb.splitlines():
+                    if '<string>' in line and ', line ' in line:
+                        parts = line.split(', line ')
+                        if len(parts) > 1:
+                            lineno = int(parts[1].split(',')[0]) - 1  # 0-indexed
+                            if 0 <= lineno < len(lines):
+                                problematic = lines[lineno].strip()
+                                tb += f"\n[User Script Line {lineno+1}]: {problematic}\n"
+                        break
+            except Exception:
+                pass
+            Debug.log_exception(f"Script '{self.name}' start() error: {tb}", "Scripting")
         if self.threaded and self._update_bg:
             self.thread = threading.Thread(target=self._bg_loop, daemon=True)
             self.thread.start()
+
 
     @profile("update", "scripting")
     def update(self, dt: float):

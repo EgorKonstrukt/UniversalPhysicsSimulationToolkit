@@ -27,6 +27,7 @@ from UPST.tools.special.script_tool import ScriptTool
 from UPST.tools.manipulation.drag_tool import DragTool
 from UPST.tools.shapes.plane_tool import PlaneTool
 from UPST.tools.shapes.poly_tool import PolyTool
+from UPST.tools.special.label_tool import LabelTool
 
 from UPST.modules.undo_redo_manager import get_undo_redo
 
@@ -83,6 +84,7 @@ class ToolSystem:
             RotateTool(self.pm),
             CutTool(self.pm),
             ScriptTool(self.pm),
+            LabelTool(self.pm),
         ]
         self._pending_tools = spawn_tools + constraint_tools + special_tools
 
@@ -154,9 +156,9 @@ class ToolSystem:
             add_btn(n, self.tools[n].icon_path)
         if col: y += bs + pad;col = 0
         add_section("Tools")
-        for n in ["Explosion", "StaticLine", "Laser", "Drag", "Move", "Rotate", "Cut", "ScriptTool"]:
+        for n in ["Explosion", "StaticLine", "Laser", "Drag", "Move", "Rotate", "Cut", "ScriptTool", "Label"]:
             add_btn(n, self.tools[n].icon_path)
-        panel = UIPanel(relative_rect=pygame.Rect(5, 50, 75+bs, y + 10), manager=self.ui_manager.manager)
+        panel = UIPanel(relative_rect=pygame.Rect(5, 50, 75+bs, y + 70), manager=self.ui_manager.manager)
         for it in items:
             if it[0] == "label":
                 UILabel(relative_rect=pygame.Rect(0, it[2], 190, 25),

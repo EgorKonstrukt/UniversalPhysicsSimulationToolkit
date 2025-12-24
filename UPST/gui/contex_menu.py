@@ -342,6 +342,7 @@ class ContextMenu:
         self.submenu_buttons.clear()
 
     def process_event(self, event):
+
         if self.properties_window:
             self.properties_window.process_event(event)
 
