@@ -5,6 +5,7 @@ from pygame_gui.elements import UIButton, UIPanel, UIImage
 from UPST.gui.windows.simulation_speed_window import SimulationSpeedWindow
 from UPST.modules.undo_redo_manager import get_undo_redo
 from UPST.gui.windows.air_friction_window import AirFrictionWindow
+from UPST.gui.windows.hierarchy_window import HierarchyWindow
 from UPST.config import config
 
 class BottomBar:
@@ -13,6 +14,7 @@ class BottomBar:
         self.physics_manager = physics_manager
         self.air_window = None
         self.speed_window = None
+        self.hierarchy_window = None
         self.bar_width = bar_width
         self.bar_height = bar_height
         self.button_width = 50
@@ -39,7 +41,8 @@ class BottomBar:
                 'gravity_on': pygame.image.load("sprites/gui/gravity.png").convert_alpha(),
                 'gravity_off': pygame.image.load("sprites/gui/gravity.png").convert_alpha(),
                 'undo': pygame.image.load("sprites/gui/undo.png").convert_alpha(),
-                'redo': pygame.image.load("sprites/gui/redo.png").convert_alpha()
+                'redo': pygame.image.load("sprites/gui/redo.png").convert_alpha(),
+                'hierarchy': pygame.image.load("sprites/gui/redo.png").convert_alpha(),
             }
         except pygame.error as e:
             print(f"Error loading icons: {e}")
@@ -86,6 +89,9 @@ class BottomBar:
 
         x_pos += self.separator_width + self.padding
         self._create_icon_button('gravity', x_pos, "Toggle Gravity")
+
+        x_pos += self.separator_width + self.padding
+        self._create_icon_button('hierarchy', x_pos, "Open Hierarchy Window")
 
         self._update_button_states()
 
@@ -151,6 +157,8 @@ class BottomBar:
             elif event.ui_element == self.buttons['grid']:
                 self.states['grid'] = not self.states['grid']
                 self._on_grid_toggled()
+            elif event.ui_element == self.buttons['hierarchy']:
+                self._open_hierarchy_window()
             elif event.ui_element == self.buttons['air']:
                 self.states['air'] = not self.states['air']
                 self._on_air_friction_toggled()
@@ -201,6 +209,21 @@ class BottomBar:
                 initial_iterations=self.physics_manager.space.iterations
             )
 
+    def _open_hierarchy_window(self):
+        if not self.hierarchy_window or not self.hierarchy_window.is_alive():
+            root_nodes = []
+            for body in self.physics_manager.space.bodies:
+                if body is not self.physics_manager.static_body:
+                    if not hasattr(body, 'hierarchy_node'):
+                        from UPST.modules.hierarchy import HierarchyNode
+                        body.hierarchy_node = HierarchyNode(name=getattr(body, 'name', f"Body_{id(body)}"), body=body)
+                    if not hasattr(body.hierarchy_node, 'parent') or body.hierarchy_node.parent is None:
+                        root_nodes.append(body.hierarchy_node)
+            self.hierarchy_window = HierarchyWindow(
+                pygame.Rect(150, 80, 1000, 600),
+                manager=self.ui_manager,
+                root_nodes=root_nodes
+            )
     def _on_grid_toggled(self):
         config.grid.is_visible = not self.states['grid']
 

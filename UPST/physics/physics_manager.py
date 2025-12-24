@@ -3,6 +3,7 @@ import math
 import pymunk
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
+from UPST.modules.hierarchy import HierarchyNode
 from UPST.scripting.script_manager import ScriptManager
 from UPST.modules.undo_redo_manager import get_undo_redo
 from UPST.modules.statistics import stats
@@ -156,6 +157,11 @@ class PhysicsManager:
         try:
             if not self.running_physics:
                 return
+            for body in self.space.bodies:
+                if hasattr(body, 'hierarchy_node'):
+                    node = body.hierarchy_node
+                    if node.parent:
+                        node._update_world_transform()
             # for body in self.space.bodies:
             #     if hasattr(body, 'color') and body.color is not None:
             #         for shape in body.shapes:
@@ -317,6 +323,8 @@ class PhysicsManager:
     def add_body_shape(self, body, shape):
         try:
             self.space.add(body, shape)
+            if not hasattr(body, 'hierarchy_node'):
+                body.hierarchy_node = HierarchyNode(name=f"Body_{id(body)}", body=body)
             stats.increment('objects_created', delta=1)
             stats.save()
             Debug.log_info(f"Added body and shape to physics space. Body ID: {body.__hash__()}, Shape ID: {shape.__hash__()}.", "Physics")

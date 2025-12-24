@@ -101,6 +101,22 @@ class ContextMenu:
                 ConfigOption("Plot Data", handler=self.open_plotter,
                              icon="sprites/gui/plot.png")
             ]
+
+    def rename_hierarchy_node(self):
+        if not self.clicked_object:
+            return
+        self.open_rename_dialog()
+
+    def delete_hierarchy_node(self):
+        if not self.clicked_object:
+            return
+        self.ui_manager.physics_manager.remove_body(self.clicked_object)
+        self.undo_redo.take_snapshot()
+        self.hide()
+
+    def set_parent_dialog(self):
+        # Optional: Implement parent picker later
+        pass
     def open_rename_dialog(self):
         if not self.clicked_object: return
         if hasattr(self, '_rename_win') and self._rename_win.alive():
