@@ -11,6 +11,8 @@ from UPST.config import config
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
 from UPST.debug.debug_manager import Debug
 
+from UPST.modules.fast_math import process_gizmo_chunk, resolve_text_collisions_parallel
+
 class GizmoType(Enum):
     POINT = "point"
     LINE = "line"
@@ -53,81 +55,6 @@ class GizmoData:
     on_click: Optional[Callable[[], None]] = None
     unique_id: Optional[str] = None
     owner: Any = None
-
-def _process_gizmo_chunk(args):
-    gizmos_chunk, cam_pos, cam_scale, screen_size, cull_margin, distance_culling_enabled = args
-    visible = []
-    for g in gizmos_chunk:
-        if g.world_space:
-            sx = (g.position[0] - cam_pos[0]) * cam_scale + screen_size[0] / 2
-            sy = (g.position[1] - cam_pos[1]) * cam_scale + screen_size[1] / 2
-        else:
-            sx, sy = g.position[0], g.position[1]
-        screen_pos = (int(sx), int(sy))
-        if g.gizmo_type in (GizmoType.POINT, GizmoType.CIRCLE, GizmoType.CROSS):
-            screen_size_val = g.size * cam_scale if g.world_space else g.size
-        elif g.gizmo_type == GizmoType.RECT:
-            screen_size_val = max(g.width, g.height) * (cam_scale if g.world_space else 1.0) * 0.5
-        elif g.gizmo_type in (GizmoType.LINE, GizmoType.ARROW) and g.end_position:
-            dx = g.end_position[0] - g.position[0]
-            dy = g.end_position[1] - g.position[1]
-            screen_size_val = math.hypot(dx, dy) * (cam_scale if g.world_space else 1.0) * 0.5
-        elif g.gizmo_type == GizmoType.TEXT:
-            fs = g.font_size * (cam_scale if (g.font_world_space and g.world_space) else 1.0)
-            screen_size_val = fs * len(g.text) * 0.3
-        else:
-            screen_size_val = 10.0
-        x, y = screen_pos
-        r = screen_size_val
-        w, h = screen_size
-        if (x + r < -cull_margin or x - r > w + cull_margin or
-                y + r < -cull_margin or y - r > h + cull_margin):
-            continue
-        if distance_culling_enabled and g.cull_distance > 0 and g.world_space:
-            dx = g.position[0] - cam_pos[0]
-            dy = g.position[1] - cam_pos[1]
-            if dx * dx + dy * dy > g.cull_distance * g.cull_distance:
-                continue
-        if g.cull_bounds:
-            min_x, min_y, max_x, max_y = g.cull_bounds
-            px, py = g.position
-            if px < min_x or px > max_x or py < min_y or py > max_y:
-                continue
-        visible.append((g, screen_pos, screen_size_val))
-    return visible
-
-def _resolve_text_collisions_parallel(text_entries, screen_size):
-    if not text_entries:
-        return []
-    zone_width = screen_size[0] // 8
-    zones = [[] for _ in range(8)]
-    for entry in text_entries:
-        g, screen_pos, _ = entry
-        zone_idx = min(7, max(0, int(screen_pos[0] / zone_width)))
-        zones[zone_idx].append(entry)
-
-    result = []
-    for zone in zones:
-        if not zone:
-            continue
-        zone.sort(key=lambda x: x[1][1])
-        occupied = []
-        for g, screen_pos, _ in zone:
-            size = int(g.font_size * 1.0)
-            tw = int(size * len(g.text) * 0.6)
-            th = size
-            cx, cy = screen_pos
-            rect = [cx - tw // 2, cy - th // 2, tw, th]
-            for other in occupied:
-                if (rect[0] < other[0] + other[2] and rect[0] + rect[2] > other[0] and
-                        rect[1] < other[1] + other[3] and rect[1] + rect[3] > other[1]):
-                    rect[1] = other[1] + other[3] + 2
-            rect[0] = max(0, min(rect[0], screen_size[0] - tw))
-            rect[1] = max(0, min(rect[1], screen_size[1] - th))
-            adjusted_pos = (rect[0] + tw // 2, rect[1] + th // 2)
-            result.append((g, screen_pos, adjusted_pos))
-            occupied.append(rect)
-    return result
 
 class GizmosManager:
     def __init__(self, camera, screen):
@@ -236,15 +163,23 @@ class GizmosManager:
                 g._adjusted_screen_pos = None
                 g._is_visible = None
 
-            cam_pos = self.camera.screen_to_world((self._half_screen_width, self._half_screen_height))
+            cam_pos = (self.camera.translation.tx, self.camera.translation.ty)
             cam_scale = self.camera.target_scaling
             screen_size = (self._screen_width, self._screen_height)
             chunk_size = max(1, len(all_gizmos) // 4)
             chunks = [all_gizmos[i:i + chunk_size] for i in range(0, len(all_gizmos), chunk_size)]
             futures = []
             for chunk in chunks:
-                args = (chunk, cam_pos, cam_scale, screen_size, self.cull_margin, self.distance_culling_enabled)
-                future = self._executor.submit(_process_gizmo_chunk, args)
+                args = (
+                    chunk,
+                    cam_pos[0], cam_pos[1],
+                    cam_scale,
+                    self._screen_width,
+                    self._screen_height,
+                    self.cull_margin,
+                    self.distance_culling_enabled
+                )
+                future = self._executor.submit(process_gizmo_chunk, *args)
                 futures.append(future)
             visible_entries = []
             for future in as_completed(futures):
@@ -252,8 +187,7 @@ class GizmosManager:
 
             text_entries = [e for e in visible_entries if e[0].gizmo_type == GizmoType.TEXT and e[0].collision]
             other_entries = [e for e in visible_entries if not (e[0].gizmo_type == GizmoType.TEXT and e[0].collision)]
-            adjusted_texts = _resolve_text_collisions_parallel(text_entries, screen_size) if text_entries else []
-
+            adjusted_texts = resolve_text_collisions_parallel(text_entries, self._screen_width, self._screen_height)
             alpha_used = set()
             self._render_non_text_gizmos(other_entries, alpha_used)
             self._render_adjusted_texts(adjusted_texts, alpha_used)

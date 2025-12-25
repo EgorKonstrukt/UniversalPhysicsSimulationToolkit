@@ -22,7 +22,7 @@ class PlotterConfig:
     sort_by_value: bool = True
     show_extrema_labels: bool = True
     show_extrema: bool = True
-    enable_osc_analysis: bool = True
+    enable_osc_analysis: bool = False
     min_peaks_for_osc: int = 4
     min_crossings_for_osc: int = 4
     min_extrema_for_osc: int = 3

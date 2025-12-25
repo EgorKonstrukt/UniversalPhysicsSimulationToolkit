@@ -123,7 +123,7 @@ class PhysicsManager:
     def create_base_world(self):
         try:
             Debug.log_info("Creating base world geometry and debug texts.", "Physics")
-            self.set_gravity_mode(mode="world", g=(0,981))
+            self.set_gravity_mode(mode="world", g=(0,-981))
             vertices = [(-10000, config.app.screen_height - 200), (-10000, config.app.screen_height),
                         (10000, config.app.screen_height), (10000, config.app.screen_height - 200)]
             floor = pymunk.Poly(self.static_body, vertices)
@@ -728,7 +728,7 @@ class PhysicsManager:
 
     def set_gravity_mode(self, mode: str = "world", camera_rotation: float = None, g: tuple = None):
         try:
-            base_g = pymunk.Vec2d(*((0, 981) if g is None else g))
+            base_g = pymunk.Vec2d(*((0, -981) if g is None else g))
             if mode == "camera" and camera_rotation is not None:
                 rot = pymunk.Transform.rotation(camera_rotation)
                 gv = rot @ base_g

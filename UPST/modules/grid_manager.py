@@ -112,10 +112,15 @@ class GridManager:
         if not self.enabled or grid_spacing_pixels < 5: return
         top_left_world = self.camera.screen_to_world((0, 0))
         bottom_right_world = self.camera.screen_to_world((screen.get_width(), screen.get_height()))
-        min_x = math.floor(top_left_world[0] / grid_spacing_world) * grid_spacing_world
-        max_x = math.ceil(bottom_right_world[0] / grid_spacing_world) * grid_spacing_world
-        min_y = math.floor(top_left_world[1] / grid_spacing_world) * grid_spacing_world
-        max_y = math.ceil(bottom_right_world[1] / grid_spacing_world) * grid_spacing_world
+        min_x = min(top_left_world[0], bottom_right_world[0])
+        max_x = max(top_left_world[0], bottom_right_world[0])
+        min_y = min(top_left_world[1], bottom_right_world[1])
+        max_y = max(top_left_world[1], bottom_right_world[1])
+
+        min_x = math.floor(min_x / grid_spacing_world) * grid_spacing_world
+        max_x = math.ceil(max_x / grid_spacing_world) * grid_spacing_world
+        min_y = math.floor(min_y / grid_spacing_world) * grid_spacing_world
+        max_y = math.ceil(max_y / grid_spacing_world) * grid_spacing_world
 
         for x in _frange(min_x, max_x + grid_spacing_world / 2, grid_spacing_world):
             start, end, color, thickness = self._compute_line_params(x, True, top_left_world, bottom_right_world, grid_spacing_world)
@@ -220,10 +225,15 @@ class GridManager:
         bottom_right_world = self.camera.screen_to_world((screen_width, screen_height))
         grid_spacing_world, grid_spacing_pixels = self.calculate_grid_spacing()
         if grid_spacing_pixels < 10: return
-        min_x = math.floor(top_left_world[0] / grid_spacing_world) * grid_spacing_world
-        max_x = math.ceil(bottom_right_world[0] / grid_spacing_world) * grid_spacing_world
-        min_y = math.floor(top_left_world[1] / grid_spacing_world) * grid_spacing_world
-        max_y = math.ceil(bottom_right_world[1] / grid_spacing_world) * grid_spacing_world
+        min_x = min(top_left_world[0], bottom_right_world[0])
+        max_x = max(top_left_world[0], bottom_right_world[0])
+        min_y = min(top_left_world[1], bottom_right_world[1])
+        max_y = max(top_left_world[1], bottom_right_world[1])
+
+        min_x = math.floor(min_x / grid_spacing_world) * grid_spacing_world
+        max_x = math.ceil(max_x / grid_spacing_world) * grid_spacing_world
+        min_y = math.floor(min_y / grid_spacing_world) * grid_spacing_world
+        max_y = math.ceil(max_y / grid_spacing_world) * grid_spacing_world
         skip = max(1, getattr(config.grid, 'ruler_skip_factor', 1))
 
         def format_number(val):

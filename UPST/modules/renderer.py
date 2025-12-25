@@ -316,7 +316,7 @@ class Renderer:
         return self.texture_cache[key]
 
     def draw(self):
-        dt = self.app.clock.get_time() / 1000.0
+        # dt = self.app.clock.get_time() / 1000.0
         start_time = pygame.time.get_ticks()
         theme = config.world.themes[config.world.current_theme]
         self.screen.fill(theme.background_color)
