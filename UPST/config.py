@@ -319,7 +319,7 @@ class WorldTheme:
 class WorldConfig:
     themes: Dict[str, WorldTheme] = field(default_factory=lambda: {
         "Default": WorldTheme((30,30,30), ((50,255),(50,255),(50,255)), (100,100,100,255),
-            palettes={"Default":{"mode":"range","r":(50,200),"g":(50,200),"b":(50,200)}}, default_palette="Default"),
+            palettes={"Default":{"mode":"range","r":(50,200),"g":(50,200),"b":(50,200), "a":255}}, default_palette="Default"),
         "Autumn": WorldTheme((80,60,20), ((200,255),(150,200),(50,100)), (210,180,140,255),
             palettes={"Default":{"mode":"range","r":(180,240),"g":(140,200),"b":(40,120)}}, default_palette="Default"),
         "Black": WorldTheme((0,0,0), ((0,20),(0,20),(0,20)), (20,20,20,255),

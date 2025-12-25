@@ -26,6 +26,8 @@ class FixateTool(BaseTool):
         self.settings_window = win
 
     def handle_event(self, event, world_pos):
+        if self.ui_manager.manager.get_focus_set():
+            return
         if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
             return
         info = self.pm.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())

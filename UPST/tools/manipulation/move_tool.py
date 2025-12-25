@@ -34,6 +34,8 @@ class MoveTool(BaseTool):
         self.settings_window = win
 
     def handle_event(self, event, wpos):
+        if self.ui_manager.manager.get_focus_set():
+            return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             info = self.pm.space.point_query_nearest(wpos, 0, pymunk.ShapeFilter())
             body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None

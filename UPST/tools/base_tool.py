@@ -36,14 +36,14 @@ class BaseTool:
             return
         if event.type == pygame_gui.UI_WINDOW_CLOSE and event.ui_element == self.settings_window:
             self.settings_window = None
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self.drag_start = world_pos
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            if self.drag_start:
-                self.spawn_dragged(self.drag_start, world_pos)
-            self.drag_start = None
-        elif event.type == pygame.MOUSEMOTION and self.drag_start:
-            self.preview = self._calc_preview(world_pos)
+        # if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+        #     self.drag_start = world_pos
+        # elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+        #     if self.drag_start:
+        #         self.spawn_dragged(self.drag_start, world_pos)
+        #     self.drag_start = None
+        # elif event.type == pygame.MOUSEMOTION and self.drag_start:
+        #     self.preview = self._calc_preview(world_pos)
 
     def spawn_dragged(self, start, end):
         pass

@@ -92,6 +92,18 @@ class PolyhedronTool(BaseTool):
         self.undo_redo.take_snapshot()
         self.preview = None
 
+    def handle_event(self, event, world_pos):
+        if self.ui_manager.manager.get_focus_set():
+            return
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.drag_start = world_pos
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self.drag_start:
+                self.spawn_dragged(self.drag_start, world_pos)
+            self.drag_start = None
+        elif event.type == pygame.MOUSEMOTION and self.drag_start:
+            self.preview = self._calc_preview(world_pos)
+
     def _calc_preview(self, end_pos):
         delta = pymunk.Vec2d(end_pos[0] - self.drag_start[0], end_pos[1] - self.drag_start[1])
         size = delta.length / 2

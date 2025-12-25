@@ -27,6 +27,8 @@ class PlaneTool(BaseTool):
         self.settings_window = win
 
     def handle_event(self, event, world_pos):
+        if self.ui_manager.manager.get_focus_set():
+            return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.start_pos = pymunk.Vec2d(*world_pos)
             synthesizer.play_frequency(200, duration=0.05, waveform='sine')

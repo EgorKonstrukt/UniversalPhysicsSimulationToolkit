@@ -39,7 +39,17 @@ class TriangleTool(BaseTool):
                                                     image_surface=pygame.image.load("sprites/gui/checkbox_true.png"),
                                                     container=win, manager=self.ui_manager.manager)
         self.settings_window = win
-
+    def handle_event(self, event, world_pos):
+        if self.ui_manager.manager.get_focus_set():
+            return
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.drag_start = world_pos
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self.drag_start:
+                self.spawn_dragged(self.drag_start, world_pos)
+            self.drag_start = None
+        elif event.type == pygame.MOUSEMOTION and self.drag_start:
+            self.preview = self._calc_preview(world_pos)
     def spawn_at(self, pos):
         size = float(self.size_entry.get_text())
         points = [(size * math.cos(i * 2 * math.pi / 3), size * math.sin(i * 2 * math.pi / 3)) for i in range(3)]

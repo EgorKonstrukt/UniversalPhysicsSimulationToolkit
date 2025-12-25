@@ -3,42 +3,111 @@ import pygame, math, pymunk
 from UPST.config import config, get_theme_and_palette, sample_color_from_def
 from UPST.tools.base_tool import BaseTool
 import pygame_gui
+from pygame_gui.windows import UIColourPickerDialog
 
 class CircleTool(BaseTool):
     name = "Circle"
     icon_path = "sprites/gui/spawn/circle.png"
 
     def create_settings_window(self):
-        win = pygame_gui.elements.UIWindow(pygame.Rect(200, config.app.screen_height-200, 300, 200), manager=self.ui_manager.manager,
-                                           window_display_title="Circle Settings")
-        pygame_gui.elements.UIImage(relative_rect=pygame.Rect(215, 5, 50, 50),
-                                    image_surface=pygame.image.load(self.icon_path), container=win,
-                                    manager=self.ui_manager.manager)
-        self.radius_entry = pygame_gui.elements.UITextEntryLine(initial_text="30",
-                                                                relative_rect=pygame.Rect(30, 10, 100, 20),
-                                                                container=win, manager=self.ui_manager.manager)
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 10, 20, 20), text="R:", container=win,
-                                    manager=self.ui_manager.manager)
-        self.friction_entry = pygame_gui.elements.UITextEntryLine(initial_text="0.7",
-                                                                  relative_rect=pygame.Rect(80, 55, 100, 20),
-                                                                  container=win, manager=self.ui_manager.manager)
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(5, 55, 80, 20), text="Friction:", container=win,
-                                    manager=self.ui_manager.manager)
-        self.elasticity_entry = pygame_gui.elements.UITextEntryLine(initial_text="0.5",
-                                                                    relative_rect=pygame.Rect(90, 75, 105, 20),
-                                                                    container=win, manager=self.ui_manager.manager)
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(5, 75, 85, 20), text="Elasticity:", container=win,
-                                    manager=self.ui_manager.manager)
-        self.color_btn = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(5, 105, 100, 25), text="Pick Color",
-                                                      manager=self.ui_manager.manager, container=win)
-        self.rand_cb = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(5, 130, 20, 20), text="",
-                                                    manager=self.ui_manager.manager, container=win)
-        pygame_gui.elements.UILabel(relative_rect=pygame.Rect(28, 130, 100, 20), text="Random", container=win,
-                                    manager=self.ui_manager.manager)
-        self.rand_img = pygame_gui.elements.UIImage(relative_rect=pygame.Rect(5, 130, 20, 20),
-                                                    image_surface=pygame.image.load("sprites/gui/checkbox_true.png"),
-                                                    container=win, manager=self.ui_manager.manager)
+        win = pygame_gui.elements.UIWindow(
+            pygame.Rect(200, config.app.screen_height - 200, 300, 230),
+            manager=self.ui_manager.manager,
+            window_display_title="Circle Settings"
+        )
+        pygame_gui.elements.UIImage(
+            relative_rect=pygame.Rect(215, 5, 50, 50),
+            image_surface=pygame.image.load(self.icon_path),
+            container=win,
+            manager=self.ui_manager.manager
+        )
+        self.radius_entry = pygame_gui.elements.UITextEntryLine(
+            initial_text="30", relative_rect=pygame.Rect(30, 10, 100, 20),
+            container=win, manager=self.ui_manager.manager
+        )
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(10, 10, 20, 20), text="R:",
+            container=win, manager=self.ui_manager.manager
+        )
+        self.friction_entry = pygame_gui.elements.UITextEntryLine(
+            initial_text="0.7", relative_rect=pygame.Rect(80, 55, 100, 20),
+            container=win, manager=self.ui_manager.manager
+        )
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(5, 55, 80, 20), text="Friction:",
+            container=win, manager=self.ui_manager.manager
+        )
+        self.elasticity_entry = pygame_gui.elements.UITextEntryLine(
+            initial_text="0.5", relative_rect=pygame.Rect(90, 75, 105, 20),
+            container=win, manager=self.ui_manager.manager
+        )
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(5, 75, 85, 20), text="Elasticity:",
+            container=win, manager=self.ui_manager.manager
+        )
+        self.color_btn = pygame_gui.elements.UIButton(
+            relative_rect=pygame.Rect(5, 105, 100, 25), text="Pick Color",
+            manager=self.ui_manager.manager, container=win
+        )
+        self.rand_cb = pygame_gui.elements.UICheckBox(
+            relative_rect=pygame.Rect(5, 135, 20, 20),
+            text="Random",
+            manager=self.ui_manager.manager,
+            container=win
+        )
+        self.alpha_slider = pygame_gui.elements.UIHorizontalSlider(
+            relative_rect=pygame.Rect(5, 165, 200, 20),
+            start_value=getattr(self.ui_manager, 'shape_colors', {}).get('circle', (200, 200, 200, 255))[3],
+            value_range=(0, 255),
+            manager=self.ui_manager.manager,
+            container=win
+        )
+        pygame_gui.elements.UILabel(
+            relative_rect=pygame.Rect(210, 165, 80, 20), text="Alpha",
+            container=win, manager=self.ui_manager.manager
+        )
         self.settings_window = win
+
+    def handle_event(self, event, world_mouse_pos=None):
+        if event.type == pygame_gui.UI_BUTTON_PRESSED and event.ui_element == self.color_btn:
+            self._open_color_picker()
+        elif event.type == pygame_gui.UI_COLOUR_PICKER_COLOUR_PICKED:
+            if event.ui_object_id == '#colour_picker':
+                self._apply_new_color(event.colour)
+        elif event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED and event.ui_element == self.alpha_slider:
+            self._update_alpha(event.value)
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.drag_start = world_mouse_pos
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self.drag_start:
+                self.spawn_dragged(self.drag_start, world_mouse_pos)
+            self.drag_start = None
+        elif event.type == pygame.MOUSEMOTION and self.drag_start:
+            self.preview = self._calc_preview(world_mouse_pos)
+
+    def _open_color_picker(self):
+        current_color = getattr(self.ui_manager, 'shape_colors', {}).get('circle', (200, 200, 200, 255))
+        self._colour_picker_window = UIColourPickerDialog(
+            pygame.Rect(160, 50, 420, 400),
+            self.ui_manager.manager,
+            window_title="Pick Circle Color",
+            initial_colour=pygame.Color(*current_color)
+        )
+
+    def _apply_new_color(self, color: pygame.Color):
+        sc = getattr(self.ui_manager, 'shape_colors', {})
+        sc['circle'] = color
+        self.ui_manager.shape_colors = sc
+        self.rand_cb.uncheck()
+        self.alpha_slider.set_current_value(color.a)
+
+    def _update_alpha(self, alpha):
+        sc = getattr(self.ui_manager, 'shape_colors', {})
+        base = list(sc.get('circle', (200, 200, 200, 255)))
+        base[3] = int(alpha)
+        sc['circle'] = tuple(base)
+        self.ui_manager.shape_colors = sc
 
     def spawn_at(self, pos):
         r = float(self.radius_entry.get_text())
@@ -83,23 +152,29 @@ class CircleTool(BaseTool):
         r = (start_vec - end_vec).length
         area = math.pi * r ** 2
         perimeter = 2 * math.pi * r
-        return {"type": "circle", "position": self.drag_start, "radius": r, "area": area, "perimeter": perimeter, "color": (200, 200, 255, 200)}
+        preview_color = self._get_color('circle')
+        return {
+            "type": "circle", "position": self.drag_start, "radius": r,
+            "area": area, "perimeter": perimeter,
+            "color": preview_color
+        }
 
     def _draw_custom_preview(self, screen, camera):
         center = self.preview['position']
         r = self.preview['radius'] * camera.scaling
         sp = camera.world_to_screen(center)
-        pygame.draw.circle(screen, self.preview['color'], sp, int(r), 1)
+        color = self.preview['color']
+        pygame.draw.circle(screen, color, sp, int(r), 1)
         guide_end = (center[0] + r, center[1])
         guide_screen = camera.world_to_screen(guide_end)
-        pygame.draw.line(screen, (255, 200, 200, 200), sp, guide_screen, 1)
-        self._draw_moving_hatch(screen, camera, center, r)
+        pygame.draw.line(screen, (255, 200, 200, color[3]), sp, guide_screen, 1)
+        self._draw_moving_hatch(screen, camera, center, r, color)
 
-    def _draw_moving_hatch(self, screen, camera, center, radius):
+    def _draw_moving_hatch(self, screen, camera, center, radius, base_color):
         cx, cy = center
         period = 10.0
         offset = self._last_hatch_offset
-        line_color = (*self.preview['color'][:3], 128)
+        line_color = (*base_color[:3], 128)
         max_lines = 60
         r = radius / camera.scaling
         x_min, x_max = cx - r, cx + r
@@ -119,8 +194,6 @@ class CircleTool(BaseTool):
         for c_unshifted in c_values:
             const = c_unshifted + offset
             points = []
-            # Пересечение диагонали y = x + const с окружностью
-            # Решаем (x - cx)^2 + (x + const - cy)^2 = r^2
             a = 2
             b = 2 * (const - cy - cx)
             c = (cx ** 2 + (const - cy) ** 2 - r ** 2)
@@ -147,9 +220,10 @@ class CircleTool(BaseTool):
         return [f"R: {r:.1f}", f"A: {a:.1f}", f"P: {p:.1f}"]
 
     def _get_color(self, shape_type):
-        if getattr(self.ui_manager, f"{shape_type}_color_random", True):
+        if self.rand_cb.get_state():
             theme, pal = get_theme_and_palette(config, None, getattr(self.ui_manager, "shape_palette", None))
             pdef = theme.get_palette_def(pal)
             return sample_color_from_def(pdef)
         sc = getattr(self.ui_manager, "shape_colors", {})
-        return tuple(sc.get(shape_type, (200, 200, 200, 255)))
+        raw = sc.get(shape_type, (200, 200, 200, 255))
+        return pygame.Color(*raw) if not isinstance(raw, pygame.Color) else raw

@@ -14,6 +14,8 @@ class StaticLineTool(BaseTool):
         self.start_pos = None
 
     def handle_event(self, event, world_pos):
+        if self.ui_manager.manager.get_focus_set():
+            return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.start_pos = world_pos
             synthesizer.play_frequency(150, duration=0.1, waveform='sine')
@@ -30,7 +32,7 @@ class StaticLineTool(BaseTool):
 
     def draw_preview(self, screen, camera):
         if self.start_pos:
-            start_screen = camera.world_to_screen(self.start_pos)
+            start_screen = camera.world_to_screen(self.start_pos) / camera.scaling
             end_screen = camera.world_to_screen(pygame.mouse.get_pos())
             pygame.draw.line(screen, (200, 200, 255), start_screen, end_screen, 2)
 

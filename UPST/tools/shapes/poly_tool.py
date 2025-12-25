@@ -31,6 +31,8 @@ class PolyTool(BaseTool):
         self.settings_window = win
 
     def handle_event(self, event, world_pos):
+        if self.ui_manager.manager.get_focus_set():
+            return
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 self.points.append(world_pos)
@@ -39,6 +41,14 @@ class PolyTool(BaseTool):
                 self._finalize_polygon()
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and len(self.points) >= int(self.min_vertices_entry.get_text() or "3"):
             self._finalize_polygon()
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.drag_start = world_pos
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self.drag_start:
+                self.spawn_dragged(self.drag_start, world_pos)
+            self.drag_start = None
+        elif event.type == pygame.MOUSEMOTION and self.drag_start:
+            self.preview = self._calc_preview(world_pos)
 
     def _finalize_polygon(self):
         if len(self.points) < 3: return

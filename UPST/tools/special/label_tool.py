@@ -83,7 +83,6 @@ class LabelTool(BaseTool):
         if not (self.settings_window and self.settings_window.alive()):
             return
 
-        # Create semi-transparent preview colors
         text_color = pygame.Color(
             self.settings["color"].r,
             self.settings["color"].g,
@@ -97,7 +96,6 @@ class LabelTool(BaseTool):
             255
         ) if self.settings["background_color"].a > 0 else None
 
-        # Use Gizmos for world-space rendering
         Gizmos.draw_text(
             position=self._world_mouse_pos,
             text=self.settings["text"],
@@ -108,7 +106,7 @@ class LabelTool(BaseTool):
             font_size=self.settings["font_size"],
             font_world_space=self.settings["world_space_font"],
             world_space=True,
-            duration=0.02,  # ephemeral: redraw every frame
+            duration=0.02,
             owner=None
         )
         if self.settings_window and self.settings_window.alive():

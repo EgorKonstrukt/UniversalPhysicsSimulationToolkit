@@ -40,6 +40,8 @@ class RotateTool(BaseTool):
         self.settings_window = win
 
     def handle_event(self, event, wpos):
+        if self.ui_manager.manager.get_focus_set():
+            return
         if isinstance(wpos, (tuple, list)):
             mx, my = float(wpos[0]), float(wpos[1])
         else:
@@ -113,12 +115,10 @@ class RotateTool(BaseTool):
         cx, cy = camera.world_to_screen((self.rotation_center.x, self.rotation_center.y))
         radius_px = self.max_snap_radius
 
-        # Цвета
         arc_color = (180, 80, 255, 180)
         text_color = (255, 255, 255)
         outline_color = (255, 255, 255, 200)
 
-        # Рисуем сектор-вентилятор
         surf = pygame.Surface((radius_px * 2, radius_px * 2), pygame.SRCALPHA)
         start_angle = math.radians(-90)
         end_angle = start_angle + self.current_angle
@@ -133,24 +133,20 @@ class RotateTool(BaseTool):
         pygame.draw.lines(surf, outline_color, True, [(p[0] - cx + radius_px, p[1] - cy + radius_px) for p in points[:-1]], 2)
         screen.blit(surf, (cx - radius_px, cy - radius_px))
 
-        # Текущий угол относительно мира
         world_angle_deg = math.degrees(self.tgt.angle)
         world_text = f"World: {world_angle_deg:+.1f}°"
         world_surf = self.font.render(world_text, True, text_color)
         world_rect = world_surf.get_rect(center=(cx, cy - radius_px - 45))
         screen.blit(world_surf, world_rect)
 
-        # Угол поворота от начального положения
         rel_angle_deg = math.degrees(self.current_angle)
         rel_text = f"{rel_angle_deg:+.1f}°"
         rel_surf = self.font.render(rel_text, True, text_color)
         rel_rect = rel_surf.get_rect(center=(cx, cy - radius_px - 25))
         screen.blit(rel_surf, rel_rect)
 
-        # Рисуем маленький круг в центре
         pygame.draw.circle(screen, outline_color, (int(cx), int(cy)), 4, 2)
 
-        # Рисуем дугу на маленьком круге
         small_radius = 10
         start_rad = math.radians(-90)
         end_rad = start_rad + self.current_angle
