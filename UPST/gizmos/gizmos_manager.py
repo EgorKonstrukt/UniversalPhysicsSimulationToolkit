@@ -71,7 +71,7 @@ class GizmosManager:
         self.occlusion_culling_enabled = True
         self.frustum_culling_enabled = True
         self.distance_culling_enabled = True
-        self.cull_margin = 50.0
+        self.cull_margin = 500.0
         self.stats = {'total_gizmos': 0, 'culled_frustum': 0, 'culled_distance': 0, 'drawn_gizmos': 0}
         self.colors = {'white': (255, 255, 255), 'black': (0, 0, 0), 'red': (255, 0, 0), 'green': (0, 255, 0),
                        'blue': (0, 0, 255), 'yellow': (255, 255, 0), 'cyan': (0, 255, 255), 'magenta': (255, 0, 255),
@@ -164,7 +164,6 @@ class GizmosManager:
                 g._is_visible = None
 
             cam_pos = (self.camera.translation.tx, self.camera.translation.ty)
-            cam_scale = self.camera.target_scaling
             screen_size = (self._screen_width, self._screen_height)
             chunk_size = max(1, len(all_gizmos) // 4)
             chunks = [all_gizmos[i:i + chunk_size] for i in range(0, len(all_gizmos), chunk_size)]
@@ -173,7 +172,7 @@ class GizmosManager:
                 args = (
                     chunk,
                     cam_pos[0], cam_pos[1],
-                    cam_scale,
+                    self.camera.scaling,
                     self._screen_width,
                     self._screen_height,
                     self.cull_margin,
@@ -212,7 +211,7 @@ class GizmosManager:
             if g.alpha != 255:
                 alpha_used.add(g.alpha)
             self._draw_line_gfx(surf_target, orig_pos, adj_pos, g.color, 2)
-            size = int(g.font_size * self.camera.target_scaling) if (
+            size = int(g.font_size * self.camera.scaling) if (
                         g.font_world_space and g.world_space) else g.font_size
             surf = self._get_text_surface(g.text, g.color, g.font_name, size)
             r = surf.get_rect(center=adj_pos)
@@ -256,7 +255,7 @@ class GizmosManager:
         if gizmo.alpha < 255:
             alpha_used.add(gizmo.alpha)
         color = gizmo.color
-        scale = self.camera.target_scaling if gizmo.world_space else 1.0
+        scale = self.camera.scaling if gizmo.world_space else 1.0
 
         if gizmo.gizmo_type == GizmoType.POINT:
             start_profiling("POINT", "gizmos")

@@ -56,11 +56,11 @@ class ContextMenuConfig:
 @dataclass
 class MultithreadingConfig:
     gizmos_threaded: bool = True
-    gizmos_max_workers: int = 1
+    gizmos_max_workers: int = 10
     grid_threaded: bool = True
-    grid_max_workers: int = 1
+    grid_max_workers: int = 10
     pymunk_threaded: bool = True
-    pymunk_threads: int = 1
+    pymunk_threads: int = 10
 
 @dataclass
 class PhysicsConfig:
@@ -128,13 +128,13 @@ class PhysicsDebugConfig:
 @dataclass
 class CameraConfig:
     smoothing: bool = True
-    smoothness: float = 1.0
+    smoothness: float = 0.15
     shift_speed: float = 3.0
     acceleration_factor: float = 2.0
-    friction: float = 0.5
-    zoom_speed: float = 0.035
+    friction: float = 0.9
+    zoom_speed: float = 0.075
     pan_to_cursor_speed: float = 0.2
-    mouse_friction: float = 0.90
+    mouse_friction: float = 0.96
     min_zoom_scale: float = 0.000001
     max_zoom_scale: float = 1000.0
 

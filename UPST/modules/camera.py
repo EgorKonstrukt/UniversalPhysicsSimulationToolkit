@@ -1,12 +1,12 @@
 from typing import Tuple
-
 import pymunk
 import pygame
 from pymunk import Vec2d
 from UPST.config import config
 import pymunk.pygame_util
 import time
-from UPST.modules.fast_math import screen_to_world_impl, world_to_screen_impl
+from UPST.modules.fast_math import screen_to_world_impl, world_to_screen_impl, compose_transform_fast
+
 
 class Camera:
     _instance = None
@@ -25,7 +25,7 @@ class Camera:
         self.translation = pymunk.Transform()
         self.rotation = 0.0
         self.scaling = 1.0
-        self.inv_scaling = 1.0  # <-- cache reciprocal
+        self.inv_scaling = 1.0
         self.target_scaling = 1.0
         self.smoothness = config.camera.smoothness
         self.shift_speed = config.camera.shift_speed
@@ -55,9 +55,9 @@ class Camera:
         self.anim_target_tx = Vec2d(0, 0)
         self.track_vel = Vec2d(0, 0)
         self.track_smooth = 0.25
-
         self._cx = screen_width * 0.5
         self._cy = screen_height * 0.5
+        self._last_update_time = time.time()
 
     def animate_to(self, target_tx, target_ty, duration=0.5):
         self.anim_start = time.time()
@@ -73,7 +73,6 @@ class Camera:
         if not space.bodies:
             self.center_to_origin(duration)
             return
-
         points = []
         for body in space.bodies:
             for shape in body.shapes:
@@ -88,18 +87,15 @@ class Camera:
                     b = body.local_to_world(shape.b)
                     points.append(a)
                     points.append(b)
-
         if not points:
             self.center_to_origin(duration)
             return
-
         min_x = min(p.x for p in points)
         max_x = max(p.x for p in points)
         min_y = min(p.y for p in points)
         max_y = max(p.y for p in points)
         center_x = (min_x + max_x) * 0.5
         center_y = (min_y + max_y) * 0.5
-
         self.animate_to(-center_x, -center_y, duration)
 
     def center_to_origin(self, duration=0.5):
@@ -115,6 +111,9 @@ class Camera:
         return 0.5 * (2 - pow(2, -20 * t + 10))
 
     def update(self, keys):
+        current_time = time.time()
+        dt = current_time - self._last_update_time
+        self._last_update_time = current_time
         if self.tracking_enabled and self.tracking_target is not None:
             self._update_tracking()
         if self.is_mouse_on_ui():
@@ -130,13 +129,14 @@ class Camera:
             self.tracking_enabled = False
         acceleration = self.acceleration_factor * self.shift_speed * self.inv_scaling
         self.velocity += direction * acceleration
-        self.velocity *= self.friction
-        self.translation = self.translation.translated(self.velocity.x, self.velocity.y)
+        self.velocity *= pow(self.friction, dt * 60)
+        self.translation = self.translation.translated(self.velocity.x * dt * 60, self.velocity.y * dt * 60)
         if not self.panning and self.mouse_velocity.length > 0.01:
-            self.translation = self.translation.translated(self.mouse_velocity.x, self.mouse_velocity.y)
-            self.mouse_velocity *= self.mouse_friction
+            self.translation = self.translation.translated(self.mouse_velocity.x * dt * 60, self.mouse_velocity.y * dt * 60)
+            self.mouse_velocity *= pow(self.mouse_friction, dt * 60)
         old_scaling = self.scaling
-        self.scaling += (self.target_scaling - self.scaling) * self.smoothness
+        scale_dt = min(dt * 60, 1.0)
+        self.scaling += (self.target_scaling - self.scaling) * (1.0 - pow(1.0 - self.smoothness, scale_dt))
         if self.scaling != old_scaling:
             self._update_scaling_cache()
         if self.anim_active:
@@ -230,18 +230,15 @@ class Camera:
                     self.anim_start_tx = Vec2d(self.translation.tx, self.translation.ty)
                     cx, cy = self.translation.tx, self.translation.ty
                     self.anim_target_tx = Vec2d(2 * cx - world_x, 2 * cy - world_y)
-
                 else:
                     self.panning = True
                     self.last_mouse_pos = pygame.mouse.get_pos()
                     self.tracking_enabled = False
                     self.last_middle_click = current_time
-
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button == 2:
                 self.panning = False
                 self.last_mouse_pos = None
-
         elif event.type == pygame.MOUSEMOTION:
             if self.panning and self.last_mouse_pos:
                 current_pos = pygame.mouse.get_pos()
@@ -250,7 +247,6 @@ class Camera:
                 self.mouse_velocity = Vec2d(-dx, dy) * (self.pan_sensitivity / self.scaling)
                 self.translation = self.translation.translated(self.mouse_velocity.x, self.mouse_velocity.y)
                 self.last_mouse_pos = current_pos
-
         elif event.type == pygame.MOUSEWHEEL:
             zoom_factor = 1.0
             if event.y > 0:
@@ -267,8 +263,9 @@ class Camera:
         new_target = self.target_scaling * zoom_factor
         new_target = max(min_scale, min(max_scale, new_target))
         cx, cy = pygame.mouse.get_pos()
-        wx = (cx - self._cx) * self.inv_scaling + self.translation.tx
-        wy = (self._cy - cy) * self.inv_scaling + self.translation.ty
+        old_inv_scaling = self.inv_scaling
+        wx = (cx - self._cx) * old_inv_scaling + self.translation.tx
+        wy = (self._cy - cy) * old_inv_scaling + self.translation.ty
         self.target_scaling = new_target
         self._update_scaling_cache()
         new_tx = wx - (cx - self._cx) * self.inv_scaling
@@ -279,13 +276,15 @@ class Camera:
         draw_options = pymunk.pygame_util.DrawOptions(screen)
         draw_options.shape_outline_color = (255, 255, 255)
         draw_options.DRAW_COLLISION_POINTS = False
-        draw_options.transform = (
-            pymunk.Transform.translation(self.screen_width / 2, self.screen_height / 2)
-            @ pymunk.Transform.scaling(self.scaling)
-            @ self.translation
-            @ pymunk.Transform.rotation(self.rotation)
-            @ pymunk.Transform.translation(-self.screen_width / 2, -self.screen_height / 2)
+        a, b, c, d, e, f = compose_transform_fast(
+            self.translation.tx,
+            self.translation.ty,
+            self.scaling,
+            self.rotation,
+            self.screen_width,
+            self.screen_height
         )
+        draw_options.transform = pymunk.Transform(a, b, c, d, e, f)
         return draw_options
 
     def screen_to_world(self, sp):
@@ -295,7 +294,6 @@ class Camera:
     def world_to_screen(self, wp):
         return world_to_screen_impl(wp[0], wp[1], self.scaling, self.translation.tx, self.translation.ty, self._cx,
                                     self._cy)
-
 
     def is_mouse_on_ui(self):
         return self.app.ui_manager.manager.get_focus_set()

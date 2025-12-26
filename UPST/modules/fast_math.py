@@ -2,6 +2,53 @@
 import math
 from typing import Tuple, List, Optional
 
+from numba import njit
+from typing import Tuple
+
+@njit(fastmath=True, cache=True, nogil=True, nopython=True)
+def compose_transform_fast(
+    tx: float, ty: float, scale: float, rot: float,
+    sw: float, sh: float
+) -> Tuple[float, float, float, float, float, float]:
+    # T_center = translate(sw/2, sh/2)
+    # T_scale = scale(scale)
+    # T_cam = translate(tx, ty)
+    # T_rot = rotate(rot)
+    # T_back = translate(-sw/2, -sh/2)
+    # Final: T = T_center @ T_scale @ T_cam @ T_rot @ T_back
+    # We inline the full 3x3 affine matrix multiplication (only store a, b, c, d, e, f)
+    cos_r = math.cos(rot)
+    sin_r = math.sin(rot)
+    # Start from identity
+    a, b, c = 1.0, 0.0, 0.0
+    d, e, f = 0.0, 1.0, 0.0
+    # Apply T_back = translate(-sw/2, -sh/2)
+    c -= sw * 0.5
+    f -= sh * 0.5
+    # Apply rotation
+    new_a = a * cos_r - d * sin_r
+    new_b = b * cos_r - e * sin_r
+    new_c = c * cos_r - f * sin_r
+    new_d = a * sin_r + d * cos_r
+    new_e = b * sin_r + e * cos_r
+    new_f = c * sin_r + f * cos_r
+    a, b, c = new_a, new_b, new_c
+    d, e, f = new_d, new_e, new_f
+    # Apply camera translation
+    c += tx
+    f += ty
+    # Apply scaling
+    a *= scale
+    b *= scale
+    c *= scale
+    d *= scale
+    e *= scale
+    f *= scale
+    # Apply T_center = translate(sw/2, sh/2)
+    c += sw * 0.5
+    f += sh * 0.5
+    return a, b, c, d, e, f
+
 def process_gizmo_chunk(
     gizmos_chunk,
     cam_tx: float,
@@ -54,6 +101,7 @@ def process_gizmo_chunk(
         visible.append((g, screen_pos, screen_size_val))
     return visible
 
+
 def resolve_text_collisions_parallel(
     text_entries,
     screen_w: int,
@@ -91,8 +139,10 @@ def resolve_text_collisions_parallel(
             occupied.append(rect)
     return result
 
+@njit(fastmath=True, cache=True, nogil=True, nopython=True)
 def screen_to_world_impl(x, y, inv_s, tx, ty, cx, cy):
     return ((x - cx) * inv_s + tx, (cy - y) * inv_s + ty)
 
+@njit(fastmath=True, cache=True, nogil=True, nopython=True)
 def world_to_screen_impl(x, y, s, tx, ty, cx, cy):
     return ((x - tx) * s + cx, cy - (y - ty) * s)

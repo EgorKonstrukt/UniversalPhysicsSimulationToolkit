@@ -276,7 +276,7 @@ class Renderer:
         else:
             self._draw_circle_transparent(surf, ix, iy, ir, col, outline, othick)
         if ir > 3:
-            self._draw_circle_pointer(surf, ix, iy, ir, angle)
+            self._draw_circle_pointer(surf, ix, iy, ir, -angle)
 
     def _draw_poly_batched(self, surf, verts, col, outline, othick):
         r8, g8, b8, a8 = col
