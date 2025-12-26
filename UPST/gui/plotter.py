@@ -940,7 +940,7 @@ class Plotter:
             x = xs[best_idx]
             y = ys[best_idx]
             xx = self.MARGIN_LEFT + (x - x_min) / x_range * w
-            yy = self.MARGIN_TOP + (y - draw_min) / draw_range * h
+            yy = self.MARGIN_TOP + (draw_max - y) / draw_range * h
             for r, a in [(16, 40), (10, 80), (6, 160)]:
                 pygame.draw.circle(self.surface, (*col, a), (xx, yy), r)
             local = self._compute_local_stats(xs, ys, best_idx)
@@ -990,7 +990,7 @@ class Plotter:
             draw_range = draw_max - draw_min or 1.0
             scale_h = bar_h * 0.8
             pts = [(self.MARGIN_LEFT + (xs[j] - x_min) / x_range * w,
-                    y0 + (ys[j] - draw_min) / draw_range * scale_h) for j in range(len(ys))]
+                    y0 + (draw_max - ys[j]) / draw_range * scale_h) for j in range(len(ys))]
             for j, (px, py) in enumerate(pts):
                 dist = self._point_distance((mx, my), (px, py))
                 if dist < 12 and dist < best_dist:
