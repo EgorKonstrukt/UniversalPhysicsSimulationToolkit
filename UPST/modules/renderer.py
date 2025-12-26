@@ -423,7 +423,7 @@ class Renderer:
         mask = pygame.Surface((scaled_tex.get_width(), scaled_tex.get_height()), pygame.SRCALPHA)
         pygame.draw.circle(mask, (255, 255, 255, 255), (scaled_tex.get_width() // 2, scaled_tex.get_height() // 2), int(radius_px))
         scaled_tex.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        angle_deg = math.degrees(-body.angle)
+        angle_deg = math.degrees(body.angle)
         if abs(angle_deg) > 0.1:
             rotated = pygame.transform.rotozoom(scaled_tex, angle_deg, 1.0)
             offset_x = offset[0] * self.camera.scaling
@@ -455,7 +455,7 @@ class Renderer:
             scale = min(w_scr / tex_w, h_scr / tex_h)
             scaled = pygame.transform.smoothscale_by(tex, scale)
             tex_surf = pygame.transform.smoothscale(scaled, (max(1, int(w_scr)), max(1, int(h_scr))))
-        angle_deg = math.degrees(-body.angle)
+        angle_deg = math.degrees(body.angle)
         if abs(angle_deg) > 0.1:
             tex_surf = pygame.transform.rotozoom(tex_surf, angle_deg, 1.0)
         w_rot, h_rot = tex_surf.get_size()

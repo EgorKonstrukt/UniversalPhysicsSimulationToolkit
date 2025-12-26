@@ -509,7 +509,7 @@ class Plotter:
         if all_x:
             x_min_raw, x_max_raw = min(all_x), max(all_x)
             x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
-        x_range = x_max - x_min or 1.0
+            x_range = x_max - x_min or 1.0
         smoothed_key = 'overlay'
         self._smoothed_range.setdefault(smoothed_key, (y_min, y_max))
         old_min, old_max = self._smoothed_range[smoothed_key]
@@ -518,7 +518,7 @@ class Plotter:
         self._smoothed_range[smoothed_key] = (new_min, new_max)
         draw_min, draw_max = new_min, new_max
         draw_range = draw_max - draw_min or 1.0
-        base_line_y = self.MARGIN_TOP + (-new_min) / draw_range * h if draw_range else self.MARGIN_TOP
+        base_line_y = self.MARGIN_TOP + (new_max - 0.0) / draw_range * h if draw_range else self.MARGIN_TOP
         pygame.draw.line(self.surface, self.ZERO_COLOR, (self.MARGIN_LEFT, base_line_y),
                          (self.surface_size[0], base_line_y), width=1)
         for key in keys:
@@ -527,7 +527,7 @@ class Plotter:
             if not ys or not xs: continue
             col = self._get_color(key)
             pts = [(self.MARGIN_LEFT + (xs[i] - x_min) / x_range * w,
-                    self.MARGIN_TOP + (ys[i] - draw_min) / draw_range * h) for i in range(len(ys))]
+                    self.MARGIN_TOP + (draw_max - ys[i]) / draw_range * h) for i in range(len(ys))]
             if len(pts) > 1:
                 pygame.draw.lines(self.surface, col, False, pts, width=2)
             if not self.enable_osc_analysis:
@@ -555,7 +555,7 @@ class Plotter:
         if all_x:
             x_min_raw, x_max_raw = min(all_x), max(all_x)
             x_min, x_max = self._get_padded_range(x_min_raw, x_max_raw)
-        x_range = x_max - x_min or 1.0
+            x_range = x_max - x_min or 1.0
         for i, key in enumerate(keys):
             ys = list(self.data[key])
             xs = list(self.x_data[key])
@@ -576,7 +576,7 @@ class Plotter:
             draw_min, draw_max = new_min, new_max
             draw_range = draw_max - draw_min or 1.0
             pts = [(self.MARGIN_LEFT + (xs[j] - x_min) / x_range * w,
-                    y0 + (ys[j] - draw_min) / draw_range * scale_h) for j in range(len(ys))]
+                    y0 + (draw_max - ys[j]) / draw_range * scale_h) for j in range(len(ys))]
             if len(pts) > 1:
                 pygame.draw.lines(self.surface, col, False, pts, width=2)
             if not self.enable_osc_analysis:
@@ -589,7 +589,7 @@ class Plotter:
                 self._render_extrema_markers(pts, key, pks, trs)
             stats = self._get_cached_osc_stats(key)
             if stats["valid"]:
-                base_line_y = y0 + (-new_min) / (new_max - new_min or 1) * scale_h
+                base_line_y = y0 + (draw_max - 0.0) / (draw_max - draw_min or 1) * scale_h
                 self._render_zero_crossings(ys_centered, xs, x_min, x_max, base_line_y)
                 self._render_decay_envelope(pts, ys_centered, xs, stats["decay_rate"], stats["mean_amplitude"])
                 self._render_spectrum(stats, int(y0 + bar_h - 25))
@@ -597,7 +597,6 @@ class Plotter:
         for i in range(len(keys) + 1):
             y = self.MARGIN_TOP + i * bar_h
             pygame.draw.line(self.surface, self.DIVIDER_COLOR, (0, y), (self.surface_size[0], y), width=2)
-
         self._render_extrema_labels()
 
     def _compute_grid_steps(self, axis_length: int) -> int:
@@ -665,7 +664,7 @@ class Plotter:
             y_vals.append(val)
             val += step
         for y_val in y_vals:
-            t = (y_val - min_y) / y_range
+            t = (max_y - y_val) / y_range
             y = self.MARGIN_TOP + t * h
             pygame.draw.line(self.surface, self.GRID_COLOR, (self.MARGIN_LEFT, y), (self.surface_size[0], y))
             if abs(y_val) < 0.01 or abs(y_val) > 1e5:
@@ -754,16 +753,18 @@ class Plotter:
 
     def _draw_tangent_and_area_overlay(self, key: str, xs: List[float], ys: List[float],
                                        x_min: float, x_max: float, draw_min: float, draw_max: float,
-                                       px: float, py: float, idxf: float, slope: float, intercept: float, area: float) -> None:
+                                       px: float, py: float, idxf: float, slope: float, intercept: float,
+                                       area: float) -> None:
         w = self.surface_size[0] - self.MARGIN_LEFT
         h = self.surface_size[1] - self.MARGIN_TOP - self.MARGIN_BOTTOM
         x_range = x_max - x_min or 1.0
         draw_range = draw_max - draw_min or 1.0
-        x_left_data = x_min
-        x_right_data = x_max
-        y_left = (py - draw_min) + slope * (x_left_data - xs[int(math.floor(idxf))]) if xs else 0.0
-        y0 = ys[int(math.floor(idxf))] + (ys[min(len(ys)-1, int(math.floor(idxf))+1)] - ys[int(math.floor(idxf))]) * (idxf - math.floor(idxf)) if len(xs)>1 else ys[0]
-        x0 = xs[int(math.floor(idxf))] + (xs[min(len(xs)-1, int(math.floor(idxf))+1)] - xs[int(math.floor(idxf))]) * (idxf - math.floor(idxf)) if len(xs)>1 else xs[0]
+        x0 = xs[int(math.floor(idxf))] + (
+                    xs[min(len(xs) - 1, int(math.floor(idxf)) + 1)] - xs[int(math.floor(idxf))]) * (
+                         idxf - math.floor(idxf)) if len(xs) > 1 else xs[0]
+        y0 = ys[int(math.floor(idxf))] + (
+                    ys[min(len(ys) - 1, int(math.floor(idxf)) + 1)] - ys[int(math.floor(idxf))]) * (
+                         idxf - math.floor(idxf)) if len(xs) > 1 else ys[0]
         intercept_data = y0 - slope * x0
         sx = self.MARGIN_LEFT
         ex = self.MARGIN_LEFT + w
@@ -771,18 +772,17 @@ class Plotter:
         data_x_e = x_max
         y_s_data = slope * data_x_s + intercept_data
         y_e_data = slope * data_x_e + intercept_data
-        y_s_screen = self.MARGIN_TOP + (y_s_data - draw_min) / draw_range * h
-        y_e_screen = self.MARGIN_TOP + (y_e_data - draw_min) / draw_range * h
+        y_s_screen = self.MARGIN_TOP + (draw_max - y_s_data) / draw_range * h
+        y_e_screen = self.MARGIN_TOP + (draw_max - y_e_data) / draw_range * h
         col = self._get_color(key)
-        pygame.draw.line(self.surface, (col[0], col[1], col[2], 220), (sx, y_s_screen), (ex, y_e_screen), 2)
-        arr_len = 18
-        dx_data = (x_max - x_min) or 1.0
-        screen_slope = slope * (h / draw_range) / (w / x_range)
+        pygame.draw.line(self.surface, (*col, 220), (sx, y_s_screen), (ex, y_e_screen), 2)
+        screen_slope = -slope * (h / draw_range) / (w / x_range)
         angle = math.atan(screen_slope)
+        arr_len = 18
         ax = px + math.cos(angle) * arr_len
         ay = py + math.sin(angle) * arr_len
         pygame.draw.line(self.surface, col, (px, py), (ax, ay), 2)
-        pygame.draw.circle(self.surface, (col[0], col[1], col[2], 230), (int(px), int(py)), 4)
+        pygame.draw.circle(self.surface, (*col, 230), (int(px), int(py)), 4)
         half_win = 10
         xL = x0 - (xs[1] - xs[0]) * half_win if len(xs) > 1 else x0 - half_win
         xR = x0 + (xs[1] - xs[0]) * half_win if len(xs) > 1 else x0 + half_win
@@ -792,14 +792,15 @@ class Plotter:
             poly = []
             for xd, yd in seg:
                 sxp = self.MARGIN_LEFT + (xd - x_min) / x_range * w
-                syp = self.MARGIN_TOP + (yd - draw_min) / draw_range * h
+                syp = self.MARGIN_TOP + (draw_max - yd) / draw_range * h
                 poly.append((sxp, syp))
             bottom = self.surface_size[1] - self.MARGIN_BOTTOM
             if poly:
                 poly_full = poly + [(poly[-1][0], bottom), (poly[0][0], bottom)]
                 pygame.draw.polygon(surf, (*col, 60), poly_full)
                 pygame.draw.lines(surf, (*col, 120), False, poly, 2)
-                self.surface.blit(surf, (0, 0))
+            self.surface.blit(surf, (0, 0))
+
     def get_surface(self) -> pygame.Surface:
         self.surface.fill(self.BG_COLOR)
         keys = self._get_filtered_keys()
