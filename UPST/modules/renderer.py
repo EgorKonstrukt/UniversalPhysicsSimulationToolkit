@@ -265,14 +265,14 @@ class Renderer:
             pygame.gfxdraw.aapolygon(surf, wedge, (0, 0, 0, 140))
     def _draw_circle_batched(self, surf, pos, r, col, outline, othick, angle, safe):
         ix, iy = safe(pos[0]), safe(pos[1])
-        ir = int(r)
+        ir = min(self.INT16_MAX, max(0, int(r)))
         if ir <= 0: return
         r8, g8, b8, a8 = col
         or8, og8, ob8, oa8 = outline
         if a8 == 255:
             pygame.gfxdraw.filled_circle(surf, ix, iy, ir, (r8, g8, b8))
             for t in range(othick):
-                pygame.gfxdraw.aacircle(surf, ix, iy, ir - t, (or8, og8, ob8))
+                pygame.gfxdraw.aacircle(surf, ix, iy, max(0, ir - t), (or8, og8, ob8))
         else:
             self._draw_circle_transparent(surf, ix, iy, ir, col, outline, othick)
         if ir > 3:
