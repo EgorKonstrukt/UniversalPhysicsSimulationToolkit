@@ -53,7 +53,8 @@ class CircleTool(BaseTool):
             relative_rect=pygame.Rect(5, 135, 20, 20),
             text="Random",
             manager=self.ui_manager.manager,
-            container=win
+            container=win,
+            initial_state=True
         )
         self.alpha_slider = pygame_gui.elements.UIHorizontalSlider(
             relative_rect=pygame.Rect(5, 165, 200, 20),
@@ -217,7 +218,42 @@ class CircleTool(BaseTool):
         r = self.preview['radius']
         a = self.preview['area']
         p = self.preview['perimeter']
-        return [f"R: {r:.1f}", f"A: {a:.1f}", f"P: {p:.1f}"]
+
+        def format_distance(val):
+            if val < 1.0:
+                return f"{val * 1000:.1f} mm"
+            elif val < 100.0:
+                return f"{val:.1f} cm"
+            elif val < 100000.0:
+                return f"{val / 100:.1f} m"
+            else:
+                return f"{val / 100000:.1f} km"
+
+        def format_area(val):
+            if val < 1e-4:
+                return f"{val * 1e6:.1f} mm²"
+            elif val < 1.0:
+                return f"{val * 1e4:.1f} cm²"
+            elif val < 1e4:
+                return f"{val:.1f} m²"
+            else:
+                return f"{val / 1e6:.1f} km²"
+
+        def format_perimeter(val):
+            if val < 1.0:
+                return f"{val * 1000:.1f} mm"
+            elif val < 100.0:
+                return f"{val:.1f} cm"
+            elif val < 100000.0:
+                return f"{val / 100:.1f} m"
+            else:
+                return f"{val / 100000:.1f} km"
+
+        return [
+            f"R: {format_distance(r)}",
+            f"A: {format_area(a)}",
+            f"P: {format_perimeter(p)}"
+        ]
 
     def _get_color(self, shape_type):
         if self.rand_cb.get_state():
