@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 import pymunk
 import pygame
 from pymunk import Vec2d
@@ -58,6 +58,8 @@ class Camera:
         self._cx = screen_width * 0.5
         self._cy = screen_height * 0.5
         self._last_update_time = time.time()
+        self.zoom_anchor_screen: Optional[Tuple[float, float]] = None
+        self.zoom_anchor_world: Optional[Tuple[float, float]] = None
 
     def animate_to(self, target_tx, target_ty, duration=0.5):
         self.anim_start = time.time()
@@ -153,6 +155,15 @@ class Camera:
                 new_tx = self.anim_start_tx.x + (self.anim_target_tx.x - self.anim_start_tx.x) * eased
                 new_ty = self.anim_start_tx.y + (self.anim_target_tx.y - self.anim_start_tx.y) * eased
                 self.translation = pymunk.Transform.translation(new_tx, new_ty)
+        if self.zoom_anchor_screen is not None and self.zoom_anchor_world is not None:
+            cx, cy = self.zoom_anchor_screen
+            wx, wy = self.zoom_anchor_world
+            new_tx = wx - (cx - self._cx) / self.scaling
+            new_ty = wy + (cy - self._cy) / self.scaling
+            self.translation = pymunk.Transform.translation(new_tx, new_ty)
+            if abs(self.scaling - self.target_scaling) < 1e-6:
+                self.zoom_anchor_screen = None
+                self.zoom_anchor_world = None
         if self.tracking_enabled and self.tracking_target and self.rotate_with_target:
             if hasattr(self.tracking_target, "angle"):
                 self.rotation = -float(self.tracking_target.angle)
@@ -214,6 +225,8 @@ class Camera:
             return
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 2:
+                self.zoom_anchor_screen = None
+                self.zoom_anchor_world = None
                 current_time = time.time()
                 if current_time - self.last_middle_click < self.double_click_thresh:
                     self.last_middle_click = 0
@@ -259,18 +272,14 @@ class Camera:
         self.inv_scaling = 1.0 / self.scaling if self.scaling != 0 else 0.0
 
     def _zoom_at_cursor(self, zoom_factor: float) -> None:
-        min_scale, max_scale = 0.000001, 1_00
+        min_scale, max_scale = 0.000001, 100.0
         new_target = self.target_scaling * zoom_factor
         new_target = max(min_scale, min(max_scale, new_target))
         cx, cy = pygame.mouse.get_pos()
-        old_inv_scaling = self.inv_scaling
-        wx = (cx - self._cx) * old_inv_scaling + self.translation.tx
-        wy = (self._cy - cy) * old_inv_scaling + self.translation.ty
+        wx, wy = self.screen_to_world((cx, cy))
+        self.zoom_anchor_screen = (cx, cy)
+        self.zoom_anchor_world = (wx, wy)
         self.target_scaling = new_target
-        self._update_scaling_cache()
-        new_tx = wx - (cx - self._cx) * self.inv_scaling
-        new_ty = wy - (self._cy - cy) * self.inv_scaling
-        self.translation = pymunk.Transform.translation(new_tx, new_ty)
 
     def get_draw_options(self, screen):
         draw_options = pymunk.pygame_util.DrawOptions(screen)

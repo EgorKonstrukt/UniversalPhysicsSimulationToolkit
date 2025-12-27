@@ -128,11 +128,11 @@ class PhysicsDebugConfig:
 @dataclass
 class CameraConfig:
     smoothing: bool = True
-    smoothness: float = 0.15
+    smoothness: float = 0.175
     shift_speed: float = 3.0
     acceleration_factor: float = 2.0
     friction: float = 0.9
-    zoom_speed: float = 0.075
+    zoom_speed: float = 0.155
     pan_to_cursor_speed: float = 0.2
     mouse_friction: float = 0.96
     min_zoom_scale: float = 0.000001

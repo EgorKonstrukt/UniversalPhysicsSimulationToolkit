@@ -26,7 +26,6 @@ class LaserTool(BaseTool):
         self.phase = 0
         self.tmp_pos = None; self.tmp_angle = 0
         self.preview = None
-        # настройки (по-умолчанию)
         self.length = 30000; self.color = (255,40,40); self.attach_on_create = True
         self.tex_path = "sprites/app/laserpen.png"
         self.width = 2
@@ -147,12 +146,12 @@ class LaserTool(BaseTool):
         if event.type == pygame.MOUSEMOTION and self.phase == 1:
             dx = world_pos[0] - self.tmp_pos[0]; dy = world_pos[1] - self.tmp_pos[1]
             self.tmp_angle = math.atan2(dy, dx)
-            self.preview = {"pos": self.tmp_pos, "angle": self.tmp_angle}
-    def _draw_custom_preview(self, screen, camera):
-        if not self.preview: return
-        p = camera.world_to_screen(self.preview["pos"]); ang = self.preview["angle"]
-        end = (p[0] + math.cos(ang) * 90, p[1] + math.sin(ang) * 90)
-        pygame.draw.line(screen, self.color, p, end, max(1,self.width))
-        pygame.draw.circle(screen, self.color, p, 5, 1)
-    def deactivate(self):
-        super().deactivate(); self.phase = 0; self.preview = None
+            # self.preview = {"pos": self.tmp_pos, "angle": self.tmp_angle}
+    # def _draw_custom_preview(self, screen, camera):
+    #     if not self.preview: return
+    #     p = camera.world_to_screen(self.preview["pos"]); ang = self.preview["angle"]
+    #     end = (p[0] + math.cos(ang) * 90, p[1] + math.sin(ang) * 90)
+    #     pygame.draw.line(screen, self.color, p, end, max(1,self.width))
+    #     pygame.draw.circle(screen, self.color, p, 5, 1)
+    # def deactivate(self):
+    #     super().deactivate(); self.phase = 0; self.preview = None
