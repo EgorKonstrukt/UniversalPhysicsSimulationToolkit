@@ -58,7 +58,7 @@ class GridManager:
             while base_pixels * multiplier < self.min_pixel_spacing:
                 multiplier *= 10
         elif base_pixels > self.max_pixel_spacing:
-            while base_pixels / multiplier > self.max_pixel_spacing and multiplier < 100:
+            while base_pixels / multiplier > self.max_pixel_spacing and multiplier < 1e9:
                 multiplier *= 10
             multiplier = 1.0 / multiplier
         grid_spacing_world = self.base_grid_size * multiplier
@@ -78,7 +78,7 @@ class GridManager:
                 self._snapping_active = True
             mouse_x, mouse_y = pygame.mouse.get_pos()
             world_pos = self.camera.screen_to_world((mouse_x, mouse_y))
-            if grid_spacing_world <= 1e-5: return
+            if grid_spacing_world <= 1e-12: return
             nearest_x = round(world_pos[0] / grid_spacing_world) * grid_spacing_world
             nearest_y = round(world_pos[1] / grid_spacing_world) * grid_spacing_world
             dx_world = nearest_x - world_pos[0]
@@ -87,7 +87,7 @@ class GridManager:
             dy_pixels = dy_world * self.camera.scaling
             distance_pixels = math.hypot(dx_pixels, dy_pixels)
             if distance_pixels <= max(self.snap_radius_pixels, 0.5):
-                if distance_pixels < 1e-4:
+                if distance_pixels < 1e-6:
                     target_x, target_y = nearest_x, nearest_y
                 else:
                     t = (self.snap_radius_pixels - distance_pixels) / self.snap_radius_pixels
@@ -136,10 +136,10 @@ class GridManager:
         self.draw_rulers(screen)
 
     def _compute_line_params(self, coord, is_vertical, top_left_world, bottom_right_world, grid_spacing_world):
-        if abs(coord) < 0.001:
+        if abs(coord) < 1e-12:
             color = self.grid_color_origin
             thickness = self.origin_line_thickness
-        elif abs(coord / grid_spacing_world) % self.major_grid_multiplier < 0.001:
+        elif abs(coord / grid_spacing_world) % self.major_grid_multiplier < 1e-12:
             color = self.grid_color_major
             thickness = self.major_line_thickness
         else:
@@ -204,7 +204,7 @@ class GridManager:
                         fx += -dy * t; fy += dx * t
                 if self.force_field_manager.active_fields.get("wind"):
                     fx += 1.0
-                if abs(fx) < 1e-4 and abs(fy) < 1e-4:
+                if abs(fx) < 1e-6 and abs(fy) < 1e-6:
                     y += spacing; continue
                 start_world = (x, y)
                 end_world = (x + fx, y + fy)
@@ -245,7 +245,10 @@ class GridManager:
         def format_number(val):
             abs_val = abs(val)
             if abs_val >= 1e6: return f"{val / 1e6:.1f}e6"
-            else: return f"{val:.0f}"
+            elif abs_val >= 1: return f"{val:.0f}"
+            elif abs_val >= 1e-3: return f"{val * 1e3:.0f}mm"
+            elif abs_val >= 1e-6: return f"{val * 1e6:.0f}µm"
+            else: return f"{val * 1e9:.0f}nm"
 
         last_label_x = -min_label_spacing
         for x in _frange(min_x, max_x + grid_spacing_world / 2, grid_spacing_world):
@@ -290,7 +293,9 @@ class GridManager:
         grid_spacing_world, grid_spacing_pixels = self.calculate_grid_spacing()
         if grid_spacing_world >= 100: spacing_str = f"{grid_spacing_world / 100:.2f}m"
         elif grid_spacing_world >= 1: spacing_str = f"{grid_spacing_world:.1f}cm"
-        else: spacing_str = f"{grid_spacing_world * 10:.1f}mm"
+        elif grid_spacing_world >= 1e-3: spacing_str = f"{grid_spacing_world * 1e3:.1f}mm"
+        elif grid_spacing_world >= 1e-6: spacing_str = f"{grid_spacing_world * 1e6:.1f}µm"
+        else: spacing_str = f"{grid_spacing_world * 1e9:.1f}nm"
         return f"Grid: {spacing_str} ({grid_spacing_pixels:.1f}px)"
 
     def set_colors(self, major_color=None, minor_color=None, origin_color=None):
@@ -314,7 +319,9 @@ class GridManager:
     def draw_scale_indicator(self, screen, grid_spacing_world, grid_spacing_pixels):
         if grid_spacing_world >= 100: label = f"{grid_spacing_world / 100:.2f} m"
         elif grid_spacing_world >= 1: label = f"{grid_spacing_world:.0f} cm"
-        else: label = f"{grid_spacing_world * 10:.0f} mm"
+        elif grid_spacing_world >= 1e-3: label = f"{grid_spacing_world * 1e3:.0f} mm"
+        elif grid_spacing_world >= 1e-6: label = f"{grid_spacing_world * 1e6:.0f} µm"
+        else: label = f"{grid_spacing_world * 1e9:.0f} nm"
         screen_width, screen_height = screen.get_size()
         margin = 30
         bar_length_pixels = int(grid_spacing_pixels)
