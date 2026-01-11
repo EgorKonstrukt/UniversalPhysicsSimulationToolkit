@@ -316,37 +316,28 @@ class Renderer:
         return self.texture_cache[key]
 
     def draw(self):
-        # dt = self.app.clock.get_time() / 1000.0
         start_time = pygame.time.get_ticks()
         theme = config.world.themes[config.world.current_theme]
         self.screen.fill(theme.background_color)
-        # self.cloud_renderer.draw()
-        # self.thermal_manager.render_heatmap(self.screen)
-
         self.gizmos_manager.draw_debug_gizmos()
-        # self.thermal_manager.draw_hover_temperature()
         self._draw_physics_shapes()
         self._draw_constraints()
         self.tool_manager.laser_processor.update()
         self.tool_manager.laser_processor.draw(self.screen, self.camera)
         self._draw_textured_bodies()
-
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw()
-
         if self.script_system: self.script_system.draw(self.screen)
+        if hasattr(self.ui_manager.app, 'console_handler'):
+            self.ui_manager.app.console_handler.draw_graph()
         self.ui_manager.draw(self.screen)
         self._draw_cursor_icon()
         self.app.debug_manager.draw_all_debug_info(self.screen, self.physics_manager, self.camera)
         if self.script_system: self._draw_script_info()
-        pygame.display.flip()
-        draw_ms = pygame.time.get_ticks() - start_time
-        self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
-        self.ui_manager.app.console_handler.draw_graph()
-        pygame.display.flip()
-        draw_ms = pygame.time.get_ticks() - start_time
-        self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
 
+        pygame.display.flip()
+        draw_ms = pygame.time.get_ticks() - start_time
+        self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
     def set_clouds_folder(self, folder):
         self.clouds.set_folder(folder)
 
