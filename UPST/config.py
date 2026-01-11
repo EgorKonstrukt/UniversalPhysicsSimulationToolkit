@@ -136,7 +136,7 @@ class CameraConfig:
     pan_to_cursor_speed: float = 0.2
     mouse_friction: float = 0.96
     min_zoom_scale: float = 0.000_000_001
-    max_zoom_scale: float = 100000.0
+    max_zoom_scale: float = 100000000.0
 
 @dataclass
 class ProfilerConfig:

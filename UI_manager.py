@@ -4,6 +4,7 @@ import os
 import sys
 
 import pymunk
+from pygame_gui import ui_manager
 
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
@@ -13,6 +14,7 @@ from UPST.gui.bars.top_left_bar import TopLeftBar
 from UPST.gui.bars.top_right_bar import TopRightBar
 from UPST.gui.force_field_ui import ForceFieldUI
 from UPST.gui.console_ui import ConsoleUI
+from UPST.modules.profiler import profile
 from UPST.utils import get_resource_path
 
 
@@ -165,6 +167,7 @@ class UIManager:
         self.console_ui.resize(screen_w, screen_h)
         self.bottom_bar.resize(screen_w, screen_h)
 
+    @profile("ui_manager_update")
     def update(self, time_delta, clock):
         self.manager.update(time_delta)
         self.context_menu.update(time_delta, clock)

@@ -166,6 +166,7 @@ class Application:
                 pass
         return pygame.display.set_mode((config.app.screen_width, config.app.screen_height), flags)
 
+
     def run(self):
         # synthesizer.play_note("A3", duration=0.1, waveform="sine", adsr=(0.01, 0.1, 0.7, 0.1), volume=0.5, pan=0.0)
         self.freeze_watcher = FreezeWatcher(threshold_sec=0.1)
@@ -187,12 +188,13 @@ class Application:
         self.save_load_manager.create_snapshot()
         pygame.quit()
 
+    @profile("MAIN")
     def update(self, time_delta):
         Debug.set_performance_counter("Update Time", time_delta * 1000)
         self.camera.update(pygame.key.get_pressed())
         self.physics_manager.update(self.camera.rotation)
         world_mouse_pos = self.camera.screen_to_world(pygame.mouse.get_pos())
-        self.force_field_manager.update(world_mouse_pos, self.screen)
+        # self.force_field_manager.update(world_mouse_pos, self.screen)
         self.ui_manager.update(time_delta, self.clock)
         self.undo_redo_manager.update()
         self.physics_manager.update_scripts(time_delta)

@@ -4,6 +4,7 @@ import pymunk
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
 from UPST.modules.hierarchy import HierarchyNode
+from UPST.modules.profiler import profile
 from UPST.scripting.script_manager import ScriptManager
 from UPST.modules.undo_redo_manager import get_undo_redo
 from UPST.modules.statistics import stats
@@ -108,6 +109,7 @@ class PhysicsManager:
                 shapes.append(ns)
 
         self.space.add(new_body, *shapes)
+    @profile("update_scripts")
     def update_scripts(self, dt: float):
         try:
             if self.running_scripts and self.running_physics:
@@ -153,6 +155,7 @@ class PhysicsManager:
         except Exception as e:
             Debug.log_error(f"Error in create_base_world: {e}", "Physics")
 
+    @profile("physics_step")
     def step(self, dt: float):
         try:
             if not self.running_physics:

@@ -11,38 +11,28 @@ from UPST.config import config
 
 _global_profiler = None
 
-
 def get_profiler():
-    """Получить глобальный экземпляр профайлера"""
     global _global_profiler
     return _global_profiler
 
-
 def set_profiler(profiler):
-    """Установить глобальный экземпляр профайлера"""
     global _global_profiler
     _global_profiler = profiler
 
-
 def profile(key, group=None):
-    """Декоратор для профилирования функций"""
     def decorator(func):
         def wrapper(*args, **kwargs):
             profiler = get_profiler()
             if profiler:
                 profiler.start(key, group)
                 try:
-                    result = func(*args, **kwargs)
-                    return result
+                    return func(*args, **kwargs)
                 finally:
                     profiler.stop(key)
             else:
                 return func(*args, **kwargs)
-
         return wrapper
-
     return decorator
-
 
 @contextmanager
 def profile_context(key, group=None):
@@ -56,13 +46,12 @@ def profile_context(key, group=None):
     else:
         yield
 
-
 class Profiler:
     def __init__(self, manager, max_samples=config.profiler.max_samples, refresh_rate=config.profiler.update_delay, smoothing_factor=0.15):
         self.manager = manager
         self.data = collections.defaultdict(lambda: collections.deque(maxlen=max_samples))
         self.thread_local = threading.local()
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.visible = False
         self.running = True
         self.paused = config.profiler.paused
@@ -73,28 +62,21 @@ class Profiler:
         self.plotter = Plotter(self.surface_size, max_samples, smoothing_factor, sort_by_value=False)
         self.window = None
         self.tooltip_label = None
-
         self.last_data_time = {}
-
         self.group_buttons = {}
         self.group_dropdown = None
         self.group_controls_panel = None
-
         self.needs_update = False
         self.last_update_time = 0
-
         set_profiler(self)
-
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
+
 
     def _get_current_dict(self):
         if not hasattr(self.thread_local, 'current'):
             self.thread_local.current = {}
         return self.thread_local.current
-
-    def _get_color(self, key):
-        return self.plotter._get_color(key)
 
     def toggle_window(self):
         if self.window:
@@ -108,23 +90,10 @@ class Profiler:
             self.window = None
         self.visible = False
 
-    def _enable_profiling(self):
-        self.visible = True
-        self.running = True
-        if not self.thread.is_alive():
-            self.thread = threading.Thread(target=self.run, daemon=True)
-            self.thread.start()
-
-    def _disable_profiling(self):
-        self.visible = False
-        self.running = False
-        set_profiler(None)
-
     def show_window(self):
         if self.window:
             return
         self.visible = True
-
         self.window = pygame_gui.elements.UIWindow(
             rect=pygame.Rect((config.app.screen_width / 2 - 400, 10),
                              (self.surface_size[0] + 40, self.surface_size[1] + 150)),
@@ -183,35 +152,25 @@ class Profiler:
     def _update_group_controls(self):
         if not self.group_controls_panel:
             return
-
         for button in self.group_buttons.values():
             button.kill()
         self.group_buttons.clear()
-
         groups = self.plotter.get_available_groups()
         if len(groups) <= 1:
             return
-
-        x_offset = 3
-        y_offset = 3
-        button_width = 150
-        button_height = 25
+        x_offset, y_offset = 3, 3
+        button_width, button_height = 150, 25
         buttons_per_row = 6
-
         for i, group in enumerate(groups):
             if group == "All":
                 continue
-
             row = i // buttons_per_row
             col = i % buttons_per_row
-
             x = x_offset + col * (button_width + 10)
             y = y_offset + row * (button_height + 5)
-
             is_visible = self.plotter.is_group_visible(group)
             button_text = f"- {group}" if is_visible else f"+ {group}"
             button_color = "#4CAF50" if is_visible else "#F44336"
-
             button = pygame_gui.elements.UIButton(
                 relative_rect=pygame.Rect((x, y), (button_width, button_height)),
                 text=button_text,
@@ -219,16 +178,15 @@ class Profiler:
                 container=self.group_controls_panel,
                 object_id=f"#{button_color}_button"
             )
-
             self.group_buttons[group] = button
 
     def process_event(self, event):
         if not self.visible:
             return
-
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element == self.reset_button:
-                self.plotter.clear_data()
+                with self.lock:
+                    self.plotter.clear_data()
                 self._update_group_controls()
                 self._update_dropdown()
                 self.needs_update = True
@@ -247,13 +205,11 @@ class Profiler:
                         self._update_group_controls()
                         self.needs_update = True
                         break
-
         elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             if event.ui_element == self.group_dropdown:
                 selected_group = event.text
                 self.plotter.set_group_filter(selected_group)
                 self.needs_update = True
-
         elif event.type == pygame_gui.UI_WINDOW_RESIZED:
             if event.ui_element == self.window:
                 self._on_resize()
@@ -263,7 +219,6 @@ class Profiler:
             options = self.plotter.get_available_groups()
             current_selection = self.group_dropdown.selected_option
             self.group_dropdown.kill()
-
             button_y = self.surface_size[1] + 20
             self.group_dropdown = pygame_gui.elements.UIDropDownMenu(
                 relative_rect=pygame.Rect((350, button_y), (150, 30)),
@@ -285,39 +240,44 @@ class Profiler:
             return
         start_data = current[key]
         elapsed = (time.perf_counter() - start_data["time"]) * 1000
-        group = start_data["group"]
-
+        group = start_data["group"] or "uncategorized"  # ← Гарантируем группу
         now = time.perf_counter()
-        if self.lock.acquire(blocking=False):
-            try:
-                self.plotter.add_data(key, elapsed, group=group)
-                self.last_data_time[key] = now
-                self.needs_update = True
-                if group and group not in self.group_buttons:
-                    self._update_group_controls()
-                    self._update_dropdown()
-            finally:
-                self.lock.release()
+        with self.lock:
+            self.plotter.add_data(key, elapsed, group=group)
+            self.last_data_time[key] = now
+            self.needs_update = True
+            if group not in self.plotter.group_visibility:
+                self.plotter.group_visibility[group] = True
+            if group not in self.group_buttons:
+                self._update_group_controls()
+                self._update_dropdown()
         del current[key]
 
     def _remove_stale_keys(self):
         now = time.perf_counter()
         stale_keys = [k for k, t in self.last_data_time.items() if now - t > config.profiler.auto_remove_threshold]
-        for key in stale_keys:
-            self.plotter.clear_key(key)
-            self.last_data_time.pop(key, None)
-        if stale_keys:
+        if not stale_keys:
+            return
+        with self.lock:
+            for key in stale_keys:
+                self.plotter.clear_key(key)
+                self.last_data_time.pop(key, None)
             self.needs_update = True
+
 
     @profile("profiler_update")
     def run(self):
         while self.running:
-            if self.visible and not self.paused and self.needs_update:
+            if self.visible and not self.paused:
                 current_time = time.perf_counter()
-                if current_time - self.last_update_time >= self.refresh_rate:
+                should_update = False
+                with self.lock:
+                    if self.needs_update and current_time - self.last_update_time >= self.refresh_rate:
+                        should_update = True
+                        self.last_update_time = current_time
+                        self.needs_update = False
+                if should_update:
                     self.update_graph()
-                    self.last_update_time = current_time
-                    self.needs_update = False
             sleep_time = config.profiler.update_delay if self.visible else 0.5
             time.sleep(sleep_time)
 
@@ -325,11 +285,9 @@ class Profiler:
         if not self.image_element:
             return
         self._remove_stale_keys()
-        if self.lock.acquire(blocking=False):
-            try:
-                self.image_element.set_image(self.plotter.get_surface())
-            finally:
-                self.lock.release()
+        with self.lock:
+            surface = self.plotter.get_surface()
+        self.image_element.set_image(surface)
 
     def _on_resize(self):
         if not self.window:
@@ -362,7 +320,6 @@ def start_profiling(key, group=None):
     profiler = get_profiler()
     if profiler:
         profiler.start(key, group)
-
 
 def stop_profiling(key):
     profiler = get_profiler()

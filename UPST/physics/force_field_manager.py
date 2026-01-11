@@ -5,6 +5,7 @@ import pygame
 
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import Gizmos
+from UPST.modules.profiler import profile
 
 
 class ForceFieldManager:
@@ -46,6 +47,7 @@ class ForceFieldManager:
             self.active_fields[name] = bool(state)
         Debug.log_info(f"Field '{name}' set to {self.active_fields[name]}.", "ForceField")
 
+    @profile("ff_update")
     def update(self, world_mouse_pos, screen):
         if not self.physics_manager.running_physics:
             return

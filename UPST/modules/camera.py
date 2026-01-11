@@ -6,6 +6,7 @@ from UPST.config import config
 import pymunk.pygame_util
 import time
 from UPST.modules.fast_math import screen_to_world_impl, world_to_screen_impl, compose_transform_fast
+from UPST.modules.profiler import profile
 
 
 class Camera:
@@ -112,6 +113,7 @@ class Camera:
             return 0.5 * pow(2, 20 * t - 10)
         return 0.5 * (2 - pow(2, -20 * t + 10))
 
+    @profile("camera_update")
     def update(self, keys):
         current_time = time.time()
         dt = current_time - self._last_update_time

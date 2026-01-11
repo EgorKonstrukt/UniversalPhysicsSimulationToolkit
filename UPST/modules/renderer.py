@@ -50,9 +50,12 @@ class Renderer:
 
     @profile("_draw_constraints", "renderer")
     def _draw_constraints(self):
+        cam_scale = self.camera.scaling
+        if cam_scale > 100:
+            return
+
         theme = config.world.themes[config.world.current_theme]
         default_color = (*getattr(theme, 'constraint_color', (200, 200, 255)), 200)
-        outline_color = (50, 50, 50, 180)
         margin = 2000
         screen_w, screen_h = self.screen.get_size()
         clip_rect = pygame.Rect(-margin, -margin, screen_w + 2 * margin, screen_h + 2 * margin)
@@ -61,84 +64,77 @@ class Renderer:
         spring_tex_path = getattr(config.rendering, 'spring_texture', '')
         use_segmented = getattr(config.rendering, 'spring_texture_segmented', True)
         tile_world_width = getattr(config.rendering, 'spring_texture_tile_world_width', 20.0)
-        base_tex = self._get_texture(spring_tex_path) if spring_tex_path and use_segmented else None
+        base_scaled = None
         seg_cache = {}
-        if base_tex:
-            tex_w, tex_h = base_tex.get_size()
-            scaled_h = max(1, int(tex_h * self.camera.scaling / 15))
-            base_scaled = pygame.transform.smoothscale(base_tex, (tex_w, scaled_h)) if tex_h != scaled_h else base_tex
-        else:
-            base_scaled = None
+        if spring_tex_path and use_segmented:
+            base_tex = self._get_texture(spring_tex_path)
+            if base_tex:
+                tex_h = base_tex.get_height()
+                scaled_h = max(1, int(tex_h * cam_scale / 15))
+                base_scaled = pygame.transform.smoothscale(base_tex, (base_tex.get_width(), scaled_h)) if tex_h != scaled_h else base_tex
 
         for constraint in self.physics_manager.space.constraints:
-            if not isinstance(constraint,
-                              (pymunk.DampedSpring, pymunk.PinJoint, pymunk.SlideJoint, pymunk.PivotJoint)) or getattr(
-                    constraint, 'hidden', False):
+            if not isinstance(constraint, (pymunk.DampedSpring, pymunk.PinJoint, pymunk.SlideJoint, pymunk.PivotJoint)) or getattr(constraint, 'hidden', False):
                 continue
-
-            constraint_color = getattr(constraint, 'color', default_color)
-            if len(constraint_color) == 3:
-                constraint_color = (*constraint_color, 200)
 
             a_world = constraint.a.local_to_world(constraint.anchor_a)
             b_world = constraint.b.local_to_world(constraint.anchor_b)
             a_scr = self.camera.world_to_screen(a_world)
             b_scr = self.camera.world_to_screen(b_world)
 
-            dx_scr = b_scr[0] - a_scr[0]
-            dy_scr = b_scr[1] - a_scr[1]
+            dx, dy = b_scr[0] - a_scr[0], b_scr[1] - a_scr[1]
             if not (clip_rect.collidepoint(a_scr) or clip_rect.collidepoint(b_scr)):
-                lsq = dx_scr * dx_scr + dy_scr * dy_scr
+                lsq = dx * dx + dy * dy
                 if lsq == 0: continue
-                t = max(0.0, min(1.0, ((clip_rect.x - a_scr[0]) * dx_scr + (clip_rect.y - a_scr[1]) * dy_scr) / lsq))
-                cx, cy = a_scr[0] + t * dx_scr, a_scr[1] + t * dy_scr
+                t = ((clip_rect.x - a_scr[0]) * dx + (clip_rect.y - a_scr[1]) * dy) / lsq
+                t = max(0.0, min(1.0, t))
+                cx, cy = a_scr[0] + t * dx, a_scr[1] + t * dy
                 if not clip_rect.collidepoint(cx, cy): continue
+
+            constraint_color = getattr(constraint, 'color', default_color)
+            if len(constraint_color) == 3:
+                constraint_color = (*constraint_color, 200)
 
             if isinstance(constraint, pymunk.DampedSpring) and base_scaled is not None:
                 rest_len = constraint.rest_length
-                curr_vec = b_world - a_world
-                curr_len = curr_vec.length
+                curr_len = (b_world - a_world).length
                 if rest_len <= 0.1 or curr_len <= 0.1: continue
-                screen_len = math.hypot(dx_scr, dy_scr)
+                screen_len = math.hypot(dx, dy)
                 if screen_len < 1e-3: continue
                 num_segments = max(1, int(round(rest_len / tile_world_width)))
                 seg_len_scr = screen_len / num_segments
-                angle = math.atan2(dy_scr, dx_scr)
-                cos_a = math.cos(angle)
-                sin_a = math.sin(angle)
+                angle = math.atan2(dy, dx)
+                cos_a, sin_a = math.cos(angle), math.sin(angle)
                 color_rgb = constraint_color[:3]
                 for i in range(num_segments):
                     seg_x0 = a_scr[0] + i * seg_len_scr * cos_a
                     seg_y0 = a_scr[1] + i * seg_len_scr * sin_a
                     key = (round(seg_len_scr, 1), round(angle, 2))
                     if key not in seg_cache:
-                        stretched = pygame.transform.smoothscale(base_scaled,
-                                                                 (max(1, int(seg_len_scr)), base_scaled.get_height()))
+                        stretched = pygame.transform.smoothscale(base_scaled, (max(1, int(seg_len_scr)), base_scaled.get_height()))
                         rotated = pygame.transform.rotate(stretched, math.degrees(-angle))
                         seg_cache[key] = rotated
-                    base_sprite = seg_cache[key]
-                    colored_sprite = base_sprite.copy()
-                    colored_sprite.fill((*color_rgb, 255), special_flags=pygame.BLEND_RGBA_MULT)
+                    sprite = seg_cache[key]
+                    colored = sprite.copy()
+                    colored.fill((*color_rgb, 255), special_flags=pygame.BLEND_RGBA_MULT)
                     cx = seg_x0 + seg_len_scr * cos_a * 0.5
                     cy = seg_y0 + seg_len_scr * sin_a * 0.5
-                    self.screen.blit(colored_sprite, (int(cx - colored_sprite.get_width() // 2), int(cy - colored_sprite.get_height() // 2)))
+                    self.screen.blit(colored, (int(cx - colored.get_width() // 2), int(cy - colored.get_height() // 2)))
             else:
-                width = max(1, int(2 * self.camera.scaling))
+                width = max(1, int(2 * cam_scale))
                 pygame.draw.line(self.screen, constraint_color[:3], a_scr, b_scr, width)
 
             for anchor_scr, tex_key in [(a_scr, 'spring_point_a_texture'), (b_scr, 'spring_point_b_texture')]:
                 tex_path = getattr(config.rendering, tex_key, '')
                 if tex_path:
-                    pt_tex = self._get_scaled_texture(tex_path, 0.1 * self.camera.scaling)
+                    pt_tex = self._get_scaled_texture(tex_path, 0.1 * cam_scale)
                     if pt_tex:
-                        self.screen.blit(pt_tex, (anchor_scr[0] - pt_tex.get_width() // 2,
-                                                  anchor_scr[1] - pt_tex.get_height() // 2))
+                        self.screen.blit(pt_tex, (anchor_scr[0] - pt_tex.get_width() // 2, anchor_scr[1] - pt_tex.get_height() // 2))
                 else:
-                    r = max(1, int(1 * self.camera.scaling))
-                    pygame.gfxdraw.filled_circle(self.screen, safe_coord(anchor_scr[0]), safe_coord(anchor_scr[1]), r,
-                                                 constraint_color)
-                    pygame.gfxdraw.aacircle(self.screen, safe_coord(anchor_scr[0]), safe_coord(anchor_scr[1]), r,
-                                            (50, 50, 50))
+                    r = max(1, int(1 * cam_scale))
+                    x, y = safe_coord(anchor_scr[0]), safe_coord(anchor_scr[1])
+                    pygame.gfxdraw.filled_circle(self.screen, x, y, r, constraint_color)
+                    pygame.gfxdraw.aacircle(self.screen, x, y, r, (50, 50, 50))
 
     def safe_coord(self, v):
         return max(self.INT16_MIN, min(self.INT16_MAX, int(round(v))))
