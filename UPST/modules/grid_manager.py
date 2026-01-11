@@ -154,21 +154,27 @@ class GridManager:
         return start, end, color, thickness
 
     def _draw_line(self, screen, start, end, color, thickness):
+        def clamp_coord(c):
+            return max(-32768, min(32767, int(round(c))))
+
+        sx, sy = clamp_coord(start[0]), clamp_coord(start[1])
+        ex, ey = clamp_coord(end[0]), clamp_coord(end[1])
         if thickness <= 1:
-            pygame.gfxdraw.line(screen, int(start[0]), int(start[1]), int(end[0]), int(end[1]), color)
+            pygame.gfxdraw.line(screen, sx, sy, ex, ey, color)
         else:
-            dx = end[0] - start[0]
-            dy = end[1] - start[1]
+            dx = ex - sx
+            dy = ey - sy
             length = max(1, math.hypot(dx, dy))
             ux, uy = dx / length, dy / length
             perp_x, perp_y = -uy * thickness / 2, ux * thickness / 2
             pts = [
-                (start[0] + perp_x, start[1] + perp_y),
-                (end[0] + perp_x, end[1] + perp_y),
-                (end[0] - perp_x, end[1] - perp_y),
-                (start[0] - perp_x, start[1] - perp_y)
+                (sx + perp_x, sy + perp_y),
+                (ex + perp_x, ey + perp_y),
+                (ex - perp_x, ey - perp_y),
+                (sx - perp_x, sy - perp_y)
             ]
-            pygame.gfxdraw.filled_polygon(screen, [(int(p[0]), int(p[1])) for p in pts], color)
+            clamped_pts = [(clamp_coord(p[0]), clamp_coord(p[1])) for p in pts]
+            pygame.gfxdraw.filled_polygon(screen, clamped_pts, color)
 
     def _draw_gravity_vectors(self, screen, grid_spacing_world, grid_spacing_pixels):
         if not self.force_field_manager or not any(self.force_field_manager.active_fields.get(f, False) for f in ("attraction", "repulsion", "vortex", "wind")):
