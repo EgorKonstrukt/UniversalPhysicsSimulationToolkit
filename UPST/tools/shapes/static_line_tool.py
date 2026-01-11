@@ -32,7 +32,7 @@ class StaticLineTool(BaseTool):
 
     def draw_preview(self, screen, camera):
         if self.start_pos:
-            start_screen = camera.world_to_screen(self.start_pos) / camera.scaling
+            start_screen = camera.world_to_screen(self.start_pos)
             end_screen = camera.world_to_screen(pygame.mouse.get_pos())
             pygame.draw.line(screen, (200, 200, 255), start_screen, end_screen, 2)
 

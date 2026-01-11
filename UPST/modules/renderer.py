@@ -164,7 +164,9 @@ class Renderer:
 
             if isinstance(shape, pymunk.Circle):
                 world_pos = body.local_to_world(shape.offset)
+                if not (math.isfinite(world_pos.x) and math.isfinite(world_pos.y)): continue
                 scr_x, scr_y = camera.world_to_screen(world_pos)
+                if not (math.isfinite(scr_x) and math.isfinite(scr_y)): continue
                 r_px = shape.radius * cam_scale
                 if r_px <= 0: continue
                 dx = max(clip.x, min(scr_x, clip.x + clip.w)) - scr_x
@@ -190,7 +192,6 @@ class Renderer:
                 min_y, max_y = min(ys), max(ys)
                 w = max(0.0, max_x - min_x)
                 h = max(0.0, max_y - min_y)
-                # Clamp to INT16 range after conversion
                 ix = safe(min_x)
                 iy = safe(min_y)
                 iw = safe(w) + 1
@@ -204,8 +205,16 @@ class Renderer:
                 bodies_to_render.append(('poly', int_verts, color))
 
             elif isinstance(shape, pymunk.Segment):
-                a_scr = camera.world_to_screen(body.local_to_world(shape.a))
-                b_scr = camera.world_to_screen(body.local_to_world(shape.b))
+                a_world = body.local_to_world(shape.a)
+                b_world = body.local_to_world(shape.b)
+                if not (math.isfinite(a_world.x) and math.isfinite(a_world.y) and math.isfinite(
+                        b_world.x) and math.isfinite(b_world.y)):
+                    continue
+                a_scr = camera.world_to_screen(a_world)
+                b_scr = camera.world_to_screen(b_world)
+                if not (math.isfinite(a_scr[0]) and math.isfinite(a_scr[1]) and math.isfinite(
+                        b_scr[0]) and math.isfinite(b_scr[1])):
+                    continue
                 if not (clip.collidepoint(*a_scr) or clip.collidepoint(*b_scr)):
                     dx, dy = b_scr[0] - a_scr[0], b_scr[1] - a_scr[1]
                     lsq = dx * dx + dy * dy
@@ -221,6 +230,7 @@ class Renderer:
                 if tex:
                     cx = sum(v[0] for v in verts) / len(verts)
                     cy = sum(v[1] for v in verts) / len(verts)
+                    if not (math.isfinite(cx) and math.isfinite(cy)): continue
                     rot = pygame.transform.rotate(tex, -math.degrees(body.angle))
                     screen.blit(rot, (cx - rot.get_width() / 2, cy - rot.get_height() / 2))
                     continue
@@ -231,12 +241,15 @@ class Renderer:
             typ = item[0]
             if typ == 'circle':
                 _, x, y, r, col, ang = item
+                if not (math.isfinite(x) and math.isfinite(y) and math.isfinite(r)): continue
                 self._draw_circle_batched(screen, (x, y), r, col, outline, othick, ang, safe)
             elif typ == 'poly':
                 _, verts, col = item
+                if not all(math.isfinite(vx) and math.isfinite(vy) for vx, vy in verts): continue
                 self._draw_poly_batched(screen, verts, col, outline, othick)
             elif typ == 'segment':
                 _, x1, y1, x2, y2, r, col = item
+                if not all(math.isfinite(v) for v in (x1, y1, x2, y2, r)): continue
                 self._draw_segment_batched(screen, (x1, y1), (x2, y2), r, col, outline, othick, safe)
 
     def _draw_circle_transparent(self, surf, ix, iy, ir, col, outline, othick):

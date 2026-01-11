@@ -272,9 +272,8 @@ class Camera:
         self.inv_scaling = 1.0 / self.scaling if self.scaling != 0 else 0.0
 
     def _zoom_at_cursor(self, zoom_factor: float) -> None:
-        min_scale, max_scale = 0.000001, 100.0
         new_target = self.target_scaling * zoom_factor
-        new_target = max(min_scale, min(max_scale, new_target))
+        new_target = max(config.camera.min_zoom_scale, min(config.camera.max_zoom_scale, new_target))
         cx, cy = pygame.mouse.get_pos()
         wx, wy = self.screen_to_world((cx, cy))
         self.zoom_anchor_screen = (cx, cy)
