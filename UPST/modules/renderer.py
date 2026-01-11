@@ -129,7 +129,7 @@ class Renderer:
             for anchor_scr, tex_key in [(a_scr, 'spring_point_a_texture'), (b_scr, 'spring_point_b_texture')]:
                 tex_path = getattr(config.rendering, tex_key, '')
                 if tex_path:
-                    pt_tex = self._get_scaled_texture(tex_path, 0.1)
+                    pt_tex = self._get_scaled_texture(tex_path, 0.1 * self.camera.scaling)
                     if pt_tex:
                         self.screen.blit(pt_tex, (anchor_scr[0] - pt_tex.get_width() // 2,
                                                   anchor_scr[1] - pt_tex.get_height() // 2))

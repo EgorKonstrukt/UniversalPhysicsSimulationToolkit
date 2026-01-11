@@ -51,7 +51,7 @@ class GridManager:
         self.enabled = enabled
 
     def calculate_grid_spacing(self):
-        camera_scale = self.camera.target_scaling
+        camera_scale = self.camera.scaling
         base_pixels = self.base_grid_size * camera_scale
         multiplier = 1.0
         if base_pixels < self.min_pixel_spacing:
@@ -83,8 +83,8 @@ class GridManager:
             nearest_y = round(world_pos[1] / grid_spacing_world) * grid_spacing_world
             dx_world = nearest_x - world_pos[0]
             dy_world = nearest_y - world_pos[1]
-            dx_pixels = dx_world * self.camera.target_scaling
-            dy_pixels = dy_world * self.camera.target_scaling
+            dx_pixels = dx_world * self.camera.scaling
+            dy_pixels = dy_world * self.camera.scaling
             distance_pixels = math.hypot(dx_pixels, dy_pixels)
             if distance_pixels <= max(self.snap_radius_pixels, 0.5):
                 if distance_pixels < 1e-4:

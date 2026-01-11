@@ -10,7 +10,7 @@ class MandelbrotFourierSeries:
         self.mandelbrot_contours: List[List[Tuple[float, float]]] = []
         self.fourier_data_list: List[List[Tuple[int, complex]]] = []
         self.drawing_points_list: List[List[Tuple[float, float]]] = []
-        self.num_terms = 500
+        self.num_terms = 100
         self.phase = 0.0
         self.screen_center = (0, 0)
         self.fractal_center = (-0.5, 0.0)

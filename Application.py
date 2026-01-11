@@ -34,7 +34,9 @@ from UPST.modules.statistics import stats
 from UPST.tools.tool_manager import ToolSystem
 
 from UPST.network.repository_manager import RepositoryManager
+import sys
 
+# sys.set_int_max_str_digits(0)
 
 class WorldWrapper:
     def __init__(self, physics_manager):
@@ -165,7 +167,7 @@ class Application:
         return pygame.display.set_mode((config.app.screen_width, config.app.screen_height), flags)
 
     def run(self):
-        synthesizer.play_note("A3", duration=0.1, waveform="sine", adsr=(0.01, 0.1, 0.7, 0.1), volume=0.5, pan=0.0)
+        # synthesizer.play_note("A3", duration=0.1, waveform="sine", adsr=(0.01, 0.1, 0.7, 0.1), volume=0.5, pan=0.0)
         self.freeze_watcher = FreezeWatcher(threshold_sec=0.1)
         self.freeze_watcher.start()
         stats.accumulate_session_time()

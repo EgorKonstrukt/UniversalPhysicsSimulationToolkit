@@ -92,8 +92,8 @@ class ConsoleHandler:
 
         cache_key = (
             expr,
-            round(cam_tx, 1), round(cam_ty, 1),
-            round(cam_scale, 3),
+            int(cam_tx * 10), int(cam_ty * 10),
+            int(cam_scale * 1000),
             screen_w, screen_h
         )
 
@@ -102,28 +102,26 @@ class ConsoleHandler:
         else:
             x_min = cam_tx - vp_w / 2
             x_max = cam_tx + vp_w / 2
-            steps = max(10, min(5000, screen_w // 2))
-            dx = (x_max - x_min) / steps
+            y_min = cam_ty - vp_h / 2
+            y_max = cam_ty + vp_h / 2
+            steps = max(100, min(5000, int(vp_w * cam_scale)))
+            dx = (x_max - x_min) / steps if steps > 0 else 0
             points = []
             local_env = {"math": math, "__builtins__": {}}
             try:
                 for i in range(steps + 1):
                     x = x_min + i * dx
                     y = eval(expr, local_env, {"x": x})
-                    if not isinstance(y, (int, float)) or not math.isfinite(y):
+                    if not isinstance(y, (int, float)) or not math.isfinite(y) or y < y_min or y > y_max:
                         continue
-                    scr = cam.screen_to_world((x, y))
-                    if 0 <= scr[0] <= screen_w and 0 <= scr[1] <= screen_h:
-                        points.append((int(round(scr[0])), int(round(scr[1]))))
+                    scr = cam.world_to_screen((x, y))
+                    points.append(scr)  # Храним как float
             except Exception:
                 points = []
             self._graph_cache = (cache_key, points)
 
-        if not points:
+        if len(points) < 2:
             return
         color = (0, 200, 255, 200)
         for i in range(1, len(points)):
-            x0, y0 = points[i - 1]
-            x1, y1 = points[i]
-            # Используем gfxdraw для сглаживания
-            pygame.gfxdraw.line(self.ui_manager.app.screen, x0, y0, x1, y1, color)
+            pygame.draw.aaline(self.ui_manager.app.screen, color, points[i - 1], points[i])

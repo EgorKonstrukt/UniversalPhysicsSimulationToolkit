@@ -193,7 +193,7 @@ class PhysicsDebugManager:
     def _calculate_body_properties(self, body_mass, body_moment, body_velocity, body_angular_velocity, body_position_y):
         vel_sq = body_velocity.length_squared
         if vel_sq > 1e15:
-            Debug.log_warning(f"Clamped extreme velocity (v²={vel_sq:.2e}) for body {id(body_mass)}", "PhysicsDebug")
+            # Debug.log_warning(f"Clamped extreme velocity (v²={vel_sq:.2e}) for body {id(body_mass)}", "PhysicsDebug")
             velocity_length = 1e7
             kinetic_energy = 0.5 * body_mass * (1e7 ** 2)
         else:

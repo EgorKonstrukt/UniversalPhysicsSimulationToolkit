@@ -529,7 +529,7 @@ class Plotter:
             pts = [(self.MARGIN_LEFT + (xs[i] - x_min) / x_range * w,
                     self.MARGIN_TOP + (draw_max - ys[i]) / draw_range * h) for i in range(len(ys))]
             if len(pts) > 1:
-                pygame.draw.lines(self.surface, col, False, pts, width=2)
+                pygame.draw.aalines(self.surface, col, False, pts)
             if not self.enable_osc_analysis:
                 continue
             base = sum(ys) / len(ys)
@@ -578,7 +578,7 @@ class Plotter:
             pts = [(self.MARGIN_LEFT + (xs[j] - x_min) / x_range * w,
                     y0 + (draw_max - ys[j]) / draw_range * scale_h) for j in range(len(ys))]
             if len(pts) > 1:
-                pygame.draw.lines(self.surface, col, False, pts, width=2)
+                pygame.draw.aalines(self.surface, col, False, pts)
             if not self.enable_osc_analysis:
                 self._draw_label_split(key, ys, col, y0)
                 continue

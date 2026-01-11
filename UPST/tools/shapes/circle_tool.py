@@ -121,6 +121,7 @@ class CircleTool(BaseTool):
         body.temperature = 3000
         body.heat_capacity = 1000
         body.thermal_conductivity = 1.0
+        body.attraction = 90.0
         shape = pymunk.Circle(body, r)
         shape.friction = float(self.friction_entry.get_text())
         shape.elasticity = float(self.elasticity_entry.get_text())
@@ -138,6 +139,7 @@ class CircleTool(BaseTool):
         body.name = "Body"
         body.color = self._get_color('circle')
         body.position = start
+        body.attraction = 90.0
         body.custom_force = pygame.math.Vector2(0, 0)
         shape = pymunk.Circle(body, r)
         shape.friction = float(self.friction_entry.get_text())

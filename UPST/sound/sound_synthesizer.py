@@ -177,38 +177,39 @@ class SoundSynthesizer:
             env[-f:] = np.linspace(1, 0, f)
         return data * env[:, None]
     def play_frequency(self, freq, duration=1.0, waveform='sine', adsr=(0.01,0.1,0.7,0.1), volume=None, detune=0.0, apply_effects=True, pan=0.0):
-        self._ensure_mixer_initialized()
-        if duration <= 0:
-            return None
-        n_samples = int(self.sample_rate * duration)
-        if n_samples == 0:
-            return None
-        wave = self._generate_wave(freq, duration, waveform, detune)
-        wave = self._apply_adsr(wave, *adsr)
-        if apply_effects:
-            wave = self._apply_filter(wave)
-            wave = self._apply_lfo(wave)
-            wave = self._apply_effects(wave)
-        if np.max(np.abs(wave)) > 0:
-            wave /= np.max(np.abs(wave))
-        vol = self.volume if volume is None else max(0.0, min(1.0, volume))
-        wave *= vol
-        samples = self._safe_int16_conversion(wave * 32767)
-        stereo = np.column_stack((samples, samples)).astype(np.float64)
-        stereo = self._apply_panning(stereo, pan)
-        stereo = self._fade(stereo)
-        out = np.asarray(stereo, dtype=np.float64)
-        if out.ndim == 1:
-            out = np.column_stack((out, out))
-        elif out.ndim != 2 or out.shape[1] != 2:
-            out = np.column_stack((out[:,0], out[:,0]))
-        out = self._safe_int16_conversion(out)
-        out = np.ascontiguousarray(out, dtype=np.int16)
-        if out.shape[1] != 2:
-            out = np.column_stack((out[:,0], out[:,0]))
-        sound = pygame.sndarray.make_sound(out)
-        self._visualize_wave_on_screen(wave, duration, freq=freq, waveform=waveform, volume=vol, pan=pan)
-        return sound.play()
+        pass
+        # self._ensure_mixer_initialized()
+        # if duration <= 0:
+        #     return None
+        # n_samples = int(self.sample_rate * duration)
+        # if n_samples == 0:
+        #     return None
+        # wave = self._generate_wave(freq, duration, waveform, detune)
+        # wave = self._apply_adsr(wave, *adsr)
+        # if apply_effects:
+        #     wave = self._apply_filter(wave)
+        #     wave = self._apply_lfo(wave)
+        #     wave = self._apply_effects(wave)
+        # if np.max(np.abs(wave)) > 0:
+        #     wave /= np.max(np.abs(wave))
+        # vol = self.volume if volume is None else max(0.0, min(1.0, volume))
+        # wave *= vol
+        # samples = self._safe_int16_conversion(wave * 32767)
+        # stereo = np.column_stack((samples, samples)).astype(np.float64)
+        # stereo = self._apply_panning(stereo, pan)
+        # stereo = self._fade(stereo)
+        # out = np.asarray(stereo, dtype=np.float64)
+        # if out.ndim == 1:
+        #     out = np.column_stack((out, out))
+        # elif out.ndim != 2 or out.shape[1] != 2:
+        #     out = np.column_stack((out[:,0], out[:,0]))
+        # out = self._safe_int16_conversion(out)
+        # out = np.ascontiguousarray(out, dtype=np.int16)
+        # if out.shape[1] != 2:
+        #     out = np.column_stack((out[:,0], out[:,0]))
+        # sound = pygame.sndarray.make_sound(out)
+        # self._visualize_wave_on_screen(wave, duration, freq=freq, waveform=waveform, volume=vol, pan=pan)
+        # return sound.play()
     def _visualize_wave_on_screen(self, wave, duration, freq=None, waveform='sine', volume=None, pan=0.0):
         if not Gizmos:
             return
@@ -284,10 +285,11 @@ class SoundSynthesizer:
         'G8':6271.93,'G#8':6644.88,'A8':7040.00,'A#8':7458.62,'B8':7902.13,
     }
     def play_note(self, note, duration=1.0, volume=None, pan=0.0, **kwargs):
-        freq = self.NOTE_FREQUENCIES.get(note)
-        if freq is None:
-            raise ValueError(f"Note {note} not defined.")
-        return self.play_frequency(freq, duration, volume=volume, pan=pan, **kwargs)
+        pass
+        # freq = self.NOTE_FREQUENCIES.get(note)
+        # if freq is None:
+        #     raise ValueError(f"Note {note} not defined.")
+        # return self.play_frequency(freq, duration, volume=volume, pan=pan, **kwargs)
     def play_chord(self, notes, duration=1.0, waveform='sine', volume=None, pan=0.0):
         def _play_chord():
             channels = []
