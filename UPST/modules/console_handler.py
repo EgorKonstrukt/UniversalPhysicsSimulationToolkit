@@ -81,7 +81,6 @@ class ConsoleHandler:
                 elif plot_type == 'scatter':
                     parts = [p.strip() for p in expr.split(',', 1)]
                     if len(parts) != 2: raise ValueError("Scatter requires two sequences: xs, ys")
-                    # Store raw strings for literal_eval later
                     compiled = ('scatter', parts[0], parts[1])
                 elif plot_type == 'field':
                     parts = [p.strip() for p in expr.split(',', 1)]

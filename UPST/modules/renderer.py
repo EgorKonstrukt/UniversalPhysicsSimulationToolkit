@@ -171,15 +171,36 @@ class Renderer:
                 dy = max(clip.y, min(scr_y, clip.y + clip.h)) - scr_y
                 if dx * dx + dy * dy > r_px * r_px: continue
                 bodies_to_render.append(('circle', scr_x, scr_y, r_px, color, body.angle))
-
             elif isinstance(shape, pymunk.Poly):
                 verts = [camera.world_to_screen(body.local_to_world(v)) for v in shape.get_vertices()]
-                if len(verts) < 3: continue
-                xs, ys = zip(*verts)
-                obj_rect = pygame.Rect(int(min(xs)), int(min(ys)), int(max(xs) - min(xs)) + 1,
-                                       int(max(ys) - min(ys)) + 1)
-                if not obj_rect.colliderect(clip): continue
-                int_verts = [(safe(vx), safe(vy)) for vx, vy in verts]
+                if len(verts) < 3:
+                    continue
+                valid_verts = []
+                for v in verts:
+                    if not (isinstance(v, (tuple, list)) and len(v) == 2):
+                        continue
+                    x, y = v
+                    if not (math.isfinite(x) and math.isfinite(y)):
+                        continue
+                    valid_verts.append((x, y))
+                if len(valid_verts) < 3:
+                    continue
+                xs, ys = zip(*valid_verts)
+                min_x, max_x = min(xs), max(xs)
+                min_y, max_y = min(ys), max(ys)
+                w = max(0.0, max_x - min_x)
+                h = max(0.0, max_y - min_y)
+                # Clamp to INT16 range after conversion
+                ix = safe(min_x)
+                iy = safe(min_y)
+                iw = safe(w) + 1
+                ih = safe(h) + 1
+                if iw <= 0 or ih <= 0:
+                    continue
+                obj_rect = pygame.Rect(ix, iy, iw, ih)
+                if not obj_rect.colliderect(clip):
+                    continue
+                int_verts = [(safe(vx), safe(vy)) for vx, vy in valid_verts]
                 bodies_to_render.append(('poly', int_verts, color))
 
             elif isinstance(shape, pymunk.Segment):
