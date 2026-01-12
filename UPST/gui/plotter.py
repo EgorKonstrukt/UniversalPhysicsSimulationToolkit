@@ -530,6 +530,8 @@ class Plotter:
                     self.MARGIN_TOP + (draw_max - ys[i]) / draw_range * h) for i in range(len(ys))]
             if len(pts) > 1:
                 pygame.draw.aalines(self.surface, col, False, pts)
+            if pts:
+                pygame.draw.circle(self.surface, col, (int(pts[-1][0]), int(pts[-1][1])), 3)
             if not self.enable_osc_analysis:
                 continue
             base = sum(ys) / len(ys)
@@ -579,6 +581,8 @@ class Plotter:
                     y0 + (draw_max - ys[j]) / draw_range * scale_h) for j in range(len(ys))]
             if len(pts) > 1:
                 pygame.draw.aalines(self.surface, col, False, pts)
+            if pts:
+                pygame.draw.circle(self.surface, col, (int(pts[-1][0]), int(pts[-1][1])), 3)
             if not self.enable_osc_analysis:
                 self._draw_label_split(key, ys, col, y0)
                 continue

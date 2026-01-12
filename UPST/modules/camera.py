@@ -297,10 +297,12 @@ class Camera:
         draw_options.transform = pymunk.Transform(a, b, c, d, e, f)
         return draw_options
 
+    @profile("screen_to_world")
     def screen_to_world(self, sp):
         return screen_to_world_impl(sp[0], sp[1], self.inv_scaling, self.translation.tx, self.translation.ty, self._cx,
                                     self._cy)
 
+    @profile("world_to_screen")
     def world_to_screen(self, wp):
         return world_to_screen_impl(wp[0], wp[1], self.scaling, self.translation.tx, self.translation.ty, self._cx,
                                     self._cy)

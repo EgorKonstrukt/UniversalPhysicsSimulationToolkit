@@ -287,6 +287,10 @@ class Profiler:
         self._remove_stale_keys()
         with self.lock:
             surface = self.plotter.get_surface()
+        mouse_pos = pygame.mouse.get_pos()
+        rel_mouse = (mouse_pos[0] - self.window.rect.x - 200,
+                     mouse_pos[1] - self.window.rect.y)
+        self.plotter.set_mouse_position(rel_mouse)
         self.image_element.set_image(surface)
 
     def _on_resize(self):

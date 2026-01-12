@@ -38,7 +38,7 @@ class UIManager:
         self.color_picker_for_shape = None
         self.script_editor = None
         self.context_menu = ContextMenu(self.manager, self)
-        self.force_field_ui = ForceFieldUI(self.manager, screen_width, screen_height, self)
+        # self.force_field_ui = ForceFieldUI(self.manager, screen_width, screen_height, self)
         self.console_ui = ConsoleUI(self.manager, screen_width, screen_height)
         self.bottom_bar = BottomBar(screen_width, screen_height, self.manager, physics_manager=self.physics_manager)
         self.top_left_bar = TopLeftBar(screen_width, screen_height, self.manager, app=self.app, physics_manager=self.physics_manager)
@@ -145,9 +145,9 @@ class UIManager:
             try: w.handle_event(event)
             except Exception: Debug.log_exception("Error dispatching plotter event.", "GUI")
     def _handle_button_press(self, event, game_app):
-        if event.ui_element in self.force_field_ui.force_field_buttons:
-            self.force_field_ui.handle_button_press(event.ui_element, game_app)
-        elif hasattr(event.ui_element, 'tool_name'):
+        # if event.ui_element in self.force_field_ui.force_field_buttons:
+        #     self.force_field_ui.handle_button_press(event.ui_element, game_app)
+        if hasattr(event.ui_element, 'tool_name'):
             self.tool_system.activate_tool(event.ui_element.tool_name)
 
     def _handle_color_pick(self, event):

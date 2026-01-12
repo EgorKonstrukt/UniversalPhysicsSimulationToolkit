@@ -294,11 +294,11 @@ class DebugManager:
         camera_text = [
             "Camera Debug:",
             f"Position: ({pos[0]:.1f}, {pos[1]:.1f})",
-            f"Zoom: {camera.scaling:.2f}",
-            f"Target Zoom: {camera.target_scaling:.2f}",
-            f"Rotation: {camera.rotation:.1f}°",
+            f"Zoom: {camera.scaling:.8f}",
+            f"Target Zoom: {camera.target_scaling:.8f}",
+            f"Rotation: {camera.rotation:.3f}°",
             # f"Target Rotation: {camera.target_rotation:.1f}°",
-            f"Scaling: {camera.target_scaling:.2f}"
+            f"Scaling: {camera.target_scaling:.8f}"
         ]
         for i, text in enumerate(camera_text):
             text_surface = self.font_small.render(text, True, (255, 255, 255))
