@@ -1,11 +1,79 @@
+import os
+
+import taichi as ti
+import numpy as np
 import math
 import pygame
 import ast
 import re
-import numpy as np
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
-
 import numba as nb
+
+
+USE_F64 = True
+
+if USE_F64:
+    ti_f = ti.f64
+    np_f = np.float64
+else:
+    ti_f = ti.f32
+    np_f = np.float32
+
+ti.init(
+    arch=ti.gpu,
+    cpu_max_num_threads = os.cpu_count(),
+    default_ip=ti.i32,
+    default_fp=ti_f,
+    debug=False,
+    enable_fallback = True,
+    device_memory_GB=8.0
+)
+
+@ti.kernel
+def _taichi_compute_fractal(
+    arr: ti.types.ndarray(dtype=ti.u8, ndim=3),
+    x_min: ti_f, x_max: ti_f,
+    y_min: ti_f, y_max: ti_f,
+    w: ti.i32, h: ti.i32,
+    max_iter: ti.i32, esc_sq: ti_f,
+    fractal_type: ti.i32,
+    c_real: ti_f, c_imag: ti_f
+):
+    dx = (x_max - x_min) / ti.cast(w, ti_f)
+    dy = (y_max - y_min) / ti.cast(h, ti_f)
+    for py, px in ti.ndrange(h, w):
+        y = y_max - ti.cast(py, ti_f) * dy
+        x = x_min + ti.cast(px, ti_f) * dx
+        zx: ti_f = 0.0
+        zy: ti_f = 0.0
+        cx: ti_f = 0.0
+        cy: ti_f = 0.0
+        if fractal_type == 0:
+            cx, cy = x, y
+        else:
+            cx, cy = c_real, c_imag
+            zx, zy = x, y
+        escaped = max_iter
+        for i in range(max_iter):
+            zx2 = zx * zx
+            zy2 = zy * zy
+            if zx2 + zy2 > esc_sq:
+                escaped = i
+                break
+            tmp = zx
+            zx = zx2 - zy2 + cx
+            zy = ti.static(2.0) * tmp * zy + cy
+        r: ti.i32 = 0
+        g: ti.i32 = 0
+        b: ti.i32 = 0
+        if escaped != max_iter:
+            t = ti.cast(escaped, ti_f) / ti.cast(max_iter, ti_f)
+            r = ti.min(255, ti.cast(95 + 160 * t, ti.i32))
+            g = ti.min(255, ti.cast(20 + 100 * t, ti.i32))
+            b = ti.min(255, ti.cast(150 * (ti.static(1.0) - t), ti.i32))
+        arr[py, px, 0] = ti.cast(r, ti.u8)
+        arr[py, px, 1] = ti.cast(g, ti.u8)
+        arr[py, px, 2] = ti.cast(b, ti.u8)
 
 
 @nb.jit(nopython=True, fastmath=True, parallel=False)
@@ -31,6 +99,7 @@ def _apply_transforms(points, transforms, depth):
         current = new_points
     return current
 
+
 def _get_preset_rules(name):
     if name == 'sierpinski_triangle':
         return np.array([
@@ -39,59 +108,25 @@ def _get_preset_rules(name):
             [0.5, 0.0, 0.0, 0.5, 0.25, 0.5]
         ], dtype=np.float64)
     elif name == 'sierpinski_carpet':
-        s = 1/3
-        offsets = [(i*s, j*s) for i in range(3) for j in range(3) if not (i == 1 and j == 1)]
+        s = 1 / 3
+        offsets = [(i * s, j * s) for i in range(3) for j in range(3) if not (i == 1 and j == 1)]
         rules = []
         for ox, oy in offsets:
             rules.append([s, 0.0, 0.0, s, ox, oy])
         return np.array(rules, dtype=np.float64)
-    elif name == 'koch_snowflake':  # IFS approximation
+    elif name == 'koch_snowflake':
         angle = np.pi / 3
         c, s = np.cos(angle), np.sin(angle)
-        scale = 1/3
+        scale = 1 / 3
         return np.array([
             [scale, 0, 0, scale, 0, 0],
-            [scale*c, -scale*s, scale*s, scale*c, scale, 0],
-            [scale*c, scale*s, -scale*s, scale*c, 0.5, scale*np.sqrt(3)/2],
-            [scale, 0, 0, scale, 2*scale, 0]
+            [scale * c, -scale * s, scale * s, scale * c, scale, 0],
+            [scale * c, scale * s, -scale * s, scale * c, 0.5, scale * np.sqrt(3) / 2],
+            [scale, 0, 0, scale, 2 * scale, 0]
         ], dtype=np.float64)
     else:
         raise ValueError(f"Unknown preset: {name}")
 
-@nb.jit(nopython=True, fastmath=True, parallel=True, nogil=True)
-def _compute_fractal(arr, x_min, x_max, y_min, y_max, w, h, max_iter, esc_sq, fractal_type, c_real=0.0, c_imag=0.0):
-    dx = (x_max - x_min) / w
-    dy = (y_max - y_min) / h
-    palette = np.empty((max_iter + 1, 3), dtype=np.uint8)
-    for i in range(max_iter):
-        t = i / max_iter
-        palette[i, 0] = np.uint8(95 + 160 * t)
-        palette[i, 1] = np.uint8(20 + 100 * t)
-        palette[i, 2] = np.uint8(150 * (1 - t))
-    palette[max_iter, :] = 0  # inside set
-
-    for py in nb.prange(h):
-        y = y_max - py * dy
-        for px in range(w):
-            x = x_min + px * dx
-            zx = zy = 0.0
-            cx = x if fractal_type == 0 else c_real
-            cy = y if fractal_type == 0 else c_imag
-            if fractal_type != 0:
-                zx, zy = x, y
-            escaped = max_iter
-            for i in range(max_iter):
-                zx2 = zx * zx
-                zy2 = zy * zy
-                if zx2 + zy2 > esc_sq:
-                    escaped = i
-                    break
-                zy = 2 * zx * zy + cy
-                zx = zx2 - zy2 + cx
-            col = palette[escaped]
-            arr[py, px, 0] = col[0]
-            arr[py, px, 1] = col[1]
-            arr[py, px, 2] = col[2]
 
 class GraphManager:
     def __init__(self, ui_manager):
@@ -348,10 +383,12 @@ class GraphManager:
                 x1, y1 = x0 + dx, y0
                 x2, y2 = x1, y0 + dy
                 x3, y3 = x0, y2
+
                 def interpolate(p1, p2, v1, v2):
                     if abs(v1 - v2) < 1e-9: return p1
                     t = (threshold - v1) / (v2 - v1)
                     return (p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1]))
+
                 mid_x01 = interpolate((x0, y0), (x1, y1), grid[j][i], grid[j][i + 1])
                 mid_x12 = interpolate((x1, y1), (x2, y2), grid[j][i + 1], grid[j + 1][i + 1])
                 mid_x23 = interpolate((x2, y2), (x3, y3), grid[j + 1][i + 1], grid[j + 1][i])
@@ -379,7 +416,8 @@ class GraphManager:
         cam_tx, cam_ty = cam.translation.tx, cam.translation.ty
         cam_scale = cam.scaling
         steps_base = max(100, min(2000, int(vp_w * cam_scale)))
-        uses_time = any('t' in str(item['compiled'][1]) for item in self.graph_expression if item['compiled'][0] in ('cartesian', 'parametric', 'polar', 'field', 'implicit'))
+        uses_time = any('t' in str(item['compiled'][1]) for item in self.graph_expression if
+                        item['compiled'][0] in ('cartesian', 'parametric', 'polar', 'field', 'implicit'))
         has_fractal = any(item['compiled'][0] == 'fractal' for item in self.graph_expression)
         if uses_time or has_fractal:
             all_drawables = self._render_graphs(steps_base, cam, screen_w, screen_h)
@@ -532,8 +570,10 @@ class GraphManager:
                                 pass
                 elif graph_type == 'implicit':
                     code_f, xr, yr = compiled[1], compiled[2], compiled[3]
+
                     def f_eval(x, y):
                         return eval(code_f, safe_env, {"x": x, "y": y, "t": t_now})
+
                     segments = self._marching_squares(f_eval, xr[0], xr[1], yr[0], yr[1], threshold=0.0, resolution=40)
                     world_segments = []
                     for (x1, y1), (x2, y2) in segments:
@@ -552,7 +592,8 @@ class GraphManager:
                         surf, offset = self._fractal_cache[cache_key]
                     else:
                         start_profiling("_render_fractal")
-                        surf, offset = self._render_fractal(fractal_name, x_min, x_max, y_min, y_max, screen_w, screen_h, max_iter, escape_radius, c_param)
+                        surf, offset = self._render_fractal(fractal_name, x_min, x_max, y_min, y_max, screen_w,
+                                                            screen_h, max_iter, escape_radius, c_param)
                         self._fractal_cache[cache_key] = (surf, offset)
                         stop_profiling("_render_fractal")
                     drawables = [('fractal_surface', surf, offset)]
@@ -571,12 +612,27 @@ class GraphManager:
         return all_drawables
 
     def _render_fractal(self, name, x_min, x_max, y_min, y_max, w, h, max_iter, escape_radius, c_param):
-        arr = np.zeros((h, w, 3), dtype=np.uint8)
-        esc_sq = escape_radius * escape_radius
+        if w <= 0 or h <= 0:
+            empty_surf = pygame.Surface((1, 1))
+            return empty_surf, (0, 0)
+        arr = np.zeros((h, w, 3), dtype=np.uint8, order='C')
+        esc_sq = np_f(escape_radius * escape_radius)
         fractal_type = 0 if name == 'mandelbrot' else 1
-        c_real = c_param.real if c_param else 0.0
-        c_imag = c_param.imag if c_param else 0.0
-        _compute_fractal(arr, x_min, x_max, y_min, y_max, w, h, max_iter, esc_sq, fractal_type, c_real, c_imag)
+        c_real = np_f(c_param.real) if c_param else np_f(0.0)
+        c_imag = np_f(c_param.imag) if c_param else np_f(0.0)
+        try:
+            _taichi_compute_fractal(
+                arr,
+                np_f(x_min), np_f(x_max),
+                np_f(y_min), np_f(y_max),
+                int(w), int(h),
+                int(max_iter), esc_sq,
+                int(fractal_type),
+                c_real, c_imag
+            )
+        except Exception as e:
+            print(f"Taichi fractal error: {e}")
+            arr.fill(0)
         surface = pygame.surfarray.make_surface(arr.swapaxes(0, 1))
         return surface, (0, 0)
 
