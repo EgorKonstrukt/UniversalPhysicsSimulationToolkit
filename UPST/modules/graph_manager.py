@@ -1,5 +1,5 @@
 import os
-
+import collections
 import taichi as ti
 import numpy as np
 import math
@@ -8,7 +8,6 @@ import ast
 import re
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
 import numba as nb
-
 
 USE_F64 = True
 
@@ -21,11 +20,11 @@ else:
 
 ti.init(
     arch=ti.gpu,
-    cpu_max_num_threads = os.cpu_count(),
+    cpu_max_num_threads=os.cpu_count(),
     default_ip=ti.i32,
     default_fp=ti_f,
     debug=False,
-    enable_fallback = True,
+    enable_fallback=True,
     device_memory_GB=8.0
 )
 
@@ -75,7 +74,6 @@ def _taichi_compute_fractal(
         arr[py, px, 1] = ti.cast(g, ti.u8)
         arr[py, px, 2] = ti.cast(b, ti.u8)
 
-
 @nb.jit(nopython=True, fastmath=True, parallel=False)
 def _apply_transforms(points, transforms, depth):
     current = points.copy()
@@ -83,8 +81,7 @@ def _apply_transforms(points, transforms, depth):
         n_pts = current.shape[0]
         n_t = transforms.shape[0]
         total_new = n_pts * n_t
-        if total_new == 0:
-            break
+        if total_new == 0: break
         new_points = np.empty((total_new, 2), dtype=np.float64)
         idx = 0
         for i in range(n_pts):
@@ -98,7 +95,6 @@ def _apply_transforms(points, transforms, depth):
                 idx += 1
         current = new_points
     return current
-
 
 def _get_preset_rules(name):
     if name == 'sierpinski_triangle':
@@ -127,13 +123,13 @@ def _get_preset_rules(name):
     else:
         raise ValueError(f"Unknown preset: {name}")
 
-
 class GraphManager:
     def __init__(self, ui_manager):
         self.ui_manager = ui_manager
         self.graph_expression = None
         self._graph_cache = None
-        self._fractal_cache = {}
+        self._fractal_cache = collections.OrderedDict()
+        self._max_fractal_cache_size = 8
 
     def handle_graph_command(self, subcmd):
         if subcmd == 'clear':
@@ -590,10 +586,13 @@ class GraphManager:
                                  screen_w, screen_h, max_iter, round(escape_radius, 6), c_key)
                     if cache_key in self._fractal_cache:
                         surf, offset = self._fractal_cache[cache_key]
+                        self._fractal_cache.move_to_end(cache_key)
                     else:
                         start_profiling("_render_fractal")
                         surf, offset = self._render_fractal(fractal_name, x_min, x_max, y_min, y_max, screen_w,
                                                             screen_h, max_iter, escape_radius, c_param)
+                        if len(self._fractal_cache) >= self._max_fractal_cache_size:
+                            self._fractal_cache.popitem(last=False)
                         self._fractal_cache[cache_key] = (surf, offset)
                         stop_profiling("_render_fractal")
                     drawables = [('fractal_surface', surf, offset)]
