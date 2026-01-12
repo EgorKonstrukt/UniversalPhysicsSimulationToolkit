@@ -1,5 +1,4 @@
 import os
-import collections
 import taichi as ti
 import numpy as np
 import math
@@ -36,7 +35,11 @@ def _taichi_compute_fractal(
     w: ti.i32, h: ti.i32,
     max_iter: ti.i32, esc_sq: ti_f,
     fractal_type: ti.i32,
-    c_real: ti_f, c_imag: ti_f
+    c_real: ti_f, c_imag: ti_f,
+    palette_r: ti.types.ndarray(dtype=ti.u8, ndim=1),
+    palette_g: ti.types.ndarray(dtype=ti.u8, ndim=1),
+    palette_b: ti.types.ndarray(dtype=ti.u8, ndim=1),
+    palette_len: ti.i32
 ):
     dx = (x_max - x_min) / ti.cast(w, ti_f)
     dy = (y_max - y_min) / ti.cast(h, ti_f)
@@ -62,17 +65,18 @@ def _taichi_compute_fractal(
             tmp = zx
             zx = zx2 - zy2 + cx
             zy = ti.static(2.0) * tmp * zy + cy
-        r: ti.i32 = 0
-        g: ti.i32 = 0
-        b: ti.i32 = 0
+        r: ti.u8 = 0
+        g: ti.u8 = 0
+        b: ti.u8 = 0
         if escaped != max_iter:
-            t = ti.cast(escaped, ti_f) / ti.cast(max_iter, ti_f)
-            r = ti.min(255, ti.cast(95 + 160 * t, ti.i32))
-            g = ti.min(255, ti.cast(20 + 100 * t, ti.i32))
-            b = ti.min(255, ti.cast(150 * (ti.static(1.0) - t), ti.i32))
-        arr[py, px, 0] = ti.cast(r, ti.u8)
-        arr[py, px, 1] = ti.cast(g, ti.u8)
-        arr[py, px, 2] = ti.cast(b, ti.u8)
+            idx = ti.min(ti.max(0, escaped % palette_len), palette_len - 1)
+            r = palette_r[idx]
+            g = palette_g[idx]
+            b = palette_b[idx]
+        arr[py, px, 0] = r
+        arr[py, px, 1] = g
+        arr[py, px, 2] = b
+
 
 @nb.jit(nopython=True, fastmath=True, parallel=False)
 def _apply_transforms(points, transforms, depth):
@@ -81,7 +85,8 @@ def _apply_transforms(points, transforms, depth):
         n_pts = current.shape[0]
         n_t = transforms.shape[0]
         total_new = n_pts * n_t
-        if total_new == 0: break
+        if total_new == 0:
+            break
         new_points = np.empty((total_new, 2), dtype=np.float64)
         idx = 0
         for i in range(n_pts):
@@ -95,6 +100,7 @@ def _apply_transforms(points, transforms, depth):
                 idx += 1
         current = new_points
     return current
+
 
 def _get_preset_rules(name):
     if name == 'sierpinski_triangle':
@@ -123,13 +129,33 @@ def _get_preset_rules(name):
     else:
         raise ValueError(f"Unknown preset: {name}")
 
+
+def _parse_palette(palette_str):
+    if not palette_str:
+        return None
+    colors = [c.strip() for c in palette_str.split(',')]
+    rgb_list = []
+    for col in colors:
+        if col.startswith('#') and len(col) == 7:
+            r, g, b = int(col[1:3], 16), int(col[3:5], 16), int(col[5:7], 16)
+            rgb_list.append((r, g, b))
+        else:
+            try:
+                rgb = tuple(int(c.strip()) for c in col.split(','))
+                if len(rgb) == 3: rgb_list.append(rgb)
+            except Exception:
+                continue
+    if not rgb_list:
+        return None
+    return rgb_list
+
+
 class GraphManager:
     def __init__(self, ui_manager):
         self.ui_manager = ui_manager
         self.graph_expression = None
         self._graph_cache = None
-        self._fractal_cache = collections.OrderedDict()
-        self._max_fractal_cache_size = 8
+        self._fractal_cache = {}
 
     def handle_graph_command(self, subcmd):
         if subcmd == 'clear':
@@ -141,9 +167,13 @@ class GraphManager:
         try:
             tokens = [t.strip() for t in subcmd.split(';') if t.strip()]
             plots = []
-            current = {'expr': '', 'color': (0, 200, 255, 200), 'width': 1, 'style': 'solid', 'x_range': None,
-                       'y_range': None, 't_range': None, 'theta_range': None, 'plot_type': 'auto',
-                       'max_iter': 100, 'escape_radius': 2.0, 'c': None}
+            current = {
+                'expr': '', 'color': (0, 200, 255, 200), 'width': 1, 'style': 'solid',
+                'x_range': None, 'y_range': None, 't_range': None, 'theta_range': None,
+                'plot_type': 'auto', 'max_iter': 100, 'escape_radius': 2.0, 'c': None,
+                'scale': 1.0, 'palette': None,
+                'scale_expr': None, 'c_expr': None, 'escape_radius_expr': None
+            }
 
             def finalize_plot():
                 expr = current['expr']
@@ -220,9 +250,14 @@ class GraphManager:
                     if expr not in ('mandelbrot', 'julia'):
                         raise ValueError("Supported fractals: mandelbrot, julia")
                     c_val = current['c']
-                    if expr == 'julia' and c_val is None:
-                        raise ValueError("Julia set requires 'c=<complex>' parameter")
-                    compiled = ('fractal', expr, current['max_iter'], current['escape_radius'], c_val)
+                    c_expr = current['c_expr']
+                    if expr == 'julia' and c_val is None and c_expr is None:
+                        raise ValueError("Julia set requires 'c=<complex>' or 'c_t=...' parameter")
+                    compiled = (
+                        'fractal', expr, current['max_iter'], current['escape_radius'],
+                        c_val, current['scale'], current['palette'],
+                        current['scale_expr'], current['c_expr'], current['escape_radius_expr']
+                    )
                 elif plot_type == 'fractal_rule':
                     rule_str = expr
                     depth = current.get('depth', 5)
@@ -242,11 +277,21 @@ class GraphManager:
                             raise ValueError("Invalid rule: must be list of [a,b,c,d,e,f] or preset name")
                 else:
                     raise ValueError(f"Unknown plot type: {plot_type}")
-                plots.append({'compiled': compiled, 'color': current['color'], 'width': current['width'],
-                              'style': current['style'], 'max_iter': current['max_iter'],
-                              'escape_radius': current['escape_radius'], 'c': current['c']})
-                current.update({'expr': '', 'x_range': None, 'y_range': None, 't_range': None, 'theta_range': None,
-                                'plot_type': 'auto', 'max_iter': 100, 'escape_radius': 2.0, 'c': None})
+                plots.append({
+                    'compiled': compiled, 'color': current['color'], 'width': current['width'],
+                    'style': current['style'], 'max_iter': current['max_iter'],
+                    'escape_radius': current['escape_radius'], 'c': current['c'],
+                    'scale': current['scale'], 'palette': current['palette'],
+                    'has_time_dependence': any([
+                        current['scale_expr'], current['c_expr'], current['escape_radius_expr']
+                    ])
+                })
+                current.update({
+                    'expr': '', 'x_range': None, 'y_range': None, 't_range': None, 'theta_range': None,
+                    'plot_type': 'auto', 'max_iter': 100, 'escape_radius': 2.0, 'c': None,
+                    'scale': 1.0, 'palette': None,
+                    'scale_expr': None, 'c_expr': None, 'escape_radius_expr': None
+                })
 
             i = 0
             while i < len(tokens):
@@ -280,6 +325,8 @@ class GraphManager:
                         current['escape_radius'] = max(1.0, float(tok[14:].strip()))
                     except Exception:
                         pass
+                elif tok.startswith('escape_radius_t:'):
+                    current['escape_radius_expr'] = tok[16:].strip()
                 elif tok.startswith('c='):
                     try:
                         c_str = tok[2:].strip()
@@ -287,6 +334,17 @@ class GraphManager:
                         current['c'] = c_complex
                     except Exception:
                         pass
+                elif tok.startswith('c_t='):
+                    current['c_expr'] = tok[4:].strip()
+                elif tok.startswith('scale:'):
+                    try:
+                        current['scale'] = max(1e-6, float(tok[6:].strip()))
+                    except Exception:
+                        pass
+                elif tok.startswith('scale_t:'):
+                    current['scale_expr'] = tok[8:].strip()
+                elif tok.startswith('palette:'):
+                    current['palette'] = tok[8:].strip()
                 elif tok.startswith('x=') and '..' in tok:
                     rng = tok[2:].strip()
                     if '..' in rng:
@@ -415,7 +473,8 @@ class GraphManager:
         uses_time = any('t' in str(item['compiled'][1]) for item in self.graph_expression if
                         item['compiled'][0] in ('cartesian', 'parametric', 'polar', 'field', 'implicit'))
         has_fractal = any(item['compiled'][0] == 'fractal' for item in self.graph_expression)
-        if uses_time or has_fractal:
+        has_animated_fractal = any(item.get('has_time_dependence', False) for item in self.graph_expression)
+        if uses_time or has_fractal or has_animated_fractal:
             all_drawables = self._render_graphs(steps_base, cam, screen_w, screen_h)
             self._graph_cache = None
         else:
@@ -578,24 +637,39 @@ class GraphManager:
                         world_segments.append([p1, p2])
                     drawables = [('line', seg, color, width) for seg in world_segments]
                 elif graph_type == 'fractal':
-                    fractal_name, max_iter, escape_radius, c_param = compiled[1], compiled[2], compiled[3], compiled[4]
-                    x_min, x_max = cam_tx - vp_w / 2, cam_tx + vp_w / 2
-                    y_min, y_max = cam_ty - vp_h / 2, cam_ty + vp_h / 2
-                    c_key = (float(c_param.real), float(c_param.imag)) if c_param is not None else None
-                    cache_key = (fractal_name, round(x_min, 12), round(x_max, 12), round(y_min, 12), round(y_max, 12),
-                                 screen_w, screen_h, max_iter, round(escape_radius, 6), c_key)
-                    if cache_key in self._fractal_cache:
-                        surf, offset = self._fractal_cache[cache_key]
-                        self._fractal_cache.move_to_end(cache_key)
-                    else:
-                        start_profiling("_render_fractal")
-                        surf, offset = self._render_fractal(fractal_name, x_min, x_max, y_min, y_max, screen_w,
-                                                            screen_h, max_iter, escape_radius, c_param)
-                        if len(self._fractal_cache) >= self._max_fractal_cache_size:
-                            self._fractal_cache.popitem(last=False)
-                        self._fractal_cache[cache_key] = (surf, offset)
-                        stop_profiling("_render_fractal")
-                    drawables = [('fractal_surface', surf, offset)]
+                    (fractal_name, max_iter, escape_radius, c_param, scale_static, palette_str,
+                     scale_expr, c_expr, escape_radius_expr) = compiled[1:10]
+                    t_val = t_now
+                    scale = scale_static
+                    if scale_expr:
+                        try:
+                            scale = max(1e-6, float(eval(scale_expr, safe_env, {})))
+                        except:
+                            pass
+                    er = escape_radius
+                    if escape_radius_expr:
+                        try:
+                            er = max(1.0, float(eval(escape_radius_expr, safe_env, {})))
+                        except:
+                            pass
+                    c_use = c_param
+                    if c_expr:
+                        try:
+                            c_complex = complex(eval(c_expr, safe_env, {}).replace('i', 'j'))
+                            c_use = c_complex
+                        except:
+                            pass
+                    base_w, base_h = vp_w, vp_h
+                    scaled_w = base_w * scale
+                    scaled_h = base_h * scale
+                    x_min, x_max = cam_tx - scaled_w / 2, cam_tx + scaled_w / 2
+                    y_min, y_max = cam_ty - scaled_h / 2, cam_ty + scaled_h / 2
+                    c_key = (float(c_use.real), float(c_use.imag)) if c_use is not None else None
+                    palette_obj = _parse_palette(palette_str)
+                    drawables = [('fractal_surface', *self._render_fractal(
+                        fractal_name, x_min, x_max, y_min, y_max, screen_w, screen_h,
+                        max_iter, er, c_use, palette_obj
+                    ))]
                 elif graph_type == 'fractal_rule':
                     transforms, depth = compiled[1], compiled[2]
                     init_pts = np.array([[0.0, 0.0]], dtype=np.float64)
@@ -610,7 +684,7 @@ class GraphManager:
             all_drawables.extend(drawables)
         return all_drawables
 
-    def _render_fractal(self, name, x_min, x_max, y_min, y_max, w, h, max_iter, escape_radius, c_param):
+    def _render_fractal(self, name, x_min, x_max, y_min, y_max, w, h, max_iter, escape_radius, c_param, palette_obj):
         if w <= 0 or h <= 0:
             empty_surf = pygame.Surface((1, 1))
             return empty_surf, (0, 0)
@@ -619,6 +693,16 @@ class GraphManager:
         fractal_type = 0 if name == 'mandelbrot' else 1
         c_real = np_f(c_param.real) if c_param else np_f(0.0)
         c_imag = np_f(c_param.imag) if c_param else np_f(0.0)
+        if palette_obj is None:
+            default_len = min(max_iter, 256)
+            r_vals = np.array([min(255, int(95 + 160 * i / default_len)) for i in range(default_len)], dtype=np.uint8)
+            g_vals = np.array([min(255, int(20 + 100 * i / default_len)) for i in range(default_len)], dtype=np.uint8)
+            b_vals = np.array([min(255, int(150 * (1.0 - i / default_len))) for i in range(default_len)], dtype=np.uint8)
+        else:
+            pal_len = len(palette_obj)
+            r_vals = np.array([c[0] for c in palette_obj], dtype=np.uint8)
+            g_vals = np.array([c[1] for c in palette_obj], dtype=np.uint8)
+            b_vals = np.array([c[2] for c in palette_obj], dtype=np.uint8)
         try:
             _taichi_compute_fractal(
                 arr,
@@ -627,7 +711,9 @@ class GraphManager:
                 int(w), int(h),
                 int(max_iter), esc_sq,
                 int(fractal_type),
-                c_real, c_imag
+                c_real, c_imag,
+                r_vals, g_vals, b_vals,
+                len(r_vals)
             )
         except Exception as e:
             print(f"Taichi fractal error: {e}")
