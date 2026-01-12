@@ -7,26 +7,29 @@ from UPST.modules.profiler import profile, start_profiling, stop_profiling
 
 import numba as nb
 
-@nb.jit(nopython=True, fastmath=True, parallel=True)
+
+@nb.jit(nopython=True, fastmath=True, parallel=False)
 def _apply_transforms(points, transforms, depth):
-    if depth == 0:
-        return points
-    new_points = []
-    n_t = transforms.shape[0]
-    for i in range(points.shape[0]):
-        x, y = points[i, 0], points[i, 1]
-        for t in range(n_t):
-            a, b, c, d, e, f = transforms[t]
-            nx = a * x + b * y + e
-            ny = c * x + d * y + f
-            new_points.append((nx, ny))
-    if len(new_points) == 0:
-        return np.empty((0, 2), dtype=np.float64)
-    arr = np.empty((len(new_points), 2), dtype=np.float64)
-    for i in range(len(new_points)):
-        arr[i, 0] = new_points[i][0]
-        arr[i, 1] = new_points[i][1]
-    return _apply_transforms(arr, transforms, depth - 1)
+    current = points.copy()
+    for _ in range(depth):
+        n_pts = current.shape[0]
+        n_t = transforms.shape[0]
+        total_new = n_pts * n_t
+        if total_new == 0:
+            break
+        new_points = np.empty((total_new, 2), dtype=np.float64)
+        idx = 0
+        for i in range(n_pts):
+            x, y = current[i, 0], current[i, 1]
+            for t in range(n_t):
+                a, b, c, d, e, f = transforms[t]
+                nx = a * x + b * y + e
+                ny = c * x + d * y + f
+                new_points[idx, 0] = nx
+                new_points[idx, 1] = ny
+                idx += 1
+        current = new_points
+    return current
 
 def _get_preset_rules(name):
     if name == 'sierpinski_triangle':
