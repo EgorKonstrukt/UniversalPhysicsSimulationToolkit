@@ -2,24 +2,114 @@ import math
 import pygame
 import ast
 import re
+import numpy as np
+from UPST.modules.profiler import profile, start_profiling, stop_profiling
+
+import numba as nb
+
+@nb.jit(nopython=True, fastmath=True, parallel=True)
+def _apply_transforms(points, transforms, depth):
+    if depth == 0:
+        return points
+    new_points = []
+    n_t = transforms.shape[0]
+    for i in range(points.shape[0]):
+        x, y = points[i, 0], points[i, 1]
+        for t in range(n_t):
+            a, b, c, d, e, f = transforms[t]
+            nx = a * x + b * y + e
+            ny = c * x + d * y + f
+            new_points.append((nx, ny))
+    if len(new_points) == 0:
+        return np.empty((0, 2), dtype=np.float64)
+    arr = np.empty((len(new_points), 2), dtype=np.float64)
+    for i in range(len(new_points)):
+        arr[i, 0] = new_points[i][0]
+        arr[i, 1] = new_points[i][1]
+    return _apply_transforms(arr, transforms, depth - 1)
+
+def _get_preset_rules(name):
+    if name == 'sierpinski_triangle':
+        return np.array([
+            [0.5, 0.0, 0.0, 0.5, 0.0, 0.0],
+            [0.5, 0.0, 0.0, 0.5, 0.5, 0.0],
+            [0.5, 0.0, 0.0, 0.5, 0.25, 0.5]
+        ], dtype=np.float64)
+    elif name == 'sierpinski_carpet':
+        s = 1/3
+        offsets = [(i*s, j*s) for i in range(3) for j in range(3) if not (i == 1 and j == 1)]
+        rules = []
+        for ox, oy in offsets:
+            rules.append([s, 0.0, 0.0, s, ox, oy])
+        return np.array(rules, dtype=np.float64)
+    elif name == 'koch_snowflake':  # IFS approximation
+        angle = np.pi / 3
+        c, s = np.cos(angle), np.sin(angle)
+        scale = 1/3
+        return np.array([
+            [scale, 0, 0, scale, 0, 0],
+            [scale*c, -scale*s, scale*s, scale*c, scale, 0],
+            [scale*c, scale*s, -scale*s, scale*c, 0.5, scale*np.sqrt(3)/2],
+            [scale, 0, 0, scale, 2*scale, 0]
+        ], dtype=np.float64)
+    else:
+        raise ValueError(f"Unknown preset: {name}")
+
+@nb.jit(nopython=True, fastmath=True, parallel=True, nogil=True)
+def _compute_fractal(arr, x_min, x_max, y_min, y_max, w, h, max_iter, esc_sq, fractal_type, c_real=0.0, c_imag=0.0):
+    dx = (x_max - x_min) / w
+    dy = (y_max - y_min) / h
+    palette = np.empty((max_iter + 1, 3), dtype=np.uint8)
+    for i in range(max_iter):
+        t = i / max_iter
+        palette[i, 0] = np.uint8(95 + 160 * t)
+        palette[i, 1] = np.uint8(20 + 100 * t)
+        palette[i, 2] = np.uint8(150 * (1 - t))
+    palette[max_iter, :] = 0  # inside set
+
+    for py in nb.prange(h):
+        y = y_max - py * dy
+        for px in range(w):
+            x = x_min + px * dx
+            zx = zy = 0.0
+            cx = x if fractal_type == 0 else c_real
+            cy = y if fractal_type == 0 else c_imag
+            if fractal_type != 0:
+                zx, zy = x, y
+            escaped = max_iter
+            for i in range(max_iter):
+                zx2 = zx * zx
+                zy2 = zy * zy
+                if zx2 + zy2 > esc_sq:
+                    escaped = i
+                    break
+                zy = 2 * zx * zy + cy
+                zx = zx2 - zy2 + cx
+            col = palette[escaped]
+            arr[py, px, 0] = col[0]
+            arr[py, px, 1] = col[1]
+            arr[py, px, 2] = col[2]
 
 class GraphManager:
     def __init__(self, ui_manager):
         self.ui_manager = ui_manager
         self.graph_expression = None
         self._graph_cache = None
+        self._fractal_cache = {}
 
     def handle_graph_command(self, subcmd):
         if subcmd == 'clear':
             self.graph_expression = None
             self._graph_cache = None
+            self._fractal_cache.clear()
             self.ui_manager.console_ui.console_window.add_output_line_to_log("Graph cleared.")
             return
         try:
             tokens = [t.strip() for t in subcmd.split(';') if t.strip()]
             plots = []
             current = {'expr': '', 'color': (0, 200, 255, 200), 'width': 1, 'style': 'solid', 'x_range': None,
-                       'y_range': None, 't_range': None, 'theta_range': None, 'plot_type': 'auto'}
+                       'y_range': None, 't_range': None, 'theta_range': None, 'plot_type': 'auto',
+                       'max_iter': 100, 'escape_radius': 2.0, 'c': None}
 
             def finalize_plot():
                 expr = current['expr']
@@ -35,6 +125,12 @@ class GraphManager:
                     elif expr.startswith('implicit '):
                         plot_type = 'implicit'
                         expr = expr[9:].strip()
+                    elif expr.startswith('fractal '):
+                        plot_type = 'fractal'
+                        expr = expr[8:].strip()
+                    elif expr.startswith('fractal_rule '):
+                        plot_type = 'fractal_rule'
+                        expr = expr[13:].strip()
                     else:
                         if ',' in expr:
                             parts = [p.strip() for p in expr.split(',', 1)]
@@ -86,12 +182,37 @@ class GraphManager:
                     xr = current['x_range'] or (-5.0, 5.0)
                     yr = current['y_range'] or (-5.0, 5.0)
                     compiled = ('implicit', code_f, xr, yr)
+                elif plot_type == 'fractal':
+                    if expr not in ('mandelbrot', 'julia'):
+                        raise ValueError("Supported fractals: mandelbrot, julia")
+                    c_val = current['c']
+                    if expr == 'julia' and c_val is None:
+                        raise ValueError("Julia set requires 'c=<complex>' parameter")
+                    compiled = ('fractal', expr, current['max_iter'], current['escape_radius'], c_val)
+                elif plot_type == 'fractal_rule':
+                    rule_str = expr
+                    depth = current.get('depth', 5)
+                    if rule_str in ('sierpinski_triangle', 'sierpinski_carpet', 'koch_snowflake'):
+                        transforms = _get_preset_rules(rule_str)
+                        compiled = ('fractal_rule', transforms, depth)
+                    else:
+                        try:
+                            rule_list = ast.literal_eval(rule_str)
+                            if not isinstance(rule_list, list):
+                                raise ValueError
+                            transforms = np.array(rule_list, dtype=np.float64)
+                            if transforms.ndim != 2 or transforms.shape[1] != 6:
+                                raise ValueError
+                            compiled = ('fractal_rule', transforms, depth)
+                        except Exception:
+                            raise ValueError("Invalid rule: must be list of [a,b,c,d,e,f] or preset name")
                 else:
                     raise ValueError(f"Unknown plot type: {plot_type}")
                 plots.append({'compiled': compiled, 'color': current['color'], 'width': current['width'],
-                              'style': current['style']})
+                              'style': current['style'], 'max_iter': current['max_iter'],
+                              'escape_radius': current['escape_radius'], 'c': current['c']})
                 current.update({'expr': '', 'x_range': None, 'y_range': None, 't_range': None, 'theta_range': None,
-                                'plot_type': 'auto'})
+                                'plot_type': 'auto', 'max_iter': 100, 'escape_radius': 2.0, 'c': None})
 
             i = 0
             while i < len(tokens):
@@ -115,6 +236,23 @@ class GraphManager:
                 elif tok.startswith('style:'):
                     style = tok[6:].strip()
                     if style in ('solid', 'dashed', 'dotted'): current['style'] = style
+                elif tok.startswith('max_iter:'):
+                    try:
+                        current['max_iter'] = max(10, min(1000, int(tok[9:].strip())))
+                    except Exception:
+                        pass
+                elif tok.startswith('escape_radius:'):
+                    try:
+                        current['escape_radius'] = max(1.0, float(tok[14:].strip()))
+                    except Exception:
+                        pass
+                elif tok.startswith('c='):
+                    try:
+                        c_str = tok[2:].strip()
+                        c_complex = complex(c_str.replace('i', 'j'))
+                        current['c'] = c_complex
+                    except Exception:
+                        pass
                 elif tok.startswith('x=') and '..' in tok:
                     rng = tok[2:].strip()
                     if '..' in rng:
@@ -136,6 +274,11 @@ class GraphManager:
                     if '..' in rng:
                         a, b = map(self._parse_numeric_expr, rng.split('..'))
                         current['theta_range'] = (a, b)
+                elif tok.startswith('depth:'):
+                    try:
+                        current['depth'] = max(1, min(20, int(tok[6:].strip())))
+                    except Exception:
+                        pass
                 else:
                     if current['expr']: finalize_plot()
                     current['expr'] = tok
@@ -144,6 +287,7 @@ class GraphManager:
             if not plots: raise ValueError("No valid expression to plot")
             self.graph_expression = plots
             self._graph_cache = None
+            self._fractal_cache.clear()
             self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Graph set with {len(plots)} plot(s).")
         except Exception as e:
             self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Graph error: {e}")
@@ -224,6 +368,7 @@ class GraphManager:
     def draw_graph(self):
         if not self.graph_expression or not hasattr(self.ui_manager.app, 'camera'):
             self._graph_cache = None
+            self._fractal_cache.clear()
             return
         cam = self.ui_manager.app.camera
         screen_w, screen_h = self.ui_manager.app.screen.get_size()
@@ -232,7 +377,8 @@ class GraphManager:
         cam_scale = cam.scaling
         steps_base = max(100, min(2000, int(vp_w * cam_scale)))
         uses_time = any('t' in str(item['compiled'][1]) for item in self.graph_expression if item['compiled'][0] in ('cartesian', 'parametric', 'polar', 'field', 'implicit'))
-        if uses_time:
+        has_fractal = any(item['compiled'][0] == 'fractal' for item in self.graph_expression)
+        if uses_time or has_fractal:
             all_drawables = self._render_graphs(steps_base, cam, screen_w, screen_h)
             self._graph_cache = None
         else:
@@ -263,6 +409,9 @@ class GraphManager:
             elif dtype == 'arrow':
                 _, start, end, color, width = drawable
                 self._draw_arrow(self.ui_manager.app.screen, color[:3], start, end, width)
+            elif dtype == 'fractal_surface':
+                _, surface, offset = drawable
+                self.ui_manager.app.screen.blit(surface, offset)
 
     def _render_graphs(self, steps_base, cam, screen_w, screen_h):
         vp_w, vp_h = cam.get_viewport_size()
@@ -389,10 +538,44 @@ class GraphManager:
                         p2 = cam.world_to_screen((x2, y2))
                         world_segments.append([p1, p2])
                     drawables = [('line', seg, color, width) for seg in world_segments]
+                elif graph_type == 'fractal':
+                    fractal_name, max_iter, escape_radius, c_param = compiled[1], compiled[2], compiled[3], compiled[4]
+                    x_min, x_max = cam_tx - vp_w / 2, cam_tx + vp_w / 2
+                    y_min, y_max = cam_ty - vp_h / 2, cam_ty + vp_h / 2
+                    c_key = (float(c_param.real), float(c_param.imag)) if c_param is not None else None
+                    cache_key = (fractal_name, round(x_min, 12), round(x_max, 12), round(y_min, 12), round(y_max, 12),
+                                 screen_w, screen_h, max_iter, round(escape_radius, 6), c_key)
+                    if cache_key in self._fractal_cache:
+                        surf, offset = self._fractal_cache[cache_key]
+                    else:
+                        start_profiling("_render_fractal")
+                        surf, offset = self._render_fractal(fractal_name, x_min, x_max, y_min, y_max, screen_w, screen_h, max_iter, escape_radius, c_param)
+                        self._fractal_cache[cache_key] = (surf, offset)
+                        stop_profiling("_render_fractal")
+                    drawables = [('fractal_surface', surf, offset)]
+                elif graph_type == 'fractal_rule':
+                    transforms, depth = compiled[1], compiled[2]
+                    init_pts = np.array([[0.0, 0.0]], dtype=np.float64)
+                    pts = _apply_transforms(init_pts, transforms, depth)
+                    drawables = []
+                    for i in range(pts.shape[0]):
+                        x, y = pts[i, 0], pts[i, 1]
+                        scr = cam.world_to_screen((x, y))
+                        drawables.append(('point', scr, color, max(1, width // 2)))
             except Exception:
                 drawables = []
             all_drawables.extend(drawables)
         return all_drawables
+
+    def _render_fractal(self, name, x_min, x_max, y_min, y_max, w, h, max_iter, escape_radius, c_param):
+        arr = np.zeros((h, w, 3), dtype=np.uint8)
+        esc_sq = escape_radius * escape_radius
+        fractal_type = 0 if name == 'mandelbrot' else 1
+        c_real = c_param.real if c_param else 0.0
+        c_imag = c_param.imag if c_param else 0.0
+        _compute_fractal(arr, x_min, x_max, y_min, y_max, w, h, max_iter, esc_sq, fractal_type, c_real, c_imag)
+        surface = pygame.surfarray.make_surface(arr.swapaxes(0, 1))
+        return surface, (0, 0)
 
     def _apply_line_style(self, points, style):
         if style == 'solid' or len(points) < 2:

@@ -4,16 +4,13 @@ import pymunk
 import time
 import random
 import os
-
 from pymunk import Vec2d
-
 from UPST.config import config
 from UPST.utils import bytes_to_surface
 from UPST.modules.texture_processor import TextureProcessor, TextureState
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
 from UPST.modules.cloud_manager import CloudManager, CloudRenderer
 from UPST.physics.thermal_manager import ThermalManager
-
 import pygame.gfxdraw
 
 class Renderer:
@@ -46,42 +43,34 @@ class Renderer:
         self.INT16_MIN, self.INT16_MAX = -32768, 32767
         self.outline_color = (50, 50, 50, 180)
         self.outline_thickness = 1
-        # self.thermal_manager = ThermalManager(physics_manager, camera)
 
     @profile("_draw_constraints", "renderer")
     def _draw_constraints(self):
         cam_scale = self.camera.scaling
-        if cam_scale > 100:
-            return
-
+        if cam_scale > 100: return
         theme = config.world.themes[config.world.current_theme]
         default_color = (*getattr(theme, 'constraint_color', (200, 200, 255)), 200)
-        margin = 2000
-        screen_w, screen_h = self.screen.get_size()
+        margin, screen_w, screen_h = 2000, self.screen_w, self.screen_h
         clip_rect = pygame.Rect(-margin, -margin, screen_w + 2 * margin, screen_h + 2 * margin)
         safe_coord = lambda v: max(-32768, min(32767, int(round(v))))
-
         spring_tex_path = getattr(config.rendering, 'spring_texture', '')
         use_segmented = getattr(config.rendering, 'spring_texture_segmented', True)
         tile_world_width = getattr(config.rendering, 'spring_texture_tile_world_width', 20.0)
-        base_scaled = None
-        seg_cache = {}
+        base_scaled = seg_cache = None
         if spring_tex_path and use_segmented:
             base_tex = self._get_texture(spring_tex_path)
             if base_tex:
                 tex_h = base_tex.get_height()
                 scaled_h = max(1, int(tex_h * cam_scale / 15))
                 base_scaled = pygame.transform.smoothscale(base_tex, (base_tex.get_width(), scaled_h)) if tex_h != scaled_h else base_tex
-
+                seg_cache = {}
+        screen, draw_line = self.screen, pygame.draw.line
         for constraint in self.physics_manager.space.constraints:
-            if not isinstance(constraint, (pymunk.DampedSpring, pymunk.PinJoint, pymunk.SlideJoint, pymunk.PivotJoint)) or getattr(constraint, 'hidden', False):
-                continue
-
+            if not isinstance(constraint, (pymunk.DampedSpring, pymunk.PinJoint, pymunk.SlideJoint, pymunk.PivotJoint)) or getattr(constraint, 'hidden', False): continue
             a_world = constraint.a.local_to_world(constraint.anchor_a)
             b_world = constraint.b.local_to_world(constraint.anchor_b)
             a_scr = self.camera.world_to_screen(a_world)
             b_scr = self.camera.world_to_screen(b_world)
-
             dx, dy = b_scr[0] - a_scr[0], b_scr[1] - a_scr[1]
             if not (clip_rect.collidepoint(a_scr) or clip_rect.collidepoint(b_scr)):
                 lsq = dx * dx + dy * dy
@@ -90,14 +79,10 @@ class Renderer:
                 t = max(0.0, min(1.0, t))
                 cx, cy = a_scr[0] + t * dx, a_scr[1] + t * dy
                 if not clip_rect.collidepoint(cx, cy): continue
-
             constraint_color = getattr(constraint, 'color', default_color)
-            if len(constraint_color) == 3:
-                constraint_color = (*constraint_color, 200)
-
+            if len(constraint_color) == 3: constraint_color = (*constraint_color, 200)
             if isinstance(constraint, pymunk.DampedSpring) and base_scaled is not None:
-                rest_len = constraint.rest_length
-                curr_len = (b_world - a_world).length
+                rest_len, curr_len = constraint.rest_length, (b_world - a_world).length
                 if rest_len <= 0.1 or curr_len <= 0.1: continue
                 screen_len = math.hypot(dx, dy)
                 if screen_len < 1e-3: continue
@@ -119,45 +104,34 @@ class Renderer:
                     colored.fill((*color_rgb, 255), special_flags=pygame.BLEND_RGBA_MULT)
                     cx = seg_x0 + seg_len_scr * cos_a * 0.5
                     cy = seg_y0 + seg_len_scr * sin_a * 0.5
-                    self.screen.blit(colored, (int(cx - colored.get_width() // 2), int(cy - colored.get_height() // 2)))
+                    screen.blit(colored, (int(cx - colored.get_width() // 2), int(cy - colored.get_height() // 2)))
             else:
                 width = max(1, int(2 * cam_scale))
-                pygame.draw.line(self.screen, constraint_color[:3], a_scr, b_scr, width)
-
+                draw_line(screen, constraint_color[:3], a_scr, b_scr, width)
             for anchor_scr, tex_key in [(a_scr, 'spring_point_a_texture'), (b_scr, 'spring_point_b_texture')]:
                 tex_path = getattr(config.rendering, tex_key, '')
                 if tex_path:
                     pt_tex = self._get_scaled_texture(tex_path, 0.1 * cam_scale)
-                    if pt_tex:
-                        self.screen.blit(pt_tex, (anchor_scr[0] - pt_tex.get_width() // 2, anchor_scr[1] - pt_tex.get_height() // 2))
+                    if pt_tex: screen.blit(pt_tex, (anchor_scr[0] - pt_tex.get_width() // 2, anchor_scr[1] - pt_tex.get_height() // 2))
                 else:
                     r = max(1, int(1 * cam_scale))
                     x, y = safe_coord(anchor_scr[0]), safe_coord(anchor_scr[1])
-                    pygame.gfxdraw.filled_circle(self.screen, x, y, r, constraint_color)
-                    pygame.gfxdraw.aacircle(self.screen, x, y, r, (50, 50, 50))
+                    pygame.gfxdraw.filled_circle(screen, x, y, r, constraint_color)
+                    pygame.gfxdraw.aacircle(screen, x, y, r, (50, 50, 50))
 
-    def safe_coord(self, v):
-        return max(self.INT16_MIN, min(self.INT16_MAX, int(round(v))))
+    def safe_coord(self, v): return max(self.INT16_MIN, min(self.INT16_MAX, int(round(v))))
 
     @profile("_draw_physics_shapes", "renderer")
     def _draw_physics_shapes(self):
-        screen = self.screen
-        camera = self.camera
-        clip = self.clip_rect
-        safe = self.safe_coord
-        bodies_to_render = []
-
-        space_shapes = self.physics_manager.space.shapes
+        screen, camera, clip, safe = self.screen, self.camera, self.clip_rect, self.safe_coord
         cam_scale = camera.scaling
+        circles, polys, segments = [], [], []
+        space_shapes = self.physics_manager.space.shapes
         for shape in space_shapes:
             if not hasattr(shape, 'color'): continue
             body = shape.body
-            color = getattr(shape, 'color', None)
-            if color is None:
-                color = getattr(body, 'color', (200, 200, 200, 255))
-
+            color = getattr(shape, 'color', getattr(body, 'color', (200, 200, 200, 255)))
             if len(color) == 3: color = (*color, 255)
-
             if isinstance(shape, pymunk.Circle):
                 world_pos = body.local_to_world(shape.offset)
                 if not (math.isfinite(world_pos.x) and math.isfinite(world_pos.y)): continue
@@ -168,49 +142,28 @@ class Renderer:
                 dx = max(clip.x, min(scr_x, clip.x + clip.w)) - scr_x
                 dy = max(clip.y, min(scr_y, clip.y + clip.h)) - scr_y
                 if dx * dx + dy * dy > r_px * r_px: continue
-                bodies_to_render.append(('circle', scr_x, scr_y, r_px, color, body.angle))
+                circles.append((scr_x, scr_y, r_px, color, body.angle))
             elif isinstance(shape, pymunk.Poly):
                 verts = [camera.world_to_screen(body.local_to_world(v)) for v in shape.get_vertices()]
-                if len(verts) < 3:
-                    continue
-                valid_verts = []
-                for v in verts:
-                    if not (isinstance(v, (tuple, list)) and len(v) == 2):
+                valid_verts = [(x, y) for x, y in verts if math.isfinite(x) and math.isfinite(y)]
+                if len(valid_verts) < 3: continue
+                try:
+                    xs, ys = zip(*valid_verts)
+                    min_x, max_x = min(xs), max(xs)
+                    min_y, max_y = min(ys), max(ys)
+                    if not (math.isfinite(min_x) and math.isfinite(max_x) and math.isfinite(min_y) and math.isfinite(
+                            max_y)):
                         continue
-                    x, y = v
-                    if not (math.isfinite(x) and math.isfinite(y)):
-                        continue
-                    valid_verts.append((x, y))
-                if len(valid_verts) < 3:
+                    obj_rect = pygame.Rect(int(min_x), int(min_y), int(max_x - min_x) + 1, int(max_y - min_y) + 1)
+                except (ValueError, TypeError):
                     continue
-                xs, ys = zip(*valid_verts)
-                min_x, max_x = min(xs), max(xs)
-                min_y, max_y = min(ys), max(ys)
-                w = max(0.0, max_x - min_x)
-                h = max(0.0, max_y - min_y)
-                ix = safe(min_x)
-                iy = safe(min_y)
-                iw = safe(w) + 1
-                ih = safe(h) + 1
-                if iw <= 0 or ih <= 0:
-                    continue
-                obj_rect = pygame.Rect(ix, iy, iw, ih)
-                if not obj_rect.colliderect(clip):
-                    continue
-                int_verts = [(safe(vx), safe(vy)) for vx, vy in valid_verts]
-                bodies_to_render.append(('poly', int_verts, color))
-
+                if not obj_rect.colliderect(clip): continue
+                polys.append(([(safe(x), safe(y)) for x, y in valid_verts], color))
             elif isinstance(shape, pymunk.Segment):
-                a_world = body.local_to_world(shape.a)
-                b_world = body.local_to_world(shape.b)
-                if not (math.isfinite(a_world.x) and math.isfinite(a_world.y) and math.isfinite(
-                        b_world.x) and math.isfinite(b_world.y)):
-                    continue
-                a_scr = camera.world_to_screen(a_world)
-                b_scr = camera.world_to_screen(b_world)
-                if not (math.isfinite(a_scr[0]) and math.isfinite(a_scr[1]) and math.isfinite(
-                        b_scr[0]) and math.isfinite(b_scr[1])):
-                    continue
+                a_world, b_world = body.local_to_world(shape.a), body.local_to_world(shape.b)
+                if not all(math.isfinite(v) for v in (a_world.x, a_world.y, b_world.x, b_world.y)): continue
+                a_scr, b_scr = camera.world_to_screen(a_world), camera.world_to_screen(b_world)
+                if not all(math.isfinite(v) for v in (*a_scr, *b_scr)): continue
                 if not (clip.collidepoint(*a_scr) or clip.collidepoint(*b_scr)):
                     dx, dy = b_scr[0] - a_scr[0], b_scr[1] - a_scr[1]
                     lsq = dx * dx + dy * dy
@@ -219,42 +172,53 @@ class Renderer:
                     cx, cy = a_scr[0] + t * dx, a_scr[1] + t * dy
                     if not clip.collidepoint(cx, cy): continue
                 r_px = shape.radius * cam_scale
-                bodies_to_render.append(('segment', a_scr[0], a_scr[1], b_scr[0], b_scr[1], r_px, color))
-
-            if hasattr(shape, "texture_path") and shape.texture_path:
-                tex = self._get_scaled_texture_by_camera(shape.texture_path)
-                if tex:
-                    cx = sum(v[0] for v in verts) / len(verts)
-                    cy = sum(v[1] for v in verts) / len(verts)
-                    if not (math.isfinite(cx) and math.isfinite(cy)): continue
-                    rot = pygame.transform.rotate(tex, -math.degrees(body.angle))
-                    screen.blit(rot, (cx - rot.get_width() / 2, cy - rot.get_height() / 2))
-                    continue
-
-        outline = self.outline_color
-        othick = self.outline_thickness
-        for item in bodies_to_render:
-            typ = item[0]
-            if typ == 'circle':
-                _, x, y, r, col, ang = item
-                if not (math.isfinite(x) and math.isfinite(y) and math.isfinite(r)): continue
-                self._draw_circle_batched(screen, (x, y), r, col, outline, othick, ang, safe)
-            elif typ == 'poly':
-                _, verts, col = item
-                if not all(math.isfinite(vx) and math.isfinite(vy) for vx, vy in verts): continue
-                self._draw_poly_batched(screen, verts, col, outline, othick)
-            elif typ == 'segment':
-                _, x1, y1, x2, y2, r, col = item
-                if not all(math.isfinite(v) for v in (x1, y1, x2, y2, r)): continue
-                self._draw_segment_batched(screen, (x1, y1), (x2, y2), r, col, outline, othick, safe)
+                segments.append((a_scr[0], a_scr[1], b_scr[0], b_scr[1], r_px, color))
+        outline, othick = self.outline_color, self.outline_thickness
+        gfx_filled_circle = pygame.gfxdraw.filled_circle
+        gfx_aacircle = pygame.gfxdraw.aacircle
+        gfx_filled_polygon = pygame.gfxdraw.filled_polygon
+        gfx_aapolygon = pygame.gfxdraw.aapolygon
+        draw_line = pygame.draw.line
+        for x, y, r, col, ang in circles:
+            if not (math.isfinite(x) and math.isfinite(y) and math.isfinite(r)): continue
+            ix, iy, ir = safe(x), safe(y), min(self.INT16_MAX, max(0, int(r)))
+            if ir <= 0: continue
+            r8, g8, b8, a8 = col
+            or8, og8, ob8, oa8 = outline
+            if a8 == 255:
+                gfx_filled_circle(screen, ix, iy, ir, (r8, g8, b8))
+                for t in range(othick): gfx_aacircle(screen, ix, iy, max(0, ir - t), (or8, og8, ob8))
+            else:
+                self._draw_circle_transparent(screen, ix, iy, ir, col, outline, othick)
+            if ir > 3: self._draw_circle_pointer(screen, ix, iy, ir, -ang)
+        for verts, col in polys:
+            if not all(math.isfinite(vx) and math.isfinite(vy) for vx, vy in verts): continue
+            r8, g8, b8, a8 = col
+            or8, og8, ob8, oa8 = outline
+            if a8 == 255:
+                gfx_filled_polygon(screen, verts, (r8, g8, b8))
+                gfx_aapolygon(screen, verts, (or8, og8, ob8))
+            else:
+                self._draw_poly_transparent(screen, verts, col, outline, othick)
+        for x1, y1, x2, y2, r, col in segments:
+            if not all(math.isfinite(v) for v in (x1, y1, x2, y2, r)): continue
+            ix1, iy1, ix2, iy2 = safe(x1), safe(y1), safe(x2), safe(y2)
+            thick = max(1, int(r))
+            othick2 = thick + 2 * othick
+            r8, g8, b8, a8 = col
+            or8, og8, ob8, oa8 = outline
+            if a8 == 255 and oa8 == 255:
+                draw_line(screen, (or8, og8, ob8), (ix1, iy1), (ix2, iy2), othick2)
+                draw_line(screen, (r8, g8, b8), (ix1, iy1), (ix2, iy2), thick)
+            else:
+                self._draw_segment_transparent(screen, ix1, iy1, ix2, iy2, thick, othick2, col, outline)
 
     def _draw_circle_transparent(self, surf, ix, iy, ir, col, outline, othick):
         size = ir * 2 + 2
         if size > 65535 or size <= 0: return
         temp = pygame.Surface((size, size), pygame.SRCALPHA)
         pygame.draw.circle(temp, col, (ir + 1, ir + 1), ir)
-        for t in range(othick):
-            pygame.draw.circle(temp, outline, (ir + 1, ir + 1), ir - t, 1)
+        for t in range(othick): pygame.draw.circle(temp, outline, (ir + 1, ir + 1), ir - t, 1)
         surf.blit(temp, (ix - ir - 1, iy - ir - 1))
 
     def _draw_poly_transparent(self, surf, verts, col, outline, othick):
@@ -293,58 +257,21 @@ class Renderer:
         if all(self.INT16_MIN <= x <= self.INT16_MAX and self.INT16_MIN <= y <= self.INT16_MAX for x, y in wedge):
             pygame.gfxdraw.filled_polygon(surf, wedge, (0, 0, 0, 140))
             pygame.gfxdraw.aapolygon(surf, wedge, (0, 0, 0, 140))
-    def _draw_circle_batched(self, surf, pos, r, col, outline, othick, angle, safe):
-        ix, iy = safe(pos[0]), safe(pos[1])
-        ir = min(self.INT16_MAX, max(0, int(r)))
-        if ir <= 0: return
-        r8, g8, b8, a8 = col
-        or8, og8, ob8, oa8 = outline
-        if a8 == 255:
-            pygame.gfxdraw.filled_circle(surf, ix, iy, ir, (r8, g8, b8))
-            for t in range(othick):
-                pygame.gfxdraw.aacircle(surf, ix, iy, max(0, ir - t), (or8, og8, ob8))
-        else:
-            self._draw_circle_transparent(surf, ix, iy, ir, col, outline, othick)
-        if ir > 3:
-            self._draw_circle_pointer(surf, ix, iy, ir, -angle)
 
-    def _draw_poly_batched(self, surf, verts, col, outline, othick):
-        r8, g8, b8, a8 = col
-        or8, og8, ob8, oa8 = outline
-        if a8 == 255:
-            pygame.gfxdraw.filled_polygon(surf, verts, (r8, g8, b8))
-            pygame.gfxdraw.aapolygon(surf, verts, (or8, og8, ob8))
-        else:
-            self._draw_poly_transparent(surf, verts, col, outline, othick)
-
-    def _draw_segment_batched(self, surf, a, b, r, col, outline, othick, safe):
-        ix1, iy1 = safe(a[0]), safe(a[1])
-        ix2, iy2 = safe(b[0]), safe(b[1])
-        thick = max(1, int(r))
-        othick2 = thick + 2 * othick
-        r8, g8, b8, a8 = col
-        or8, og8, ob8, oa8 = outline
-        if a8 == 255 and oa8 == 255:
-            pygame.draw.line(surf, (or8, og8, ob8), (ix1, iy1), (ix2, iy2), othick2)
-            pygame.draw.line(surf, (r8, g8, b8), (ix1, iy1), (ix2, iy2), thick)
-        else:
-            self._draw_segment_transparent(surf, ix1, iy1, ix2, iy2, thick, othick2, col, outline)
     @profile("_get_scaled_texture_by_camera", "_draw_physics_shapes")
     def _get_scaled_texture_by_camera(self, path, base_scale=1.0):
-        if not path:
-            return None
+        if not path: return None
         scale = self.camera.scaling * base_scale
         key = (path, round(scale, 3))
         if key not in self.texture_cache:
             base = self._get_texture(path)
-            if not base:
-                return None
+            if not base: return None
             w, h = base.get_size()
-            new_w = max(1, int(w * scale))
-            new_h = max(1, int(h * scale))
+            new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
             self.texture_cache[key] = pygame.transform.smoothscale(base, (new_w, new_h))
         return self.texture_cache[key]
 
+    @profile("draw", "renderer")
     def draw(self):
         start_time = pygame.time.get_ticks()
         theme = config.world.themes[config.world.current_theme]
@@ -358,26 +285,22 @@ class Renderer:
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw()
         if self.script_system: self.script_system.draw(self.screen)
-        if hasattr(self.ui_manager.app, 'console_handler'):
-            self.ui_manager.app.console_handler.draw_graph()
+        if hasattr(self.ui_manager.app, 'console_handler'): self.ui_manager.app.console_handler.draw_graph()
         self.ui_manager.draw(self.screen)
         self._draw_cursor_icon()
         self.app.debug_manager.draw_all_debug_info(self.screen, self.physics_manager, self.camera)
         if self.script_system: self._draw_script_info()
-
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)
-    def set_clouds_folder(self, folder):
-        self.clouds.set_folder(folder)
+
+    def set_clouds_folder(self, folder): self.clouds.set_folder(folder)
 
     def _get_texture(self, path):
         if not path: return None
         if path not in self.texture_cache:
-            try:
-                self.texture_cache[path] = pygame.image.load(path).convert_alpha()
-            except pygame.error:
-                self.texture_cache[path] = None
+            try: self.texture_cache[path] = pygame.image.load(path).convert_alpha()
+            except pygame.error: self.texture_cache[path] = None
         return self.texture_cache[path]
 
     @profile("_draw_textured_bodies", "renderer")
@@ -390,8 +313,7 @@ class Renderer:
             tex = None
             if hasattr(body, 'texture_bytes') and body.texture_bytes is not None:
                 size = getattr(body, 'texture_size', None)
-                if size is None or not isinstance(size, (tuple, list)) or len(size) != 2:
-                    continue
+                if not (size and isinstance(size, (tuple, list)) and len(size) == 2): continue
                 width, height = size
                 if width <= 0 or height <= 0: continue
                 cache_key = (body.texture_bytes, size)
@@ -408,14 +330,12 @@ class Renderer:
             mirror_y = getattr(body, 'texture_mirror_y', False)
             texture_state = getattr(body, 'texture_state', None)
             texture_offset = getattr(body, 'texture_offset', (0, 0))
+            processed_tex = tex
             if texture_state:
                 processed_tex = self._apply_texture_state(tex, texture_state)
             else:
-                processed_tex = tex
-                if mirror_x or mirror_y:
-                    processed_tex = pygame.transform.flip(processed_tex, mirror_x, mirror_y)
-                if rotation != 0:
-                    processed_tex = pygame.transform.rotozoom(processed_tex, rotation, 1.0)
+                if mirror_x or mirror_y: processed_tex = pygame.transform.flip(processed_tex, mirror_x, mirror_y)
+                if rotation != 0: processed_tex = pygame.transform.rotozoom(processed_tex, rotation, 1.0)
             if any(isinstance(s, pymunk.Circle) for s in body.shapes):
                 self._draw_circle_texture(body, processed_tex, scale_mult, stretch, texture_offset)
             elif any(isinstance(s, pymunk.Poly) for s in body.shapes):
@@ -423,10 +343,8 @@ class Renderer:
 
     def _apply_texture_state(self, tex, state: TextureState):
         processed = tex
-        if state.mirror_x or state.mirror_y:
-            processed = pygame.transform.flip(processed, state.mirror_x, state.mirror_y)
-        if state.rotation != 0:
-            processed = pygame.transform.rotozoom(processed, state.rotation, 1.0)
+        if state.mirror_x or state.mirror_y: processed = pygame.transform.flip(processed, state.mirror_x, state.mirror_y)
+        if state.rotation != 0: processed = pygame.transform.rotozoom(processed, state.rotation, 1.0)
         return processed
 
     def _update_texture_cache(self):
@@ -445,14 +363,12 @@ class Renderer:
         pygame.draw.circle(mask, (255, 255, 255, 255), (scaled_tex.get_width() // 2, scaled_tex.get_height() // 2), int(radius_px))
         scaled_tex.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         angle_deg = math.degrees(body.angle)
+        offset_x = offset[0] * self.camera.scaling
+        offset_y = offset[1] * self.camera.scaling
         if abs(angle_deg) > 0.1:
             rotated = pygame.transform.rotozoom(scaled_tex, angle_deg, 1.0)
-            offset_x = offset[0] * self.camera.scaling
-            offset_y = offset[1] * self.camera.scaling
             self.screen.blit(rotated, (pos[0] - rotated.get_width() / 2 + offset_x, pos[1] - rotated.get_height() / 2 + offset_y))
         else:
-            offset_x = offset[0] * self.camera.scaling
-            offset_y = offset[1] * self.camera.scaling
             self.screen.blit(scaled_tex, (pos[0] - scaled_tex.get_width() / 2 + offset_x, pos[1] - scaled_tex.get_height() / 2 + offset_y))
 
     def _draw_poly_texture(self, body, tex, stretch, scale_mult, offset):
@@ -477,8 +393,7 @@ class Renderer:
             scaled = pygame.transform.smoothscale_by(tex, scale)
             tex_surf = pygame.transform.smoothscale(scaled, (max(1, int(w_scr)), max(1, int(h_scr))))
         angle_deg = math.degrees(body.angle)
-        if abs(angle_deg) > 0.1:
-            tex_surf = pygame.transform.rotozoom(tex_surf, angle_deg, 1.0)
+        if abs(angle_deg) > 0.1: tex_surf = pygame.transform.rotozoom(tex_surf, angle_deg, 1.0)
         w_rot, h_rot = tex_surf.get_size()
         center_x = (min_x + max_x) / 2
         center_y = (min_y + max_y) / 2
@@ -503,14 +418,7 @@ class Renderer:
             self.texture_cache[key] = pygame.transform.smoothscale(base, size) if scale != 1.0 else base
         return self.texture_cache[key]
 
-    def _draw_cursor_icon(self):
-        pass
-        # if self.ui_manager.manager.get_focus_set(): return
-        # tool = self.input_handler.current_tool
-        # if tool in self.ui_manager.tool_icons:
-        #     icon = pygame.transform.smoothscale(self.ui_manager.tool_icons[tool], (32, 32))
-        #     mouse = pygame.mouse.get_pos()
-        #     self.screen.blit(icon, (mouse[0] + 30, mouse[1] - 20))
+    def _draw_cursor_icon(self): pass
 
     def _draw_script_info(self):
         if not self.script_system: return

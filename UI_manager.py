@@ -136,6 +136,7 @@ class UIManager:
         self.bottom_bar.process_event(event)
         self.top_left_bar.process_event(event)
         self.top_right_bar.process_event(event)
+
         for w in list(self.script_windows):
             try:
                 w.handle_event(event)
@@ -158,12 +159,13 @@ class UIManager:
             self.color_picker_for_shape = None
 
     def _handle_slider_move(self, event, game_app):
-        self.force_field_ui.handle_slider_move(event, game_app)
+        pass
+        # self.force_field_ui.handle_slider_move(event, game_app)
 
     def _on_resize(self):
         screen_w, screen_h = config.app.screen_width, config.app.screen_height
         self.manager.set_window_resolution((screen_w, screen_h))
-        self.force_field_ui.resize(screen_w, screen_h)
+        # self.force_field_ui.resize(screen_w, screen_h)
         self.console_ui.resize(screen_w, screen_h)
         self.bottom_bar.resize(screen_w, screen_h)
 
