@@ -409,6 +409,57 @@ class GraphManager:
         right = (end[0] - arrow_len * math.cos(angle + arrow_angle), end[1] - arrow_len * math.sin(angle + arrow_angle))
         pygame.draw.polygon(surface, color, [end, left, right])
 
+    def _adaptive_implicit_renderer(self, f, x_min, x_max, y_min, y_max, depth=0, max_depth=7):
+        def eval_interval(x0, x1, y0, y1):
+            try:
+                vals = [
+                    f(x0, y0), f(x1, y0), f(x1, y1), f(x0, y1),
+                    f((x0 + x1) / 2, (y0 + y1) / 2)
+                ]
+                finite_vals = [v for v in vals if math.isfinite(v)]
+                if not finite_vals: return None, None
+                return min(finite_vals), max(finite_vals)
+            except:
+                return None, None
+
+        min_val, max_val = eval_interval(x_min, x_max, y_min, y_max)
+        if min_val is None or max_val is None: return []
+        if min_val > 0 or max_val < 0: return []
+        if depth >= max_depth:
+            mid_x, mid_y = (x_min + x_max) / 2, (y_min + y_max) / 2
+            try:
+                center_val = f(mid_x, mid_y)
+                if not math.isfinite(center_val): return []
+            except:
+                return []
+            segments = []
+            corners = [(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)]
+            for i in range(4):
+                x_a, y_a = corners[i]
+                x_b, y_b = corners[(i + 1) % 4]
+                try:
+                    f_a, f_b = f(x_a, y_a), f(x_b, y_b)
+                    if math.isfinite(f_a) and math.isfinite(f_b):
+                        if f_a * f_b <= 0 and abs(f_a - f_b) > 1e-12:
+                            t = f_a / (f_a - f_b)
+                            ix = x_a + t * (x_b - x_a)
+                            iy = y_a + t * (y_b - y_a)
+                            segments.append((ix, iy))
+                except:
+                    continue
+            if len(segments) == 2:
+                return [segments]
+            else:
+                return []
+        else:
+            xm = (x_min + x_max) / 2
+            ym = (y_min + y_max) / 2
+            segs = []
+            segs += self._adaptive_implicit_renderer(f, x_min, xm, y_min, ym, depth + 1, max_depth)
+            segs += self._adaptive_implicit_renderer(f, xm, x_max, y_min, ym, depth + 1, max_depth)
+            segs += self._adaptive_implicit_renderer(f, x_min, xm, ym, y_max, depth + 1, max_depth)
+            segs += self._adaptive_implicit_renderer(f, xm, x_max, ym, y_max, depth + 1, max_depth)
+            return segs
     def _marching_squares(self, f, x_min, x_max, y_min, y_max, threshold=0.0, resolution=100):
         dx = (x_max - x_min) / resolution
         dy = (y_max - y_min) / resolution
@@ -623,19 +674,23 @@ class GraphManager:
                                 drawables.append(('arrow', start, end, color, width))
                             except Exception:
                                 pass
+
+
                 elif graph_type == 'implicit':
                     code_f, xr, yr = compiled[1], compiled[2], compiled[3]
 
                     def f_eval(x, y):
-                        return eval(code_f, safe_env, {"x": x, "y": y, "t": t_now})
+                        val = eval(code_f, safe_env, {"x": x, "y": y, "t": t_now})
+                        return float(val) if isinstance(val, (int, float)) else float('nan')
 
-                    segments = self._marching_squares(f_eval, xr[0], xr[1], yr[0], yr[1], threshold=0.0, resolution=40)
+                    segments_list = self._adaptive_implicit_renderer(f_eval, xr[0], xr[1], yr[0], yr[1])
                     world_segments = []
-                    for (x1, y1), (x2, y2) in segments:
-                        p1 = cam.world_to_screen((x1, y1))
-                        p2 = cam.world_to_screen((x2, y2))
-                        world_segments.append([p1, p2])
-                    drawables = [('line', seg, color, width) for seg in world_segments]
+                    for seg in segments_list:
+                        if len(seg) == 2:
+                            p1 = cam.world_to_screen(seg[0])
+                            p2 = cam.world_to_screen(seg[1])
+                            world_segments.append([p1, p2])
+                    drawables = [('line', s, color, width) for s in world_segments]
                 elif graph_type == 'fractal':
                     (fractal_name, max_iter, escape_radius, c_param, scale_static, palette_str,
                      scale_expr, c_expr, escape_radius_expr) = compiled[1:10]
