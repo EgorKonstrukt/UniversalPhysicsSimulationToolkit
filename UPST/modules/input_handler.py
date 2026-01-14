@@ -33,6 +33,8 @@ class InputHandler:
             self.debug_manager.handle_input(event)
             self.undo_redo_manager.handle_input(event)
 
+            if self.app.plugin_manager.handle_event(event):
+                continue
             self.handle_keyboard_events(event, world_mouse_pos)
             self.handle_mouse_events(event, world_mouse_pos)
             profiler.process_event(event)
@@ -62,10 +64,10 @@ class InputHandler:
             elif event.key == pygame.K_f:
                 self.key_f_pressed = True
                 self.key_f_hold_start_time = pygame.time.get_ticks()
-            elif event.key == pygame.K_n:
-                synthesizer.play_frequency(800, duration=0.2, waveform='sine')
-                field_name = self.app.ui_manager.selected_force_field_button_text
-                self.app.force_field_manager.toggle_field(field_name)
+            # elif event.key == pygame.K_n:
+            #     synthesizer.play_frequency(800, duration=0.2, waveform='sine')
+            #     field_name = self.app.ui_manager.selected_force_field_button_text
+            #     self.app.force_field_manager.toggle_field(field_name)
             elif event.key == pygame.K_p:
                 pygame.image.save(self.app.screen, "../../screenshot.png")
                 self.app.ui_manager.console_window.add_output_line_to_log("Screenshot saved!")

@@ -137,7 +137,7 @@ class CameraConfig:
     pan_to_cursor_speed: float = 0.2
     mouse_friction: float = 0.96
     min_zoom_scale: float = 0.000_000_001
-    max_zoom_scale: float = 100000000.0
+    max_zoom_scale: float = 10000000000000000000000.0
 
 @dataclass
 class ProfilerConfig:
@@ -354,6 +354,7 @@ class WorldConfig:
 
 class Config:
     _subconfigs: Dict[str, Type] = {}
+    _plugin_configs: Dict[str, Type] = {}
 
     # === Типовые аннотации для автокомплита ===
     app: "AppConfig"
@@ -380,13 +381,21 @@ class Config:
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         cls._subconfigs = {}
+        cls._plugin_configs = {}
 
     @classmethod
     def register(cls, name: str, config_type: Type):
         cls._subconfigs[name] = config_type
 
+    @classmethod
+    def register_plugin_config(cls, name: str, config_type: Type):
+        cls._plugin_configs[name] = config_type
+
     def __init__(self, **kwargs):
         for name, config_type in self._subconfigs.items():
+            instance = kwargs.get(name) or config_type()
+            setattr(self, name, instance)
+        for name, config_type in self._plugin_configs.items():
             instance = kwargs.get(name) or config_type()
             setattr(self, name, instance)
         self._app_ref = getattr(self, 'app', None)
@@ -432,6 +441,10 @@ class Config:
             obj = getattr(self, name)
             d = asdict(obj)
             result[name] = self._custom_to_dict(obj, d)
+        for name in self._plugin_configs:
+            obj = getattr(self, name)
+            d = asdict(obj)
+            result[name] = self._custom_to_dict(obj, d)
         return result
 
     def _custom_to_dict(self, obj: Any, d: Dict) -> Any:
@@ -443,6 +456,12 @@ class Config:
     def from_dict(cls, data: Dict[str, Any]) -> "Config":
         kwargs = {}
         for name, config_type in cls._subconfigs.items():
+            subdata = data.get(name, {})
+            if hasattr(config_type, '_from_dict_custom'):
+                kwargs[name] = config_type._from_dict_custom(subdata)
+            else:
+                kwargs[name] = config_type(**subdata)
+        for name, config_type in cls._plugin_configs.items():
             subdata = data.get(name, {})
             if hasattr(config_type, '_from_dict_custom'):
                 kwargs[name] = config_type._from_dict_custom(subdata)

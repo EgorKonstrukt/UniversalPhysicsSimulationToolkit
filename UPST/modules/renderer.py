@@ -288,6 +288,7 @@ class Renderer:
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw()
         if self.script_system: self.script_system.draw(self.screen)
+        if self.ui_manager.app.plugin_manager: self.ui_manager.app.plugin_manager.draw()
         self.ui_manager.draw(self.screen)
         self._draw_cursor_icon()
         self.app.debug_manager.draw_all_debug_info(self.screen, self.physics_manager, self.camera)

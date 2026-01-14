@@ -34,6 +34,9 @@ from UPST.modules.statistics import stats
 from UPST.tools.tool_manager import ToolSystem
 
 from UPST.network.repository_manager import RepositoryManager
+
+from UPST.modules.plugin_manager import PluginManager
+
 import sys
 
 # sys.set_int_max_str_digits(0)
@@ -53,6 +56,8 @@ class Application:
         self.freeze_watcher = None
         self.stats = stats
         config.load_from_file()
+        self.config = config
+        self.debug = Debug
         self.screen = self.setup_screen()
         self.font = pygame.font.SysFont("Consolas", 16)
         pygame.display.set_caption(f"{config.app.version}")
@@ -77,7 +82,7 @@ class Application:
         self.grid_manager = GridManager(self.camera, force_field_manager=self.force_field_manager)
         Debug.log("GridManager initialized successfully", "Init")
         self.grid_manager.set_theme_colors(self.world_theme)
-        self.gizmos_manager = GizmosManager(self.camera, self.screen)
+        self.gizmos = GizmosManager(self.camera, self.screen)
         self.debug_manager = DebugManager()
 
         self.snapshot_manager = SnapshotManager(physics_manager=self.physics_manager, camera=self.camera,
@@ -97,7 +102,7 @@ class Application:
                                     network_manager=None, app=self,
                                     tool_system=self.tool_manager)
 
-        self.input_handler = InputHandler(self, gizmos_manager=self.gizmos_manager,
+        self.input_handler = InputHandler(self, gizmos_manager=self.gizmos,
                                           debug_manager=self.debug_manager,
                                           undo_redo_manager=self.undo_redo_manager,
                                           ui_manager=self.ui_manager,
@@ -129,7 +134,7 @@ class Application:
         self.network_manager = NetworkManager(physics_manager=self.physics_manager,
                                               ui_manager=self.ui_manager,
                                               spawner=self.spawner,
-                                              gizmos=self.gizmos_manager,
+                                              gizmos=self.gizmos,
                                               console=self.console_handler)
         self.ui_manager.network_manager = self.network_manager
         # self.ui_manager.init_network_menu()
@@ -138,7 +143,7 @@ class Application:
         Debug.log("PhysicsDebugManager initialized successfully", "Init")
         self.ui_manager.set_physics_debug_manager(self.physics_debug_manager)
         set_debug(self.debug_manager)
-        set_gizmos(self.gizmos_manager)
+        set_gizmos(self.gizmos)
         self.profiler = Profiler(self.ui_manager.manager)
         Debug.log("Profiler initialized successfully", "Init")
         self.undo_redo_manager.take_snapshot()
@@ -149,10 +154,13 @@ class Application:
         Debug.log_info("Displays: " + str(pygame.display.get_num_displays()), "Init")
         Debug.log("Application initialized successfully", "Application")
         self.renderer = Renderer(app=self, screen=self.screen, camera=self.camera,
-                                 physics_manager=self.physics_manager, gizmos_manager=self.gizmos_manager,
+                                 physics_manager=self.physics_manager, gizmos_manager=self.gizmos,
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
         self.repository_manager = RepositoryManager()
+        self.plugin_manager = PluginManager(self)
+
+        self.plugin_manager.register_console_commands(self.console_handler)
 
 
 
@@ -177,11 +185,12 @@ class Application:
             self.freeze_watcher.ping()
             time_delta = self.clock.tick(config.app.clock_tickrate) / 1000.0
             self.debug_manager.update(time_delta)
-            self.gizmos_manager.update(time_delta)
+            self.gizmos.update(time_delta)
             self.physics_debug_manager.update(time_delta)
             events = pygame.event.get()
             self.input_handler.process_events(profiler=self.profiler, events=events)
             self.update(time_delta)
+
             self.renderer.draw()
         stats.accumulate_session_time()
         stats.save()
@@ -196,6 +205,7 @@ class Application:
         world_mouse_pos = self.camera.screen_to_world(pygame.mouse.get_pos())
         # self.force_field_manager.update(world_mouse_pos, self.screen)
         self.ui_manager.update(time_delta, self.clock)
+        self.plugin_manager.update(time_delta)
         self.undo_redo_manager.update()
         self.physics_manager.update_scripts(time_delta)
 

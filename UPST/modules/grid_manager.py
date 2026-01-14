@@ -317,24 +317,37 @@ class GridManager:
                 self.grid_color_origin = (120, 120, 120, 255)
 
     def draw_scale_indicator(self, screen, grid_spacing_world, grid_spacing_pixels):
-        if grid_spacing_world >= 100: label = f"{grid_spacing_world / 100:.2f} m"
-        elif grid_spacing_world >= 1: label = f"{grid_spacing_world:.0f} cm"
-        elif grid_spacing_world >= 1e-3: label = f"{grid_spacing_world * 1e3:.0f} mm"
-        elif grid_spacing_world >= 1e-6: label = f"{grid_spacing_world * 1e6:.0f} µm"
-        else: label = f"{grid_spacing_world * 1e9:.0f} nm"
+
+        if grid_spacing_world >= 100:
+            label = f"{grid_spacing_world / 100:.2f} m"
+        elif grid_spacing_world >= 1:
+            label = f"{grid_spacing_world:.0f} cm"
+        elif grid_spacing_world >= 1e-3:
+            label = f"{grid_spacing_world * 1e3:.0f} mm"
+        elif grid_spacing_world >= 1e-6:
+            label = f"{grid_spacing_world * 1e6:.0f} µm"
+        else:
+            label = f"{grid_spacing_world * 1e9:.0f} nm"
         screen_width, screen_height = screen.get_size()
         margin = 30
         bar_length_pixels = int(grid_spacing_pixels)
         start_x = screen_width - margin - bar_length_pixels
         end_x = screen_width - margin
         y_pos = screen_height - margin
-        pygame.gfxdraw.line(screen, start_x, y_pos, end_x, y_pos, (255, 255, 255))
-        tick_height = 6
-        for x in (start_x, end_x):
-            pygame.gfxdraw.line(screen, x, y_pos - tick_height // 2, x, y_pos + tick_height // 2, (255, 255, 255))
-        text_surf = pygame.font.SysFont("Consolas", 16).render(label, True, (255, 255, 255))
-        screen.blit(text_surf, (int(start_x + bar_length_pixels / 2 - text_surf.get_width() / 2), y_pos - 14))
 
+        def clamp_coord(c):
+            return max(-32768, min(32767, int(round(c))))
+
+        cx1, cy = clamp_coord(start_x), clamp_coord(y_pos)
+        cx2 = clamp_coord(end_x)
+        if abs(cx2 - cx1) > 0 and abs(cy) <= 32767:
+            pygame.gfxdraw.line(screen, cx1, cy, cx2, cy, (255, 255, 255))
+            tick_height = 6
+            for x in (cx1, cx2):
+                pygame.gfxdraw.line(screen, x, cy - tick_height // 2, x, cy + tick_height // 2, (255, 255, 255))
+            text_surf = pygame.font.SysFont("Consolas", 16).render(label, True, (255, 255, 255))
+            screen.blit(text_surf,
+                        (clamp_coord(cx1 + (cx2 - cx1) / 2 - text_surf.get_width() / 2), clamp_coord(cy - 14)))
 def _frange(start, stop, step):
     while start < stop:
         yield start
