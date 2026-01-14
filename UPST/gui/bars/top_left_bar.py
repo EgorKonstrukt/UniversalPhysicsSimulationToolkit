@@ -8,10 +8,11 @@ from UPST.sound.sound_synthesizer import synthesizer
 from UPST.modules.profiler import get_profiler
 from UPST.gui.windows.theme_selection_dialog import ThemeSelectionDialog
 from UPST.gui.windows.theme_editor_window import ThemeEditorWindow
+from UPST.gui.windows.plugin_manager_window import PluginManagerWindow
 from UPST.utils import get_resource_path
 
 class TopLeftBar:
-    def __init__(self, screen_width, screen_height, ui_manager, bar_width=375, bar_height=45, app=None, physics_manager=None):
+    def __init__(self, screen_width, screen_height, ui_manager, bar_width=410, bar_height=45, app=None, physics_manager=None):
         self.ui_manager = ui_manager
         self.app = app
         self.physics_manager = physics_manager
@@ -40,6 +41,7 @@ class TopLeftBar:
                 'profiler': pygame.image.load("sprites/gui/plot.png").convert_alpha(),
                 'console': pygame.image.load("sprites/gui/window_visibility.png").convert_alpha(),
                 'settings': pygame.image.load("sprites/gui/settings.png").convert_alpha(),
+                'plugins': pygame.image.load("sprites/gui/plugins.png").convert_alpha(),
                 'about': pygame.image.load("sprites/gui/about.png").convert_alpha()
             }
         except pygame.error as e:
@@ -79,6 +81,8 @@ class TopLeftBar:
         x_pos += self.button_width + self.padding
 
         self._create_icon_button('settings', x_pos, "Settings")
+        x_pos += self.button_width + self.padding
+        self._create_icon_button('plugins', x_pos, "Plugin Manager")
         x_pos += self.button_width + self.padding
 
         self._create_icon_button('about', x_pos, "About")
@@ -132,6 +136,8 @@ class TopLeftBar:
                 self._on_console_pressed()
             elif event.ui_element == self.buttons['settings']:
                 self.open_theme_editor()
+            elif event.ui_element == self.buttons['plugins']:
+                self._on_plugins_pressed()
             elif event.ui_element == self.buttons['about']:
                 self._on_about_pressed()
         if self.theme_dialog:
@@ -178,6 +184,15 @@ class TopLeftBar:
         if profiler:
             profiler.toggle_window()
 
+    def _on_plugins_pressed(self):
+        if hasattr(self, '_plugin_manager_window') and self._plugin_manager_window.alive():
+            self._plugin_manager_window.kill()
+
+        self._plugin_manager_window = PluginManagerWindow(
+            rect=pygame.Rect(150, 100, 400, 500),
+            manager=self.ui_manager,
+            app=self.app
+        )
     def _on_console_pressed(self):
         pass
 

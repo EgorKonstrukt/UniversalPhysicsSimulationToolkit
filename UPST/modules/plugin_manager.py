@@ -4,6 +4,9 @@ import importlib
 import importlib.util
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable
+
+import pygame
+
 from UPST.config import Config
 from dataclasses import dataclass
 
@@ -37,6 +40,11 @@ class PluginManager:
     def discover_plugins(self):
         return [d for d in self.plugin_dir.iterdir() if d.is_dir() and (d / "__init__.py").exists()]
 
+    def _unload_submodules(self, base_name: str):
+        submodules = [name for name in sys.modules if name.startswith(base_name + ".")]
+        for mod in submodules:
+            del sys.modules[mod]
+
     def load_plugin(self, plugin_dir: Path):
         name = plugin_dir.name
         init_path = plugin_dir / "__init__.py"
@@ -68,7 +76,8 @@ class PluginManager:
         plugin_instance = self.plugin_instances[name]
         if plugin_def.on_unload:
             plugin_def.on_unload(self, plugin_instance)
-        del sys.modules[name]
+        self._unload_submodules(name)
+        sys.modules.pop(name, None)
         del self.plugins[name]
         del self.plugin_instances[name]
         del self.plugin_modules[name]
@@ -81,7 +90,19 @@ class PluginManager:
         if not plugin_dir.exists():
             raise FileNotFoundError(f"Plugin {name} directory not found")
         self.unload_plugin(name)
+        importlib.invalidate_caches()
         self.load_plugin(plugin_dir)
+        if hasattr(self.app, 'console_handler'):
+            self.register_console_commands(self.app.console_handler)
+
+    def reload_all_plugins(self):
+        plugin_names = list(self.plugins.keys())
+        for name in plugin_names:
+            try:
+                self.reload_plugin(name)
+                print(f"Reloaded PLUGIN: {name}")
+            except Exception as e:
+                print(f"Failed to reload plugin {name}: {e}")
 
     def load_all_plugins(self):
         for plugin_dir in self.discover_plugins():
@@ -104,6 +125,11 @@ class PluginManager:
                 plugin.on_draw(self, instance)
 
     def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            mods = pygame.key.get_mods()
+            if event.key == pygame.K_F10 and (mods & pygame.KMOD_SHIFT):
+                self.reload_all_plugins()
+                return True
         for name, plugin in self.plugins.items():
             instance = self.plugin_instances[name]
             if plugin.on_event and plugin.on_event(self, instance, event):
@@ -111,6 +137,7 @@ class PluginManager:
         return False
 
     def register_console_commands(self, console_handler):
+        console_handler.clear_plugin_commands()
         for name, plugin in self.plugins.items():
             for cmd_name, cmd_func in plugin.console_commands.items():
                 bound_func = lambda expr, inst=self.plugin_instances[name], f=cmd_func: f(inst, expr)

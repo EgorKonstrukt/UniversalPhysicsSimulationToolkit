@@ -45,6 +45,10 @@ class ConsoleHandler:
         self._plugin_commands.pop(name, None)
         self._sandbox.pop(name, None)
 
+    def clear_plugin_commands(self):
+        for name in list(self._plugin_commands.keys()):
+            self.unregister_plugin_command(name)
+
     def process_command(self, cmd: str):
         parts = cmd.split(maxsplit=1)
         base_cmd = parts[0] if parts else ''
