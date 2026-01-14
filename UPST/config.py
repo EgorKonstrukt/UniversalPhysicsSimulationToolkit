@@ -60,7 +60,7 @@ class MultithreadingConfig:
     gizmos_max_workers: int = 10
     grid_threaded: bool = True
     grid_max_workers: int = 10
-    pymunk_threaded: bool = True
+    pymunk_threaded: bool = False
     pymunk_threads: int = 10
 
 @dataclass

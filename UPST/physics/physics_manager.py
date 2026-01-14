@@ -24,6 +24,7 @@ class PhysicsManager:
             self.space.damping = 1.0
             self.space.collision_slop = 0.01
             self.space.collision_bias = pow(1.0 - 0.1, 60.0)
+            self.space.on_collision()
             self.static_body = self.space.static_body
             self.simulation_frequency = int(config.physics.simulation_frequency)
             self.simulation_speed_multiplier = 1.0
