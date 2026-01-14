@@ -247,6 +247,8 @@ class Renderer:
         surf.blit(temp, (ox, oy))
 
     def _draw_circle_pointer(self, surf, ix, iy, ir, angle):
+        if not config.rendering.draw_circle_pointer:
+            return
         plen = ir
         wa = math.radians(20)
         ca, sa = math.cos(angle), math.sin(angle)

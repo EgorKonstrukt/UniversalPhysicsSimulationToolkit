@@ -285,7 +285,7 @@ class Camera:
     def get_draw_options(self, screen):
         draw_options = pymunk.pygame_util.DrawOptions(screen)
         draw_options.shape_outline_color = (255, 255, 255)
-        draw_options.DRAW_COLLISION_POINTS = False
+        # draw_options.DRAW_COLLISION_POINTS = False
         a, b, c, d, e, f = compose_transform_fast(
             self.translation.tx,
             self.translation.ty,

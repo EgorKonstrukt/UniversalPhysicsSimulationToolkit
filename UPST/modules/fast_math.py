@@ -3,7 +3,9 @@ import math
 from typing import Tuple, List, Optional
 
 from numba import njit
+import numba as nb
 from typing import Tuple
+import numpy as np
 
 @njit(fastmath=True, cache=True, nogil=True, nopython=True)
 def compose_transform_fast(
@@ -146,3 +148,26 @@ def screen_to_world_impl(x, y, inv_s, tx, ty, cx, cy):
 @njit(fastmath=True, cache=True, nogil=True, nopython=True)
 def world_to_screen_impl(x, y, s, tx, ty, cx, cy):
     return ((x - tx) * s + cx, cy - (y - ty) * s)
+
+@nb.jit(nopython=True, fastmath=True, parallel=False)
+def _apply_transforms(points, transforms, depth):
+    current = points.copy()
+    for _ in range(depth):
+        n_pts = current.shape[0]
+        n_t = transforms.shape[0]
+        total_new = n_pts * n_t
+        if total_new == 0:
+            break
+        new_points = np.empty((total_new, 2), dtype=np.float64)
+        idx = 0
+        for i in range(n_pts):
+            x, y = current[i, 0], current[i, 1]
+            for t in range(n_t):
+                a, b, c, d, e, f = transforms[t]
+                nx = a * x + b * y + e
+                ny = c * x + d * y + f
+                new_points[idx, 0] = nx
+                new_points[idx, 1] = ny
+                idx += 1
+        current = new_points
+    return current

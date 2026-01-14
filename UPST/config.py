@@ -46,6 +46,7 @@ class RenderingConfig:
     spring_texture = "sprites/app/spring.png"
     spring_point_a_texture = "sprites/app/spring_attachment.png"
     spring_point_b_texture = "sprites/app/spring_attachment.png"
+    draw_circle_pointer:bool = True
 
 @dataclass
 class ContextMenuConfig:
@@ -237,10 +238,9 @@ class TextureEditorConfig:
     preview_quality: float = 1.0
     auto_save_interval: float = 5.0
 
-
-
 @dataclass
 class AppConfig:
+    use_f64: bool = True
     config_default_path: str = "config.json"
     autosave_path: str = "autosave.space"
     screen_width: int = 1920
