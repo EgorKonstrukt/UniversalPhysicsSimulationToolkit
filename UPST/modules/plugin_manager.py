@@ -15,6 +15,7 @@ from packaging.version import Version, InvalidVersion
 
 from UPST.debug.debug_manager import Debug
 from UPST.config import config, Config
+from UPST.gui.contex_menu import ConfigOption
 
 
 @dataclass
@@ -33,6 +34,7 @@ class Plugin:
     on_event: Optional[Callable[["PluginManager", Any], bool]] = None
     console_commands: Dict[str, Callable] = None
     command_help: Dict[str, str] = None
+    context_menu_items: Optional[Callable[["PluginManager", Any, bool], List["ConfigOption"]]] = None
 
     def __post_init__(self):
         if self.console_commands is None:
@@ -49,7 +51,23 @@ class PluginManager:
         self.plugin_paths: Dict[str, Path] = {}
         self.plugin_dir = Path("plugins").resolve()
         self.plugin_dir.mkdir(exist_ok=True)
+        self.context_menu_contributors: List[tuple[str, Callable]] = []
+    def register_context_menu_contributor(self, plugin_name: str, contributor: Callable):
+        self.context_menu_contributors.append((plugin_name, contributor))
 
+    def unregister_context_menu_contributor(self, plugin_name: str):
+        self.context_menu_contributors = [(n, c) for n, c in self.context_menu_contributors if n != plugin_name]
+
+    def get_context_menu_items(self, clicked_object) -> List[ConfigOption]:
+        items = []
+        for _, contributor in self.context_menu_contributors:
+            try:
+                contributed = contributor(self, clicked_object)
+                if contributed:
+                    items.extend(contributed)
+            except Exception as e:
+                Debug.log_error(f"Plugin context menu contributor failed: {e}", "Plugins")
+        return items
     def discover_plugins(self):
         plugins = []
         for item in self.plugin_dir.rglob("*"):
@@ -185,6 +203,8 @@ class PluginManager:
         self.plugin_paths[name] = plugin_dir
         if plugin_def.on_load:
             plugin_def.on_load(self, plugin_instance)
+        if plugin_def.context_menu_items:
+            self.register_context_menu_contributor(name, lambda pm, obj, pd=plugin_def, pi=plugin_instance: pd.context_menu_items(pm, pi, obj))
         return plugin_instance
 
     def unload_plugin(self, name: str):

@@ -121,7 +121,7 @@ class PluginImpl:
         self._registered = True
 
 PLUGIN = Plugin(
-    name="collision_sound",
+    name="Collision Sound",
     version="1.0",
     description="Plays sound on physics body collisions",
     dependency_specs={},

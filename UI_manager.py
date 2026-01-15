@@ -37,7 +37,7 @@ class UIManager:
         self.active_color_picker = None
         self.color_picker_for_shape = None
         self.script_editor = None
-        self.context_menu = ContextMenu(self.manager, self)
+        self.context_menu = ContextMenu(self.manager, self, self.app)
         # self.force_field_ui = ForceFieldUI(self.manager, screen_width, screen_height, self)
         self.console_ui = ConsoleUI(self.manager, screen_width, screen_height)
         self.bottom_bar = BottomBar(screen_width, screen_height, self.manager, physics_manager=self.physics_manager)

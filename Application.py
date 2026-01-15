@@ -65,6 +65,7 @@ class Application:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("UPSTAppID")
         self.clock = pygame.time.Clock()
         self.running = True
+
         self.world_theme = config.world.current_theme
         self.script_manager = ScriptManager(self)
         Debug.log("World Theme initialized successfully", "Init")
@@ -96,6 +97,7 @@ class Application:
 
         self.tool_manager = ToolSystem(physics_manager=self.physics_manager,
                                        sound_manager=self.sound_manager)
+        self.plugin_manager = PluginManager(self)
 
         self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
                                     self.physics_manager, self.camera, None, self.screen, self.font,
@@ -158,12 +160,9 @@ class Application:
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
         self.repository_manager = RepositoryManager()
-        self.plugin_manager = PluginManager(self)
+
         self.plugin_manager.load_all_plugins()
-
         self.plugin_manager.register_console_commands(self.console_handler)
-
-
 
     def setup_screen(self):
         flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE | pygame.SWSURFACE | pygame.SRCALPHA

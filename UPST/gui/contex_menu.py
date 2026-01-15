@@ -24,7 +24,8 @@ class ConfigOption:
         self.icon = icon
 
 class ContextMenu:
-    def __init__(self, manager, ui_manager):
+    def __init__(self, manager, ui_manager, app):
+        self.app = app
         self.manager = manager
         self.ui_manager = ui_manager
         self.undo_redo = get_undo_redo()
@@ -40,10 +41,12 @@ class ContextMenu:
         self.hovered_button = None
         self.menu_line_start_pos = None
         self.last_object_pos = None
+        self.plugin_manager = app.plugin_manager
 
     def _build_menu_structure(self):
+        base_items = []
         if self.clicked_object is None:
-            return [
+            base_items = [
                 ConfigOption("Scripts", children=[
                     ConfigOption("Run Python Script",
                                  handler=lambda: self.ui_manager.show_inline_script_editor(owner=None),
@@ -59,7 +62,7 @@ class ContextMenu:
                              icon="sprites/gui/plot.png")
             ]
         else:
-            return [
+            base_items = [
                 ConfigOption("Erase", handler=self.delete_object,
                              icon="sprites/gui/erase.png"),
                 ConfigOption("Properties", handler=self.open_properties_window,
@@ -101,6 +104,8 @@ class ContextMenu:
                 ConfigOption("Plot Data", handler=self.open_plotter,
                              icon="sprites/gui/plot.png")
             ]
+        plugin_items = self.app.plugin_manager.get_context_menu_items(self.clicked_object)
+        return base_items + plugin_items
 
     def rename_hierarchy_node(self):
         if not self.clicked_object:

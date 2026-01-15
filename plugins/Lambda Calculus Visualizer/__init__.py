@@ -1,6 +1,7 @@
 import pygame
+import json
 from typing import Any, Set, List, Tuple, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from UPST.config import Config
 
 @dataclass(frozen=True)
@@ -176,7 +177,7 @@ class PluginImpl:
         self.vis.draw()
 
 PLUGIN = Plugin(
-    name="Lambda Calculus Visualizer",
+    name="lambda_calculus",
     version="1.0",
     description="Interactive lambda calculus reduction visualizer",
     author="Zarrakun",
@@ -189,3 +190,5 @@ PLUGIN = Plugin(
     on_event=lambda mgr, inst, ev: inst.on_event(ev),
     console_commands={'lambda': lambda inst, expr: inst.handle_lambda_expr(expr)}
 )
+
+Config.register_plugin_config("lambda_calculus", LambdaCalculusConfig)

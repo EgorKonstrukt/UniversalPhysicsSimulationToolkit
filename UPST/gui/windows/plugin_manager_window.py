@@ -41,14 +41,18 @@ class PluginManagerWindow(UIWindow):
             x = 10
             icon_w = 55
             if plugin.icon_path:
-                icon_full_path = self.plugin_manager.plugin_dir / name / plugin.icon_path
-                if icon_full_path.exists():
-                    try:
-                        icon_surf = pygame.image.load(icon_full_path).convert_alpha()
-                        icon_surf = pygame.transform.scale(icon_surf, (icon_w, icon_w))
-                        img = UIImage(relative_rect=pygame.Rect(x, 10, icon_w, icon_w), image_surface=icon_surf, manager=self.ui_manager, container=panel)
-                        x += icon_w + 10
-                    except Exception:
+                plugin_dir = self.plugin_manager.plugin_paths.get(name)
+                if plugin_dir:
+                    icon_full_path = plugin_dir / plugin.icon_path
+                    if icon_full_path.exists():
+                        try:
+                            icon_surf = pygame.image.load(icon_full_path).convert_alpha()
+                            icon_surf = pygame.transform.scale(icon_surf, (icon_w, icon_w))
+                            img = UIImage(relative_rect=pygame.Rect(x, 10, icon_w, icon_w), image_surface=icon_surf, manager=self.ui_manager, container=panel)
+                            x += icon_w + 10
+                        except Exception:
+                            x += icon_w + 10
+                    else:
                         x += icon_w + 10
                 else:
                     x += icon_w + 10

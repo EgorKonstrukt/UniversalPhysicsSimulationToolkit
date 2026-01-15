@@ -395,9 +395,6 @@ class Config:
         for name, config_type in self._subconfigs.items():
             instance = kwargs.get(name) or config_type()
             setattr(self, name, instance)
-        for name, config_type in self._plugin_configs.items():
-            instance = kwargs.get(name) or config_type()
-            setattr(self, name, instance)
         self._app_ref = getattr(self, 'app', None)
 
     @property
@@ -442,11 +439,6 @@ class Config:
             if obj is not None:
                 d = asdict(obj)
                 result[name] = self._custom_to_dict(obj, d)
-        for name in type(self)._plugin_configs:
-            obj = getattr(self, name, None)
-            if obj is not None:
-                d = asdict(obj)
-                result[name] = self._custom_to_dict(obj, d)
         return result
 
     def _custom_to_dict(self, obj: Any, d: Dict) -> Any:
@@ -458,12 +450,6 @@ class Config:
     def from_dict(cls, data: Dict[str, Any]) -> "Config":
         kwargs = {}
         for name, config_type in cls._subconfigs.items():
-            subdata = data.get(name, {})
-            if hasattr(config_type, '_from_dict_custom'):
-                kwargs[name] = config_type._from_dict_custom(subdata)
-            else:
-                kwargs[name] = config_type(**subdata)
-        for name, config_type in cls._plugin_configs.items():
             subdata = data.get(name, {})
             if hasattr(config_type, '_from_dict_custom'):
                 kwargs[name] = config_type._from_dict_custom(subdata)
