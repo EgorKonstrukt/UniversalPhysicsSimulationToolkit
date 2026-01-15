@@ -189,7 +189,7 @@ class TopLeftBar:
             self._plugin_manager_window.kill()
 
         self._plugin_manager_window = PluginManagerWindow(
-            rect=pygame.Rect(150, 100, 400, 500),
+            rect=pygame.Rect(150, 100, 650, 600),
             manager=self.ui_manager,
             app=self.app
         )

@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import importlib
@@ -8,12 +9,12 @@ from collections import defaultdict, deque
 
 import pygame
 
-from UPST.config import Config
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 from packaging.version import Version, InvalidVersion
 
 from UPST.debug.debug_manager import Debug
+from UPST.config import config, Config
 
 
 @dataclass
@@ -21,6 +22,8 @@ class Plugin:
     name: str
     version: str
     description: str
+    author: str
+    icon_path: Optional[str]
     dependency_specs: Dict[str, str]
     config_class: Optional[type] = None
     on_load: Optional[Callable[["PluginManager", Any], None]] = None
@@ -29,7 +32,7 @@ class Plugin:
     on_draw: Optional[Callable[["PluginManager"], None]] = None
     on_event: Optional[Callable[["PluginManager", Any], bool]] = None
     console_commands: Dict[str, Callable] = None
-    command_help: Dict[str, str] = None  # {"cmd": "brief description"}
+    command_help: Dict[str, str] = None
 
     def __post_init__(self):
         if self.console_commands is None:
@@ -43,6 +46,7 @@ class PluginManager:
         self.plugins: Dict[str, Plugin] = {}
         self.plugin_instances: Dict[str, Any] = {}
         self.plugin_modules = {}
+        self.plugin_paths: Dict[str, Path] = {}
         self.plugin_dir = Path("plugins").resolve()
         self.plugin_dir.mkdir(exist_ok=True)
 
@@ -58,12 +62,12 @@ class PluginManager:
         submodules = [name for name in sys.modules if name.startswith(base_name + ".")]
         for mod in submodules:
             del sys.modules[mod]
+
     def _check_dependency_version(self, dep_name: str, required_spec: str, actual_version: str) -> bool:
         if not required_spec.strip():
             return True
         try:
             actual = Version(actual_version)
-            # Поддерживаем только простые операторы: >=, >, ==, <=, <
             if required_spec.startswith(">="):
                 return actual >= Version(required_spec[2:].strip())
             elif required_spec.startswith(">"):
@@ -75,11 +79,11 @@ class PluginManager:
             elif required_spec.startswith("<"):
                 return actual < Version(required_spec[1:].strip())
             else:
-                # интерпретируем как == по умолчанию
                 return actual == Version(required_spec.strip())
         except InvalidVersion:
             print(f"Warning: Invalid version format for plugin '{dep_name}': '{actual_version}'")
             return False
+
     def _topological_sort(self, plugin_dirs: List[Path]) -> List[Path]:
         graph = {}
         name_to_path = {}
@@ -121,6 +125,7 @@ class PluginManager:
             raise RuntimeError("Circular dependency detected among plugins")
 
         return [name_to_path[name] for name in order]
+
     def load_plugin(self, plugin_dir: Path):
         init_path = plugin_dir / "__init__.py"
         module_name = f"plugin_{plugin_dir.relative_to(self.plugin_dir).as_posix().replace('/', '_')}"
@@ -148,14 +153,36 @@ class PluginManager:
                     f"Plugin '{name}' requires {dep_name}{spec_str}, but found {dep_plugin.version}"
                 )
 
+        plugin_config_path = plugin_dir / "config.json"
+        config_instance = None
         if plugin_def.config_class:
             Config.register_plugin_config(name, plugin_def.config_class)
-            config_instance = plugin_def.config_class()
+            if plugin_config_path.exists():
+                try:
+                    with open(plugin_config_path, "r", encoding="utf-8") as f:
+                        cfg_data = json.load(f)
+                    if hasattr(plugin_def.config_class, '_from_dict_custom'):
+                        config_instance = plugin_def.config_class._from_dict_custom(cfg_data)
+                    else:
+                        config_instance = plugin_def.config_class(**cfg_data)
+                except (json.JSONDecodeError, OSError, TypeError) as e:
+                    print(f"Warning: Failed to load config for plugin '{name}' ({e}). Using defaults.")
+                    config_instance = plugin_def.config_class()
+            else:
+                config_instance = plugin_def.config_class()
+            cfg_dict = asdict(config_instance)
+            if hasattr(config_instance, '_to_dict_custom'):
+                cfg_dict = config_instance._to_dict_custom(cfg_dict)
+            plugin_config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(plugin_config_path, "w", encoding="utf-8") as f:
+                json.dump(cfg_dict, f, indent=4, ensure_ascii=False)
             setattr(self.app.config, name, config_instance)
+
         plugin_instance = module.PluginImpl(self.app)
         self.plugins[name] = plugin_def
         self.plugin_instances[name] = plugin_instance
         self.plugin_modules[name] = module
+        self.plugin_paths[name] = plugin_dir
         if plugin_def.on_load:
             plugin_def.on_load(self, plugin_instance)
         return plugin_instance
@@ -167,19 +194,22 @@ class PluginManager:
         plugin_instance = self.plugin_instances[name]
         if plugin_def.on_unload:
             plugin_def.on_unload(self, plugin_instance)
-        self._unload_submodules(name)
-        sys.modules.pop(name, None)
+        self._unload_submodules(self.plugin_modules[name].__name__)
+        sys.modules.pop(self.plugin_modules[name].__name__, None)
         del self.plugins[name]
         del self.plugin_instances[name]
         del self.plugin_modules[name]
+        del self.plugin_paths[name]
         if hasattr(self.app.console_handler, 'unregister_plugin_command'):
             for cmd in plugin_def.console_commands:
                 self.app.console_handler.unregister_plugin_command(cmd)
 
     def reload_plugin(self, name: str):
-        plugin_dir = self.plugin_dir / name
+        if name not in self.plugin_paths:
+            raise FileNotFoundError(f"Plugin {name} was not loaded from a known path")
+        plugin_dir = self.plugin_paths[name]
         if not plugin_dir.exists():
-            raise FileNotFoundError(f"Plugin {name} directory not found")
+            raise FileNotFoundError(f"Plugin {name} directory not found at {plugin_dir}")
         self.unload_plugin(name)
         importlib.invalidate_caches()
         self.load_plugin(plugin_dir)
@@ -250,6 +280,8 @@ class PluginManager:
         Debug.log_info(f"Plugin loading complete: {success}/{total} succeeded.", "Plugins")
         if failed_names:
             Debug.log_warning(f"Failed plugins: {', '.join(sorted(failed_names))}", "Plugins")
+        if loaded_names:
+            self.app.config.save()
 
     def _log_plugin_structure(self, plugin_dirs: List[Path], meta_cache: dict):
         packs = defaultdict(list)
@@ -272,10 +304,13 @@ class PluginManager:
                 Debug.log_colored(f"📁 Pack: {pack}", (180, 180, 255), "Plugins")
             for plugin_name, version, path in sorted(packs[pack]):
                 meta = meta_cache.get(path)
-                deps = list(meta.dependency_specs.keys()) if meta and meta.dependency_specs else []
+                if not meta:
+                    continue
+                deps = list(meta.dependency_specs.keys()) if meta.dependency_specs else []
                 dep_str = f" → [{', '.join(deps)}]" if deps else ""
+                author_str = f" by {meta.author}" if meta.author else ""
                 color = (220, 220, 100) if deps else (200, 200, 200)
-                Debug.log_colored(f"  └─ {plugin_name} v{version}{dep_str}", color, "Plugins")
+                Debug.log_colored(f"  └─ {plugin_name} v{version}{author_str}{dep_str}", color, "Plugins")
 
     def _read_plugin_metadata(self, plugin_dir: Path) -> Optional[Plugin]:
         name = plugin_dir.name
@@ -295,6 +330,7 @@ class PluginManager:
         finally:
             sys.modules.pop(f"_meta_{name}", None)
         return None
+
     def update(self, dt: float):
         for name, plugin in self.plugins.items():
             instance = self.plugin_instances[name]

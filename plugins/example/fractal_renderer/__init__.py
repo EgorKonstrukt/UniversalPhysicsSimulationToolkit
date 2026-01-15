@@ -10,6 +10,8 @@ PLUGIN = Plugin(
     name="fractal_renderer",
     version="2.0.1",
     description="High-performance fractal rendering using core_math",
+    author="Zarrakun",
+    icon_path="icon.png",
     dependency_specs={"core_math": ">=1.1.0"},
     config_class=FractalConfig
 )

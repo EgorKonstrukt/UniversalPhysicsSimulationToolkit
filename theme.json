@@ -306,5 +306,9 @@
     "misc": {
       "text_horiz_alignment": "left"
     }
+  },
+  "#author_label": {
+    "text_colour": "#888888",
+    "font_size": "12"
   }
 }

@@ -2,7 +2,7 @@ import pygame
 import os
 import numpy as np
 from typing import Optional, Dict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from UPST.config import Config
 
 @dataclass
@@ -16,6 +16,22 @@ class CollisionSoundConfig:
         "wood": "assets/sounds/wood.ogg",
         "default": "assets/sounds/collision.ogg"
     })
+
+    def _to_dict_custom(self, d: Dict) -> Dict:
+        return d
+
+    @classmethod
+    def _from_dict_custom(cls, d: Dict) -> "CollisionSoundConfig":
+        d.setdefault("enabled", True)
+        d.setdefault("volume", 0.5)
+        d.setdefault("sound_path", "assets/sounds/collision.ogg")
+        d.setdefault("use_material_based", False)
+        d.setdefault("material_map", {
+            "metal": "assets/sounds/metal.ogg",
+            "wood": "assets/sounds/wood.ogg",
+            "default": "assets/sounds/collision.ogg"
+        })
+        return cls(**d)
 
 class CollisionSoundHandler:
     def __init__(self, app, cfg: CollisionSoundConfig):
@@ -105,10 +121,12 @@ class PluginImpl:
         self._registered = True
 
 PLUGIN = Plugin(
-    name="Collision Sound Handler",
+    name="collision_sound",
     version="1.0",
     description="Plays sound on physics body collisions",
     dependency_specs={},
+    author="Zarrakun",
+    icon_path="icon.png",
     config_class=CollisionSoundConfig,
     on_load=lambda mgr, inst: setattr(mgr.app, 'collision_sound_plugin', inst),
     on_unload=lambda mgr, inst: delattr(mgr.app, 'collision_sound_plugin') if hasattr(mgr.app, 'collision_sound_plugin') else None,

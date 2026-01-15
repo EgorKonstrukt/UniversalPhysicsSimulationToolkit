@@ -437,14 +437,16 @@ class Config:
 
     def to_dict(self) -> Dict[str, Any]:
         result = {}
-        for name in self._subconfigs:
-            obj = getattr(self, name)
-            d = asdict(obj)
-            result[name] = self._custom_to_dict(obj, d)
-        for name in self._plugin_configs:
-            obj = getattr(self, name)
-            d = asdict(obj)
-            result[name] = self._custom_to_dict(obj, d)
+        for name in type(self)._subconfigs:
+            obj = getattr(self, name, None)
+            if obj is not None:
+                d = asdict(obj)
+                result[name] = self._custom_to_dict(obj, d)
+        for name in type(self)._plugin_configs:
+            obj = getattr(self, name, None)
+            if obj is not None:
+                d = asdict(obj)
+                result[name] = self._custom_to_dict(obj, d)
         return result
 
     def _custom_to_dict(self, obj: Any, d: Dict) -> Any:
