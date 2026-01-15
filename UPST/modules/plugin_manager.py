@@ -198,7 +198,7 @@ class PluginManager:
     def load_all_plugins(self):
         plugin_dirs = self.discover_plugins()
         if not plugin_dirs:
-            Debug.log_info("No plugins found", "Plugins")
+            Debug.log_info("No plugins found.", "Plugins")
             return
 
         try:
@@ -217,13 +217,13 @@ class PluginManager:
 
         loaded_names = set()
         failed_names = set()
-        Debug.log(f"Starting plugin loading ({len(plugin_dirs)} found)", "Plugins")
+        Debug.log_info(f"Loading {len(plugin_dirs)} plugin(s)...", "Plugins")
 
         for plugin_dir in sorted_dirs:
             meta = meta_cache.get(plugin_dir)
             if not meta:
                 name = plugin_dir.name
-                Debug.log_warning(f"Skipping '{name}': metadata read failed", "Plugins")
+                Debug.log_warning(f"Skipped '{name}': metadata unavailable", "Plugins")
                 failed_names.add(name)
                 continue
 
@@ -232,52 +232,51 @@ class PluginManager:
             missing_deps = [d for d in deps if d not in loaded_names]
 
             if missing_deps:
-                Debug.log_warning(f"Skipping '{name}': missing dependencies {missing_deps}", "Plugins")
+                Debug.log_warning(f"Skipped '{name}': missing dependencies {missing_deps}", "Plugins")
                 failed_names.add(name)
                 continue
 
             try:
                 self.load_plugin(plugin_dir)
                 loaded_names.add(name)
-                if deps:
-                    dep_list = ", ".join(deps)
-                    Debug.log_success(f"Loaded '{name}' (depends on: {dep_list})", "Plugins")
-                else:
-                    Debug.log_success(f"Loaded '{name}'", "Plugins")
+                status = f"Loaded '{name}'" + (f" (deps: {', '.join(deps)})" if deps else "")
+                Debug.log_success(status, "Plugins")
             except Exception as e:
                 Debug.log_error(f"Failed to load '{name}': {e}", "Plugins")
                 failed_names.add(name)
 
-        Debug.log_info(f"Plugin loading complete: {len(loaded_names)}/{len(plugin_dirs)} loaded", "Plugins")
+        total = len(plugin_dirs)
+        success = len(loaded_names)
+        Debug.log_info(f"Plugin loading complete: {success}/{total} succeeded.", "Plugins")
+        if failed_names:
+            Debug.log_warning(f"Failed plugins: {', '.join(sorted(failed_names))}", "Plugins")
+
     def _log_plugin_structure(self, plugin_dirs: List[Path], meta_cache: dict):
-        packs = {}
+        packs = defaultdict(list)
         for d in plugin_dirs:
             rel_path = d.relative_to(self.plugin_dir)
-            if len(rel_path.parts) == 1:
-                pack_name = "<root>"
-                plugin_name = rel_path.parts[0]
-            else:
-                pack_name = rel_path.parts[0]
-                plugin_name = "/".join(rel_path.parts[1:])
-            if pack_name not in packs:
-                packs[pack_name] = []
+            pack_name = rel_path.parts[0] if len(rel_path.parts) > 1 else "<root>"
+            plugin_name = "/".join(rel_path.parts[1:]) if len(rel_path.parts) > 1 else rel_path.parts[0]
             meta = meta_cache.get(d)
             version = meta.version if meta else "?.?.?"
             packs[pack_name].append((plugin_name, version, d))
 
-        Debug.log_info("=== Plugin Structure ===", "Plugins")
-        for pack, items in sorted(packs.items()):
+        Debug.log_colored("┌──────────────────────┐", (100, 200, 255), "Plugins")
+        Debug.log_colored("│   Plugin Structure   │", (100, 200, 255), "Plugins")
+        Debug.log_colored("└──────────────────────┘", (100, 200, 255), "Plugins")
+
+        for pack in sorted(packs.keys()):
             if pack == "<root>":
-                Debug.log_info("📁 (root)", "Plugins")
+                Debug.log_info("📦 [Root Plugins]", "Plugins")
             else:
-                Debug.log_info(f"📁 {pack}", "Plugins")
-            for plugin_name, version, path in sorted(items):
+                Debug.log_colored(f"📁 Pack: {pack}", (180, 180, 255), "Plugins")
+            for plugin_name, version, path in sorted(packs[pack]):
                 meta = meta_cache.get(path)
-                if meta and meta.dependency_specs:
-                    deps = ", ".join(meta.dependency_specs.keys())
-                    Debug.log_info(f"  └── {plugin_name} v{version} → [{deps}]", "Plugins")
-                else:
-                    Debug.log_info(f"  └── {plugin_name} v{version}", "Plugins")
+                deps = list(meta.dependency_specs.keys()) if meta and meta.dependency_specs else []
+                dep_str = f" → [{', '.join(deps)}]" if deps else ""
+                color = (220, 220, 100) if deps else (200, 200, 200)
+                Debug.log_colored(f"  └─ {plugin_name} v{version}{dep_str}", color, "Plugins")
+
     def _read_plugin_metadata(self, plugin_dir: Path) -> Optional[Plugin]:
         name = plugin_dir.name
         init_path = plugin_dir / "__init__.py"

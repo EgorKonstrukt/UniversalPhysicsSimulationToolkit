@@ -25,13 +25,13 @@ class LogLevel(int, Enum):
 
 @dataclass
 class LogEntry:
-    """Запись лога"""
     timestamp: float
     level: LogLevel
     message: str
     category: str
     frame_count: int
     stack_trace: Optional[str] = None
+    color: Optional[Tuple[int, int, int]] = None
 
 
 class DebugManager:
@@ -86,7 +86,7 @@ class DebugManager:
         self.performance_history['frame_time'].append(delta_time * 1000)  # в миллисекундах
 
     def log(self, level: LogLevel, message: str, category: str = "General",
-            include_stack: bool = False):
+            include_stack: bool = False, color_override: Optional[Tuple[int, int, int]] = None):
         if not self.enabled or not self.categories[category]:
             return
 
@@ -94,30 +94,38 @@ class DebugManager:
         if include_stack or level >= LogLevel.ERROR:
             stack_trace = traceback.format_stack()
 
-        ansi_colors = {
-            LogLevel.DEBUG: "\033[38;5;245m",
-            LogLevel.INFO: "\033[38;5;207m",
-            LogLevel.SUCCESS: "\033[38;5;46m",
-            LogLevel.WARNING: "\033[38;5;226m",
-            LogLevel.ERROR: "\033[38;5;203m",
-            LogLevel.CRITICAL: "\033[38;5;196m"
-        }
         reset = "\033[0m"
-        color = ansi_colors.get(level, "")
+        if color_override is not None:
+            r, g, b = color_override
+            ansi_color = f"\033[38;2;{r};{g};{b}m"
+        else:
+            ansi_colors = {
+                LogLevel.DEBUG: "\033[38;5;245m",
+                LogLevel.INFO: "\033[38;5;207m",
+                LogLevel.SUCCESS: "\033[38;5;46m",
+                LogLevel.WARNING: "\033[38;5;226m",
+                LogLevel.ERROR: "\033[38;5;203m",
+                LogLevel.CRITICAL: "\033[38;5;196m"
+            }
+            ansi_color = ansi_colors.get(level, "")
 
         for line in message.split('\n'):
+            display_color = color_override or self.log_colors.get(level, (255, 255, 255))
+
             entry = LogEntry(
                 timestamp=time.time() - self.start_time,
                 level=level,
                 message=line,
                 category=category,
                 frame_count=self.frame_count,
-                stack_trace=stack_trace
+                stack_trace=stack_trace,
+                color=display_color
             )
             self.log_entries.append(entry)
             if self.auto_save_logs and level >= LogLevel.ERROR:
                 self._save_log_entry(entry)
-            print(f"{color}[{level.name}] {category}: {line}{reset}")
+
+            print(f"{ansi_color}[{level.name}] {category}: {line}{reset}")
 
     def _save_log_entry(self, entry: LogEntry):
         """Сохранение записи лога в файл"""
@@ -151,12 +159,22 @@ class DebugManager:
 
         y_offset = console_rect.height - 15
         lines_drawn = 0
+        last_category = None
+
         for entry in reversed(list(self.log_entries)):
             if lines_drawn >= self.max_console_lines or y_offset <= header_height:
                 break
+
+            show_category = entry.category != last_category
+            last_category = entry.category
+
             timestamp_str = f"{entry.timestamp:.2f}s"
-            text = f"[{timestamp_str}] [{entry.category}] {entry.message}"
-            color = self.log_colors.get(entry.level, (255, 255, 255))
+            if show_category:
+                text = f"[{timestamp_str}] [{entry.category}] {entry.message}"
+            else:
+                text = f"[{timestamp_str}]           {entry.message}"
+
+            color = entry.color or self.log_colors.get(entry.level, (255, 255, 255))
             text_surface = self.font_small.render(text, True, color)
             console_surface.blit(text_surface, (5, y_offset))
             y_offset -= 12
@@ -433,6 +451,11 @@ class Debug:
     def log(message: str, category: str = "General"):
         """Логирование отладочного сообщения"""
         get_debug().log(LogLevel.DEBUG, message, category)
+
+    @staticmethod
+    def log_colored(message: str, color: Tuple[int, int, int], category: str = "General"):
+        """Логирование с пользовательским цветом"""
+        get_debug().log(LogLevel.DEBUG, message, category, color_override=color)
 
     @staticmethod
     def log_info(message: str, category: str = "General"):
