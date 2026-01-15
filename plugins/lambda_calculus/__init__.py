@@ -1,7 +1,6 @@
 import pygame
 from typing import Any, Set, List, Tuple, Optional
 from dataclasses import dataclass, field
-from UPST.modules.plugin_manager import Plugin
 from UPST.config import Config
 
 @dataclass(frozen=True)
@@ -180,6 +179,7 @@ PLUGIN = Plugin(
     name="Lambda Calculus Visualizer",
     version="1.0",
     description="Interactive lambda calculus reduction visualizer",
+    dependency_specs={},
     config_class=LambdaCalculusConfig,
     on_load=lambda mgr, inst: setattr(mgr.app, 'lambda_plugin', inst),
     on_unload=lambda mgr, inst: delattr(mgr.app, 'lambda_plugin') if hasattr(mgr.app, 'lambda_plugin') else None,

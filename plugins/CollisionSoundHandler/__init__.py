@@ -3,7 +3,6 @@ import os
 import numpy as np
 from typing import Optional, Dict
 from dataclasses import dataclass, field
-from UPST.modules.plugin_manager import Plugin
 from UPST.config import Config
 
 @dataclass

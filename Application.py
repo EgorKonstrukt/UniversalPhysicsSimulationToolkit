@@ -159,6 +159,7 @@ class Application:
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
         self.repository_manager = RepositoryManager()
         self.plugin_manager = PluginManager(self)
+        self.plugin_manager.load_all_plugins()
 
         self.plugin_manager.register_console_commands(self.console_handler)
 

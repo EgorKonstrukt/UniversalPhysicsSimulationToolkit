@@ -67,8 +67,49 @@ class ConsoleHandler:
         else:
             self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Unknown command: {cmd}")
 
-    def _cmd_help(self, _):
-        self.ui_manager.console_ui.console_window.add_output_line_to_log(config.app.help_console_text)
+    def _cmd_help(self, args: str):
+        output = []
+        if not args.strip():
+            # Общая помощь
+            output.append("=== Built-in Commands ===")
+            output.append("help [command]  - Show this help or help for a specific command")
+            output.append("clear           - Clear console log")
+            output.append("exit            - Quit the application")
+            output.append("exec <code>     - Execute Python code")
+            output.append("eval <expr>     - Evaluate Python expression")
+            output.append("python          - Start external Python interpreter")
+            output.append("graph <expr>    - Plot mathematical expression (e.g. 'x**2 + sin(x)')")
+
+            if self._plugin_commands:
+                output.append("\n=== Plugin Commands ===")
+                for cmd in sorted(self._plugin_commands.keys()):
+                    output.append(f"{cmd} ...")
+            else:
+                output.append("\nNo plugin commands available.")
+        else:
+            # Помощь по конкретной команде
+            cmd = args.split()[0]
+            if cmd in self._builtin_commands:
+                if cmd == 'help':
+                    output.append("help [command]  - Show general help or help for a specific command")
+                elif cmd == 'clear':
+                    output.append("clear           - Clear the console output log")
+                elif cmd == 'exit':
+                    output.append("exit            - Terminate the application")
+                elif cmd == 'exec':
+                    output.append("exec <code>     - Execute arbitrary Python statements")
+                elif cmd == 'eval':
+                    output.append("eval <expr>     - Evaluate a Python expression and print result")
+                elif cmd == 'python':
+                    output.append("python          - Launch an external interactive Python shell")
+                elif cmd == 'graph':
+                    output.append("graph <expr>    - Plot a 2D graph of the given expression (use 'x' as variable)")
+            elif cmd in self._plugin_commands:
+                output.append(f"{cmd} ...         - Provided by plugin (no detailed help available)")
+            else:
+                output.append(f"Unknown command: {cmd}")
+
+        self.ui_manager.console_ui.console_window.add_output_line_to_log('\n'.join(output))
 
     def _cmd_clear(self, _):
         self.ui_manager.console_ui.console_window.clear_log()
