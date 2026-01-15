@@ -108,6 +108,7 @@ PLUGIN = Plugin(
     name="Collision Sound Handler",
     version="1.0",
     description="Plays sound on physics body collisions",
+    dependency_specs={},
     config_class=CollisionSoundConfig,
     on_load=lambda mgr, inst: setattr(mgr.app, 'collision_sound_plugin', inst),
     on_unload=lambda mgr, inst: delattr(mgr.app, 'collision_sound_plugin') if hasattr(mgr.app, 'collision_sound_plugin') else None,

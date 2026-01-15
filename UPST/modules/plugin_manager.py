@@ -13,12 +13,15 @@ from dataclasses import dataclass
 
 from packaging.version import Version, InvalidVersion
 
+from UPST.debug.debug_manager import Debug
+
+
 @dataclass
 class Plugin:
     name: str
     version: str
     description: str
-    dependency_specs: Dict[str, str] = None  # {"plugin_name": ">=1.2.0"}
+    dependency_specs: Dict[str, str]
     config_class: Optional[type] = None
     on_load: Optional[Callable[["PluginManager", Any], None]] = None
     on_unload: Optional[Callable[["PluginManager", Any], None]] = None
@@ -26,12 +29,13 @@ class Plugin:
     on_draw: Optional[Callable[["PluginManager"], None]] = None
     on_event: Optional[Callable[["PluginManager", Any], bool]] = None
     console_commands: Dict[str, Callable] = None
+    command_help: Dict[str, str] = None  # {"cmd": "brief description"}
 
     def __post_init__(self):
-        if self.dependency_specs is None:
-            self.dependency_specs = {}
         if self.console_commands is None:
             self.console_commands = {}
+        if self.command_help is None:
+            self.command_help = {}
 
 class PluginManager:
     def __init__(self, app):
@@ -43,7 +47,12 @@ class PluginManager:
         self.plugin_dir.mkdir(exist_ok=True)
 
     def discover_plugins(self):
-        return [d for d in self.plugin_dir.iterdir() if d.is_dir() and (d / "__init__.py").exists()]
+        plugins = []
+        for item in self.plugin_dir.rglob("*"):
+            if item.is_dir() and (item / "__init__.py").exists():
+                if item.parent == self.plugin_dir or (item.parent.parent == self.plugin_dir and item.parent != self.plugin_dir):
+                    plugins.append(item)
+        return sorted(plugins, key=lambda p: str(p))
 
     def _unload_submodules(self, base_name: str):
         submodules = [name for name in sys.modules if name.startswith(base_name + ".")]
@@ -113,19 +122,22 @@ class PluginManager:
 
         return [name_to_path[name] for name in order]
     def load_plugin(self, plugin_dir: Path):
-        name = plugin_dir.name
         init_path = plugin_dir / "__init__.py"
-        spec = importlib.util.spec_from_file_location(name, init_path)
+        module_name = f"plugin_{plugin_dir.relative_to(self.plugin_dir).as_posix().replace('/', '_')}"
+        spec = importlib.util.spec_from_file_location(module_name, init_path)
         if spec is None or spec.loader is None:
             raise ImportError(f"Cannot load plugin from {init_path}")
         module = importlib.util.module_from_spec(spec)
-        # 🔑 Ключевое: внедряем Plugin в модуль
         module.Plugin = Plugin
-        sys.modules[name] = module
+        sys.modules[module_name] = module
         spec.loader.exec_module(module)
         if not hasattr(module, "PLUGIN"):
-            raise AttributeError(f"Plugin {name} missing PLUGIN definition")
+            raise AttributeError(f"Plugin at {plugin_dir} missing PLUGIN definition")
         plugin_def: Plugin = module.PLUGIN
+
+        name = plugin_def.name
+        if name in self.plugins:
+            raise ValueError(f"Plugin name '{name}' already loaded")
 
         for dep_name, spec_str in plugin_def.dependency_specs.items():
             if dep_name not in self.plugins:
@@ -185,36 +197,87 @@ class PluginManager:
 
     def load_all_plugins(self):
         plugin_dirs = self.discover_plugins()
+        if not plugin_dirs:
+            Debug.log_info("No plugins found", "Plugins")
+            return
+
         try:
             sorted_dirs = self._topological_sort(plugin_dirs)
         except (RuntimeError, ImportError) as e:
-            print(f"Dependency resolution failed: {e}. Skipping all plugins.")
+            Debug.log_error(f"Dependency resolution failed: {e}", "Plugins")
             return
+
+        meta_cache = {}
+        for d in plugin_dirs:
+            meta = self._read_plugin_metadata(d)
+            if meta:
+                meta_cache[d] = meta
+
+        self._log_plugin_structure(sorted_dirs, meta_cache)
 
         loaded_names = set()
         failed_names = set()
+        Debug.log(f"Starting plugin loading ({len(plugin_dirs)} found)", "Plugins")
 
         for plugin_dir in sorted_dirs:
-            name = plugin_dir.name
-            meta = self._read_plugin_metadata(plugin_dir)
-            if meta is None:
-                print(f"Skipping plugin '{name}': could not read metadata")
+            meta = meta_cache.get(plugin_dir)
+            if not meta:
+                name = plugin_dir.name
+                Debug.log_warning(f"Skipping '{name}': metadata read failed", "Plugins")
                 failed_names.add(name)
                 continue
 
-            missing_deps = [dep for dep in meta.dependency_specs.keys() if dep not in loaded_names]
+            name = meta.name
+            deps = list(meta.dependency_specs.keys())
+            missing_deps = [d for d in deps if d not in loaded_names]
+
             if missing_deps:
-                print(f"Skipping plugin '{name}': missing dependencies {missing_deps}")
+                Debug.log_warning(f"Skipping '{name}': missing dependencies {missing_deps}", "Plugins")
                 failed_names.add(name)
                 continue
 
             try:
                 self.load_plugin(plugin_dir)
                 loaded_names.add(name)
-                print(f"Loaded PLUGIN: {name}")
+                if deps:
+                    dep_list = ", ".join(deps)
+                    Debug.log_success(f"Loaded '{name}' (depends on: {dep_list})", "Plugins")
+                else:
+                    Debug.log_success(f"Loaded '{name}'", "Plugins")
             except Exception as e:
-                print(f"Failed to load plugin '{name}': {e}")
+                Debug.log_error(f"Failed to load '{name}': {e}", "Plugins")
                 failed_names.add(name)
+
+        Debug.log_info(f"Plugin loading complete: {len(loaded_names)}/{len(plugin_dirs)} loaded", "Plugins")
+    def _log_plugin_structure(self, plugin_dirs: List[Path], meta_cache: dict):
+        packs = {}
+        for d in plugin_dirs:
+            rel_path = d.relative_to(self.plugin_dir)
+            if len(rel_path.parts) == 1:
+                pack_name = "<root>"
+                plugin_name = rel_path.parts[0]
+            else:
+                pack_name = rel_path.parts[0]
+                plugin_name = "/".join(rel_path.parts[1:])
+            if pack_name not in packs:
+                packs[pack_name] = []
+            meta = meta_cache.get(d)
+            version = meta.version if meta else "?.?.?"
+            packs[pack_name].append((plugin_name, version, d))
+
+        Debug.log_info("=== Plugin Structure ===", "Plugins")
+        for pack, items in sorted(packs.items()):
+            if pack == "<root>":
+                Debug.log_info("📁 (root)", "Plugins")
+            else:
+                Debug.log_info(f"📁 {pack}", "Plugins")
+            for plugin_name, version, path in sorted(items):
+                meta = meta_cache.get(path)
+                if meta and meta.dependency_specs:
+                    deps = ", ".join(meta.dependency_specs.keys())
+                    Debug.log_info(f"  └── {plugin_name} v{version} → [{deps}]", "Plugins")
+                else:
+                    Debug.log_info(f"  └── {plugin_name} v{version}", "Plugins")
     def _read_plugin_metadata(self, plugin_dir: Path) -> Optional[Plugin]:
         name = plugin_dir.name
         init_path = plugin_dir / "__init__.py"
@@ -262,4 +325,4 @@ class PluginManager:
         for name, plugin in self.plugins.items():
             for cmd_name, cmd_func in plugin.console_commands.items():
                 bound_func = lambda expr, inst=self.plugin_instances[name], f=cmd_func: f(inst, expr)
-                console_handler.register_plugin_command(cmd_name, bound_func)
+                console_handler.register_plugin_command(cmd_name, bound_func, plugin.command_help.get(cmd_name, ""))

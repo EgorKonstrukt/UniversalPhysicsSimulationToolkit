@@ -25,6 +25,7 @@ class ConsoleHandler:
             'python': self._cmd_python,
             'graph': self._cmd_graph,
         }
+        self._plugin_help: Dict[str, str] = {}
 
     def _build_base_sandbox(self):
         env = {name: getattr(math, name) for name in dir(math) if not name.startswith('_')}
@@ -37,8 +38,9 @@ class ConsoleHandler:
         })
         return env
 
-    def register_plugin_command(self, name: str, func: Callable):
+    def register_plugin_command(self, name: str, func: Callable, help_text: str = ""):
         self._plugin_commands[name] = func
+        self._plugin_help[name] = help_text or f"{name} ...         - Provided by plugin"
         self._sandbox[name] = lambda *args, f=func: f(*args)
 
     def unregister_plugin_command(self, name: str):
@@ -70,7 +72,6 @@ class ConsoleHandler:
     def _cmd_help(self, args: str):
         output = []
         if not args.strip():
-            # Общая помощь
             output.append("=== Built-in Commands ===")
             output.append("help [command]  - Show this help or help for a specific command")
             output.append("clear           - Clear console log")
@@ -79,36 +80,27 @@ class ConsoleHandler:
             output.append("eval <expr>     - Evaluate Python expression")
             output.append("python          - Start external Python interpreter")
             output.append("graph <expr>    - Plot mathematical expression (e.g. 'x**2 + sin(x)')")
-
             if self._plugin_commands:
                 output.append("\n=== Plugin Commands ===")
                 for cmd in sorted(self._plugin_commands.keys()):
-                    output.append(f"{cmd} ...")
-            else:
-                output.append("\nNo plugin commands available.")
+                    output.append(self._plugin_help.get(cmd, f"{cmd} ..."))
         else:
-            # Помощь по конкретной команде
             cmd = args.split()[0]
             if cmd in self._builtin_commands:
-                if cmd == 'help':
-                    output.append("help [command]  - Show general help or help for a specific command")
-                elif cmd == 'clear':
-                    output.append("clear           - Clear the console output log")
-                elif cmd == 'exit':
-                    output.append("exit            - Terminate the application")
-                elif cmd == 'exec':
-                    output.append("exec <code>     - Execute arbitrary Python statements")
-                elif cmd == 'eval':
-                    output.append("eval <expr>     - Evaluate a Python expression and print result")
-                elif cmd == 'python':
-                    output.append("python          - Launch an external interactive Python shell")
-                elif cmd == 'graph':
-                    output.append("graph <expr>    - Plot a 2D graph of the given expression (use 'x' as variable)")
+                help_map = {
+                    'help': "help [command]  - Show general help or help for a specific command",
+                    'clear': "clear           - Clear the console output log",
+                    'exit': "exit            - Terminate the application",
+                    'exec': "exec <code>     - Execute arbitrary Python statements",
+                    'eval': "eval <expr>     - Evaluate a Python expression and print result",
+                    'python': "python          - Launch an external interactive Python shell",
+                    'graph': "graph <expr>    - Plot a 2D graph of the given expression (use 'x' as variable)"
+                }
+                output.append(help_map.get(cmd, f"{cmd} - No detailed help available"))
             elif cmd in self._plugin_commands:
-                output.append(f"{cmd} ...         - Provided by plugin (no detailed help available)")
+                output.append(self._plugin_help.get(cmd, f"{cmd} - No help provided by plugin"))
             else:
                 output.append(f"Unknown command: {cmd}")
-
         self.ui_manager.console_ui.console_window.add_output_line_to_log('\n'.join(output))
 
     def _cmd_clear(self, _):
