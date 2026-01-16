@@ -240,6 +240,15 @@ class SaveLoadManager:
                         'persistent': is_persistent
                     })
             data['text_gizmos'] = text_gizmos
+        plugin_states = {}
+        for name, instance in self.app.plugin_manager.plugin_instances.items():
+            plugin_def = self.app.plugin_manager.plugins[name]
+            if hasattr(instance, 'serialize'):
+                try:
+                    plugin_states[name] = instance.serialize()
+                except Exception as e:
+                    Debug.log_error(f"Plugin '{name}' serialization failed: {e}", "SaveLoadManager")
+        data["plugin_states"] = plugin_states
         return data
 
     def load_world(self):
@@ -395,6 +404,15 @@ class SaveLoadManager:
                     gizmos_mgr.persistent_gizmos.append(g)
                 else:
                     gizmos_mgr.gizmos.append(g)
+        plugin_states = data.get("plugin_states", {})
+        for name, state in plugin_states.items():
+            if name in self.app.plugin_manager.plugin_instances:
+                instance = self.app.plugin_manager.plugin_instances[name]
+                if hasattr(instance, 'deserialize'):
+                    try:
+                        instance.deserialize(state)
+                    except Exception as e:
+                        Debug.log_error(f"Plugin '{name}' deserialization failed: {e}", "SaveLoadManager")
         self.undo_redo.take_snapshot()
 
     def set_compression_enabled(self, enabled): self.enable_compression = bool(enabled)

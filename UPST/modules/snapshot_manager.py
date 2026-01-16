@@ -166,6 +166,15 @@ class SnapshotManager:
                         'persistent': is_persistent
                     })
             data['text_gizmos'] = text_gizmos
+        plugin_states = {}
+        for name, instance in self.physics_manager.app.plugin_manager.plugin_instances.items():
+            plugin_def = self.physics_manager.app.plugin_manager.plugins[name]
+            if hasattr(instance, 'serialize'):
+                try:
+                    plugin_states[name] = instance.serialize()
+                except Exception as e:
+                    Debug.log_error(f"Plugin '{name}' snapshot serialization failed: {e}", "SnapshotManager")
+        data["plugin_states"] = plugin_states
         return data
 
     def load_snapshot(self, snapshot_bytes):
@@ -313,7 +322,15 @@ class SnapshotManager:
                     gizmos_mgr.persistent_gizmos.append(g)
                 else:
                     gizmos_mgr.gizmos.append(g)
-
+        plugin_states = data.get("plugin_states", {})
+        for name, state in plugin_states.items():
+            if name in self.physics_manager.app.plugin_manager.plugin_instances:
+                instance = self.physics_manager.app.plugin_manager.plugin_instances[name]
+                if hasattr(instance, 'deserialize'):
+                    try:
+                        instance.deserialize(state)
+                    except Exception as e:
+                        Debug.log_error(f"Plugin '{name}' snapshot deserialization failed: {e}", "SnapshotManager")
         str_body_map = {str(uid): body for uid, body in body_uuid_map.items()}
         self.physics_manager.script_manager.deserialize_from_save(data.get("scripts", {}), str_body_map)
         Debug.log_success("Snapshot restored.", category="SnapshotManager")

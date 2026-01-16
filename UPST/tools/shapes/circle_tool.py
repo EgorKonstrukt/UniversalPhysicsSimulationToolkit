@@ -70,6 +70,8 @@ class CircleTool(BaseTool):
         self.settings_window = win
 
     def handle_event(self, event, world_mouse_pos=None):
+        if self.ui_manager.manager.get_focus_set():
+            return
         if event.type == pygame_gui.UI_BUTTON_PRESSED and event.ui_element == self.color_btn:
             self._open_color_picker()
         elif event.type == pygame_gui.UI_COLOUR_PICKER_COLOUR_PICKED:
