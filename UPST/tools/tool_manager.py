@@ -1,3 +1,6 @@
+import os
+from collections import defaultdict
+
 import pygame
 from pygame_gui.elements import UIPanel, UILabel, UIButton, UIImage
 
@@ -43,6 +46,8 @@ class ToolSystem:
         self._pending_tools = []
         self._register_tools()
         self.undo_redo = get_undo_redo()
+        self.tool_panel = None
+        self.tool_buttons = []
 
     def is_mouse_on_ui(self):
         return bool(self.ui_manager.manager.get_focus_set())
@@ -123,53 +128,70 @@ class ToolSystem:
         if self.current_tool and hasattr(self.current_tool, 'draw_preview'):
             self.current_tool.draw_preview(screen, camera)
 
+    def register_tool(self, tool):
+        print(f">>> Registering tool: {tool.name} (UI ready: {self.ui_manager is not None})")
+        if not self.ui_manager:
+            self._pending_tools.append(tool)
+            print(">>> Added to _pending_tools")
+        else:
+            tool.set_ui_manager(self.ui_manager)
+            self.tools[tool.name] = tool
+            print(">>> Added to active tools")
+    def clear_tool_buttons(self):
+        if hasattr(self.ui_manager, 'tool_panel') and self.ui_manager.tool_panel:
+            self.ui_manager.tool_panel.kill()
+            self.ui_manager.tool_panel = None
+        self.ui_manager.tool_buttons.clear()
     def create_tool_buttons(self):
         if not self.ui_manager: return
         bs, pad, x0 = 50, 1, 10
         tip_delay = getattr(config, 'TOOLTIP_DELAY', 0.1)
-        y = 0
-        col = 0
         items = []
+        y = 0
 
-        def tt(name):
-            return getattr(self.tools[name], 'tooltip', name)
+        categories = defaultdict(list)
+        for tool in self.tools.values():
+            cat = getattr(tool, 'category', 'Tools')
+            categories[cat].append(tool)
 
-        def add_section(text):
-            nonlocal y, col
-            items.append(("label", text, y))
+        known_order = ["Primitives", "Connections", "Tools"]
+        sorted_cats = [c for c in known_order if c in categories]
+        sorted_cats += sorted([c for c in categories if c not in known_order])
+
+        for cat in sorted_cats:
+            items.append(("label", cat, y))
             y += 30
             col = 0
+            for tool in categories[cat]:
+                x = x0 + col * (bs + pad)
+                items.append(("btn", tool.name, tool.icon_path, x, y))
+                col += 1
+                if col > 1:
+                    col = 0
+                    y += bs + pad
+            if col: y += bs + pad
 
-        def add_btn(name, icon):
-            nonlocal y, col
-            x = x0 + col * (bs + pad)
-            items.append(("btn", name, icon, x, y))
-            col += 1
-            if col > 1: col = 0;y += bs + pad
-
-        add_section("Primitives")
-        for n in ["Circle", "Rectangle", "Triangle", "Poly", "Polyhedron", "Spam", "Gear", "Chain", "Plane"]:
-            add_btn(n, self.tools[n].icon_path)
-        if col: y += bs + pad;col = 0
-        add_section("Connections")
-        for n in ["Spring", "PivotJoint", "PinJoint", "Fixate"]:
-            add_btn(n, self.tools[n].icon_path)
-        if col: y += bs + pad;col = 0
-        add_section("Tools")
-        for n in ["Explosion", "StaticLine", "Laser", "Drag", "Move", "Rotate", "Cut", "ScriptTool", "Label"]:
-            add_btn(n, self.tools[n].icon_path)
-        panel = UIPanel(relative_rect=pygame.Rect(5, 50, 75+bs, y + 70), manager=self.ui_manager.manager)
+        panel_width = x0 + 2 * (bs + pad) - pad
+        panel_height = y + 70
+        panel = UIPanel(relative_rect=pygame.Rect(5, 50, panel_width+15, panel_height), manager=self.ui_manager.manager)
+        self.ui_manager.tool_panel = panel
         for it in items:
             if it[0] == "label":
-                UILabel(relative_rect=pygame.Rect(0, it[2], 190, 25),
+                UILabel(relative_rect=pygame.Rect(0, it[2], panel_width - 10, 25),
                         text=f"-- {it[1]} --", manager=self.ui_manager.manager, container=panel)
             else:
                 _, name, icon, x, y = it
-                tip = tt(name)
+                tip = getattr(self.tools[name], 'tooltip', name)
                 btn = UIButton(relative_rect=pygame.Rect(x, y, bs, bs), text="",
                                manager=self.ui_manager.manager, container=panel)
+                icon_str = str(icon) if icon is not None else None
+                if icon_str and os.path.exists(icon_str):
+                    img_surface = pygame.image.load(icon_str)
+                else:
+                    img_surface = pygame.Surface((bs - 4, bs - 4))
+                    img_surface.fill((200, 100, 200))
                 img = UIImage(relative_rect=pygame.Rect(x + 2, y + 2, bs - 4, bs - 4),
-                              image_surface=pygame.image.load(icon),
+                              image_surface=img_surface,
                               manager=self.ui_manager.manager, container=panel)
                 btn.set_tooltip(tip, delay=tip_delay)
                 img.set_tooltip(tip, delay=tip_delay)

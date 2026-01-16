@@ -7,7 +7,7 @@ from UPST.config import Config
 
 @dataclass
 class CollisionSoundConfig:
-    enabled: bool = True
+    enabled: bool = False
     volume: float = 0.5
     sound_path: str = "assets/sounds/collision.ogg"
     use_material_based: bool = False

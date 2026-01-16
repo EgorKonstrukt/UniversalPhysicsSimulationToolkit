@@ -205,6 +205,13 @@ class PluginManager:
             plugin_def.on_load(self, plugin_instance)
         if plugin_def.context_menu_items:
             self.register_context_menu_contributor(name, lambda pm, obj, pd=plugin_def, pi=plugin_instance: pd.context_menu_items(pm, pi, obj))
+        if hasattr(plugin_instance, 'get_tools') and callable(getattr(plugin_instance, 'get_tools')):
+            try:
+                tools = plugin_instance.get_tools(self.app)
+                for tool in tools:
+                    self.app.tool_manager.register_tool(tool)
+            except Exception as e:
+                Debug.log_error(f"Failed to register tools from plugin '{name}': {e}", "Plugins")
         return plugin_instance
 
     def unload_plugin(self, name: str):
