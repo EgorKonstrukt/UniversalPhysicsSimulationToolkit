@@ -393,9 +393,15 @@ class Config:
 
     def __init__(self, **kwargs):
         for name, config_type in self._subconfigs.items():
-            instance = kwargs.get(name) or config_type()
+            instance = kwargs.pop(name, None) or config_type()
             setattr(self, name, instance)
-        self._app_ref = getattr(self, 'app', None)
+        self._extra = kwargs
+
+    def get(self, key: str, default=None):
+        return self._extra.get(key, default)
+
+    def set(self, key: str, value):
+        self._extra[key] = value
 
     @property
     def _default_path(self) -> str:
@@ -439,7 +445,9 @@ class Config:
             if obj is not None:
                 d = asdict(obj)
                 result[name] = self._custom_to_dict(obj, d)
+        result.update(self._extra)
         return result
+
 
     def _custom_to_dict(self, obj: Any, d: Dict) -> Any:
         if hasattr(obj, '_to_dict_custom'):
@@ -449,12 +457,17 @@ class Config:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Config":
         kwargs = {}
-        for name, config_type in cls._subconfigs.items():
-            subdata = data.get(name, {})
-            if hasattr(config_type, '_from_dict_custom'):
-                kwargs[name] = config_type._from_dict_custom(subdata)
+        extra = {}
+        for key, value in data.items():
+            if key in cls._subconfigs:
+                config_type = cls._subconfigs[key]
+                if hasattr(config_type, '_from_dict_custom'):
+                    kwargs[key] = config_type._from_dict_custom(value)
+                else:
+                    kwargs[key] = config_type(**value)
             else:
-                kwargs[name] = config_type(**subdata)
+                extra[key] = value
+        kwargs.update(extra)
         return cls(**kwargs)
 
 Config.register("app", AppConfig)

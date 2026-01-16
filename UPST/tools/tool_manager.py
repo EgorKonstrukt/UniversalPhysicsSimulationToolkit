@@ -34,6 +34,38 @@ from UPST.tools.special.label_tool import LabelTool
 
 from UPST.modules.undo_redo_manager import get_undo_redo
 
+class ResizableToolWindow(pygame_gui.elements.UIWindow):
+    CONFIG_KEY = "tool_window_rect"
+
+    def __init__(self, rect, manager, tool_system):
+        saved = config.get(self.CONFIG_KEY)
+        if saved:
+            try:
+                rect = pygame.Rect(saved[0]+15, saved[1]+15, saved[2]-30, saved[3]-20)
+            except (TypeError, ValueError):
+                pass
+        super().__init__(rect, manager, window_display_title="Tools", resizable=True)
+        self.tool_system = tool_system
+        self._last_container_size = self.get_container().get_size()
+        self.tool_system._layout_window = self
+        self._was_resizing = False
+
+    def update(self, time_delta):
+        super().update(time_delta)
+        container = self.get_container()
+        current_size = container.get_size()
+        resizing_now = self.resizing_mode_active
+        if current_size != self._last_container_size:
+            self._last_container_size = current_size
+            self.tool_system._rebuild_tool_layout()
+        if self._was_resizing and not resizing_now:
+            self._save_window_rect()
+        self._was_resizing = resizing_now
+
+    def _save_window_rect(self):
+        r = self.rect
+        config.set(self.CONFIG_KEY, [r.x, r.y, r.width, r.height])
+        config.save()
 
 class ToolSystem:
     def __init__(self, physics_manager, sound_manager):
@@ -142,48 +174,49 @@ class ToolSystem:
             self.ui_manager.tool_panel.kill()
             self.ui_manager.tool_panel = None
         self.ui_manager.tool_buttons.clear()
-    def create_tool_buttons(self):
-        if not self.ui_manager: return
-        bs, pad, x0 = 50, 1, 10
-        tip_delay = getattr(config, 'TOOLTIP_DELAY', 0.1)
-        items = []
-        y = 0
 
+    def _rebuild_tool_layout(self):
+        if not hasattr(self.ui_manager, 'tool_panel') or not self.ui_manager.tool_panel:
+            return
+        window = self.ui_manager.tool_panel
+        container = window.get_container()
+        for child in container.elements:
+            child.kill()
+        bs, pad, x0 = 50, 1, 0
+        tip_delay = getattr(config, 'TOOLTIP_DELAY', 0.1)
+        y = 0
         categories = defaultdict(list)
         for tool in self.tools.values():
             cat = getattr(tool, 'category', 'Tools')
             categories[cat].append(tool)
-
         known_order = ["Primitives", "Connections", "Tools"]
         sorted_cats = [c for c in known_order if c in categories]
         sorted_cats += sorted([c for c in categories if c not in known_order])
-
+        items = []
         for cat in sorted_cats:
             items.append(("label", cat, y))
-            y += 30
+            y += 0
             col = 0
+            max_width = container.rect.width - 0
             for tool in categories[cat]:
                 x = x0 + col * (bs + pad)
+                if x + bs > max_width:
+                    col = 0
+                    x = x0
+                    y += bs + pad
                 items.append(("btn", tool.name, tool.icon_path, x, y))
                 col += 1
-                if col > 1:
-                    col = 0
-                    y += bs + pad
-            if col: y += bs + pad
-
-        panel_width = x0 + 2 * (bs + pad) - pad
-        panel_height = y + 70
-        panel = UIPanel(relative_rect=pygame.Rect(5, 50, panel_width+15, panel_height), manager=self.ui_manager.manager)
-        self.ui_manager.tool_panel = panel
+            y += bs + pad if col else 0
         for it in items:
             if it[0] == "label":
-                UILabel(relative_rect=pygame.Rect(0, it[2], panel_width - 10, 25),
-                        text=f"-- {it[1]} --", manager=self.ui_manager.manager, container=panel)
+                pass
+                # UILabel(relative_rect=pygame.Rect(0, it[2], container.rect.width - 10, 25),
+                #         text=f"-- {it[1]} --", manager=self.ui_manager.manager, container=container)
             else:
                 _, name, icon, x, y = it
                 tip = getattr(self.tools[name], 'tooltip', name)
                 btn = UIButton(relative_rect=pygame.Rect(x, y, bs, bs), text="",
-                               manager=self.ui_manager.manager, container=panel)
+                               manager=self.ui_manager.manager, container=container)
                 icon_str = str(icon) if icon is not None else None
                 if icon_str and os.path.exists(icon_str):
                     img_surface = pygame.image.load(icon_str)
@@ -192,8 +225,17 @@ class ToolSystem:
                     img_surface.fill((200, 100, 200))
                 img = UIImage(relative_rect=pygame.Rect(x + 2, y + 2, bs - 4, bs - 4),
                               image_surface=img_surface,
-                              manager=self.ui_manager.manager, container=panel)
+                              manager=self.ui_manager.manager, container=container)
                 btn.set_tooltip(tip, delay=tip_delay)
                 img.set_tooltip(tip, delay=tip_delay)
                 btn.tool_name = name
                 self.ui_manager.tool_buttons.append(btn)
+
+    def create_tool_buttons(self):
+        if not self.ui_manager: return
+        self.clear_tool_buttons()
+        window_rect = pygame.Rect(5, 50, 220, 300)
+        window = ResizableToolWindow(window_rect, self.ui_manager.manager, self)
+        self.ui_manager.tool_panel = window
+        self.ui_manager.tool_buttons = []
+        self._rebuild_tool_layout()
