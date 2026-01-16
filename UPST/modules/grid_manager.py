@@ -43,6 +43,154 @@ class GridManager:
         self._was_grabbed = False
         self._was_visible = False
         self._snapping_active = False
+        self.coordinate_display_mode = "screen"  # or "world"
+
+    def toggle_coordinate_display_mode(self):
+        self.coordinate_display_mode = "world" if self.coordinate_display_mode == "screen" else "screen"
+
+    def draw(self, screen):
+        grid_spacing_world, grid_spacing_pixels = self.calculate_grid_spacing()
+        self._handle_snapping(grid_spacing_world, grid_spacing_pixels)
+        if not self.enabled or grid_spacing_pixels < 5: return
+        top_left_world = self.camera.screen_to_world((0, 0))
+        bottom_right_world = self.camera.screen_to_world((screen.get_width(), screen.get_height()))
+        min_x = min(top_left_world[0], bottom_right_world[0])
+        max_x = max(top_left_world[0], bottom_right_world[0])
+        min_y = min(top_left_world[1], bottom_right_world[1])
+        max_y = max(top_left_world[1], bottom_right_world[1])
+
+        min_x = math.floor(min_x / grid_spacing_world) * grid_spacing_world
+        max_x = math.ceil(max_x / grid_spacing_world) * grid_spacing_world
+        min_y = math.floor(min_y / grid_spacing_world) * grid_spacing_world
+        max_y = math.ceil(max_y / grid_spacing_world) * grid_spacing_world
+
+        for x in _frange(min_x, max_x + grid_spacing_world / 2, grid_spacing_world):
+            start, end, color, thickness = self._compute_line_params(x, True, top_left_world, bottom_right_world, grid_spacing_world)
+            self._draw_line(screen, start, end, color[:3], thickness)
+            if self.coordinate_display_mode == "world":
+                self._draw_world_label(screen, x, 0, is_x=True)
+        for y in _frange(min_y, max_y + grid_spacing_world / 2, grid_spacing_world):
+            start, end, color, thickness = self._compute_line_params(y, False, top_left_world, bottom_right_world, grid_spacing_world)
+            self._draw_line(screen, start, end, color[:3], thickness)
+            if self.coordinate_display_mode == "world":
+                self._draw_world_label(screen, 0, y, is_x=False)
+
+        if self.coordinate_display_mode == "world":
+            self._draw_axis_labels(screen)
+            self._draw_cursor_coordinates(screen)
+
+        if self.force_field_manager and self.force_field_manager.physics_manager.running_physics:
+            self._draw_gravity_vectors(screen, grid_spacing_world, grid_spacing_pixels)
+
+        self.draw_scale_indicator(screen, grid_spacing_world, grid_spacing_pixels)
+        if self.coordinate_display_mode == "screen":
+            self.draw_rulers(screen)
+    def _draw_axis_labels(self, screen):
+        offset = 1.5 * self.calculate_grid_spacing()[0]
+        x_label_pos = self.camera.world_to_screen((offset, 0))
+        y_label_pos = self.camera.world_to_screen((0, offset))
+        font = pygame.font.SysFont("Consolas", 14, bold=True)
+        x_surf = font.render("X", True, (200, 200, 200))
+        y_surf = font.render("Y", True, (200, 200, 200))
+        screen.blit(x_surf, (int(x_label_pos[0]), int(x_label_pos[1] - x_surf.get_height() - 2)))
+        screen.blit(y_surf, (int(y_label_pos[0] + 2), int(y_label_pos[1])))
+    def _draw_world_label(self, screen, x, y, is_x):
+        if abs(x) < 1e-12 and abs(y) < 1e-12:
+            return
+        world_pos = (x, y)
+        screen_pos = self.camera.world_to_screen(world_pos)
+        label = self._format_number(x if is_x else y)
+        text_surf = self.ruler_font.render(label, True, (200, 200, 200))
+        offset = 4
+        if is_x:
+            pos = (int(screen_pos[0] - text_surf.get_width() / 2), int(screen_pos[1] + offset))
+        else:
+            pos = (int(screen_pos[0] + offset), int(screen_pos[1] - text_surf.get_height() / 2))
+        screen.blit(text_surf, pos)
+
+    def _format_number(self, val):
+        abs_val = abs(val)
+        if abs_val >= 1e6: return f"{val / 1e6:.1f}e6"
+        elif abs_val >= 1: return f"{val:.0f}"
+        elif abs_val >= 1e-3: return f"{val * 1e3:.0f}mm"
+        elif abs_val >= 1e-6: return f"{val * 1e6:.0f}µm"
+        else: return f"{val * 1e9:.0f}nm"
+    def _draw_cursor_coordinates(self, screen):
+        mouse_pos = pygame.mouse.get_pos()
+        world_mouse = self.camera.screen_to_world(mouse_pos)
+        label_x = f"X: {self._format_number(world_mouse[0])}"
+        label_y = f"Y: {self._format_number(world_mouse[1])}"
+        text_x = self.ruler_font.render(label_x, True, (255, 255, 0))
+        text_y = self.ruler_font.render(label_y, True, (255, 255, 0))
+        margin = 8
+        screen.blit(text_x, (mouse_pos[0] + margin, mouse_pos[1] + margin))
+        screen.blit(text_y, (mouse_pos[0] + margin, mouse_pos[1] + margin + text_x.get_height() + 2))
+    def draw_rulers(self, screen):
+        screen_width, screen_height = screen.get_size()
+        margin = 5
+        tick_length = 6
+        text_offset = 3
+        min_label_spacing = 40
+        top_left_world = self.camera.screen_to_world((0, 0))
+        bottom_right_world = self.camera.screen_to_world((screen_width, screen_height))
+        grid_spacing_world, grid_spacing_pixels = self.calculate_grid_spacing()
+        if grid_spacing_pixels < 10: return
+        min_x = min(top_left_world[0], bottom_right_world[0])
+        max_x = max(top_left_world[0], bottom_right_world[0])
+        min_y = min(top_left_world[1], bottom_right_world[1])
+        max_y = max(top_left_world[1], bottom_right_world[1])
+
+        min_x = math.floor(min_x / grid_spacing_world) * grid_spacing_world
+        max_x = math.ceil(max_x / grid_spacing_world) * grid_spacing_world
+        min_y = math.floor(min_y / grid_spacing_world) * grid_spacing_world
+        max_y = math.ceil(max_y / grid_spacing_world) * grid_spacing_world
+        skip = max(1, getattr(config.grid, 'ruler_skip_factor', 1))
+
+        def format_number(val):
+            abs_val = abs(val)
+            if abs_val >= 1e6: return f"{val / 1e6:.1f}e6"
+            elif abs_val >= 1: return f"{val:.0f}"
+            elif abs_val >= 1e-3: return f"{val * 1e3:.0f}mm"
+            elif abs_val >= 1e-6: return f"{val * 1e6:.0f}µm"
+            else: return f"{val * 1e9:.0f}nm"
+
+        last_label_x = -min_label_spacing
+        for x in _frange(min_x, max_x + grid_spacing_world / 2, grid_spacing_world):
+            tick_index = round(x / grid_spacing_world)
+            if tick_index % skip == 0:
+                screen_x = self.camera.world_to_screen((x, 0))[0]
+                if 0 <= screen_x <= screen_width and screen_x - last_label_x >= min_label_spacing:
+                    pygame.gfxdraw.line(screen, int(screen_x), 0, int(screen_x), tick_length, (200, 200, 200))
+                    label = format_number(x)
+                    text_surf = self.ruler_font.render(label, True, (200, 200, 200))
+                    screen.blit(text_surf, (int(screen_x), tick_length + text_offset))
+                    last_label_x = screen_x
+
+        last_label_y = -min_label_spacing
+        for y in _frange(min_y, max_y + grid_spacing_world / 2, grid_spacing_world):
+            tick_index = round(y / grid_spacing_world)
+            if tick_index % skip == 0:
+                screen_y = self.camera.world_to_screen((0, y))[1]
+                if 0 <= screen_y <= screen_height and screen_y - last_label_y >= min_label_spacing:
+                    pygame.gfxdraw.line(screen, 0, int(screen_y), tick_length, int(screen_y), (200, 200, 200))
+                    label = format_number(y)
+                    text_surf = self.ruler_font.render(label, True, (200, 200, 200))
+                    screen.blit(text_surf, (tick_length + text_offset, int(screen_y)))
+                    last_label_y = screen_y
+
+        mouse_pos = pygame.mouse.get_pos()
+        world_mouse = self.camera.screen_to_world(mouse_pos)
+        cursor_x_screen, cursor_y_screen = mouse_pos
+        if 0 <= cursor_x_screen <= screen_width:
+            pygame.gfxdraw.line(screen, int(cursor_x_screen), 0, int(cursor_x_screen), tick_length * 2, (255, 255, 0))
+            cursor_x_label = format_number(world_mouse[0])
+            text_surf = self.ruler_font.render(cursor_x_label, True, (255, 255, 0))
+            screen.blit(text_surf, (int(cursor_x_screen), tick_length * 2 + text_offset))
+        if 0 <= cursor_y_screen <= screen_height:
+            pygame.gfxdraw.line(screen, 0, int(cursor_y_screen), tick_length * 2, int(cursor_y_screen), (255, 255, 0))
+            cursor_y_label = format_number(world_mouse[1])
+            text_surf = self.ruler_font.render(cursor_y_label, True, (255, 255, 0))
+            screen.blit(text_surf, (tick_length * 2 + text_offset, int(cursor_y_screen)))
 
     def toggle_grid(self):
         self.enabled = not self.enabled
@@ -105,35 +253,6 @@ class GridManager:
                 pygame.event.set_grab(self._was_grabbed)
                 pygame.mouse.set_visible(self._was_visible)
                 self._snapping_active = False
-
-    def draw(self, screen):
-        grid_spacing_world, grid_spacing_pixels = self.calculate_grid_spacing()
-        self._handle_snapping(grid_spacing_world, grid_spacing_pixels)
-        if not self.enabled or grid_spacing_pixels < 5: return
-        top_left_world = self.camera.screen_to_world((0, 0))
-        bottom_right_world = self.camera.screen_to_world((screen.get_width(), screen.get_height()))
-        min_x = min(top_left_world[0], bottom_right_world[0])
-        max_x = max(top_left_world[0], bottom_right_world[0])
-        min_y = min(top_left_world[1], bottom_right_world[1])
-        max_y = max(top_left_world[1], bottom_right_world[1])
-
-        min_x = math.floor(min_x / grid_spacing_world) * grid_spacing_world
-        max_x = math.ceil(max_x / grid_spacing_world) * grid_spacing_world
-        min_y = math.floor(min_y / grid_spacing_world) * grid_spacing_world
-        max_y = math.ceil(max_y / grid_spacing_world) * grid_spacing_world
-
-        for x in _frange(min_x, max_x + grid_spacing_world / 2, grid_spacing_world):
-            start, end, color, thickness = self._compute_line_params(x, True, top_left_world, bottom_right_world, grid_spacing_world)
-            self._draw_line(screen, start, end, color[:3], thickness)
-        for y in _frange(min_y, max_y + grid_spacing_world / 2, grid_spacing_world):
-            start, end, color, thickness = self._compute_line_params(y, False, top_left_world, bottom_right_world, grid_spacing_world)
-            self._draw_line(screen, start, end, color[:3], thickness)
-
-        if self.force_field_manager and self.force_field_manager.physics_manager.running_physics:
-            self._draw_gravity_vectors(screen, grid_spacing_world, grid_spacing_pixels)
-
-        self.draw_scale_indicator(screen, grid_spacing_world, grid_spacing_pixels)
-        self.draw_rulers(screen)
 
     def _compute_line_params(self, coord, is_vertical, top_left_world, bottom_right_world, grid_spacing_world):
         if abs(coord) < 1e-12:
@@ -221,73 +340,6 @@ class GridManager:
                 y += spacing
             x += spacing
 
-    def draw_rulers(self, screen):
-        screen_width, screen_height = screen.get_size()
-        margin = 5
-        tick_length = 6
-        text_offset = 3
-        min_label_spacing = 40
-        top_left_world = self.camera.screen_to_world((0, 0))
-        bottom_right_world = self.camera.screen_to_world((screen_width, screen_height))
-        grid_spacing_world, grid_spacing_pixels = self.calculate_grid_spacing()
-        if grid_spacing_pixels < 10: return
-        min_x = min(top_left_world[0], bottom_right_world[0])
-        max_x = max(top_left_world[0], bottom_right_world[0])
-        min_y = min(top_left_world[1], bottom_right_world[1])
-        max_y = max(top_left_world[1], bottom_right_world[1])
-
-        min_x = math.floor(min_x / grid_spacing_world) * grid_spacing_world
-        max_x = math.ceil(max_x / grid_spacing_world) * grid_spacing_world
-        min_y = math.floor(min_y / grid_spacing_world) * grid_spacing_world
-        max_y = math.ceil(max_y / grid_spacing_world) * grid_spacing_world
-        skip = max(1, getattr(config.grid, 'ruler_skip_factor', 1))
-
-        def format_number(val):
-            abs_val = abs(val)
-            if abs_val >= 1e6: return f"{val / 1e6:.1f}e6"
-            elif abs_val >= 1: return f"{val:.0f}"
-            elif abs_val >= 1e-3: return f"{val * 1e3:.0f}mm"
-            elif abs_val >= 1e-6: return f"{val * 1e6:.0f}µm"
-            else: return f"{val * 1e9:.0f}nm"
-
-        last_label_x = -min_label_spacing
-        for x in _frange(min_x, max_x + grid_spacing_world / 2, grid_spacing_world):
-            tick_index = round(x / grid_spacing_world)
-            if tick_index % skip == 0:
-                screen_x = self.camera.world_to_screen((x, 0))[0]
-                if 0 <= screen_x <= screen_width and screen_x - last_label_x >= min_label_spacing:
-                    pygame.gfxdraw.line(screen, int(screen_x), 0, int(screen_x), tick_length, (200, 200, 200))
-                    label = format_number(x)
-                    text_surf = self.ruler_font.render(label, True, (200, 200, 200))
-                    screen.blit(text_surf, (int(screen_x), tick_length + text_offset))
-                    last_label_x = screen_x
-
-        last_label_y = -min_label_spacing
-        for y in _frange(min_y, max_y + grid_spacing_world / 2, grid_spacing_world):
-            tick_index = round(y / grid_spacing_world)
-            if tick_index % skip == 0:
-                screen_y = self.camera.world_to_screen((0, y))[1]
-                if 0 <= screen_y <= screen_height and screen_y - last_label_y >= min_label_spacing:
-                    pygame.gfxdraw.line(screen, 0, int(screen_y), tick_length, int(screen_y), (200, 200, 200))
-                    label = format_number(y)
-                    text_surf = self.ruler_font.render(label, True, (200, 200, 200))
-                    screen.blit(text_surf, (tick_length + text_offset, int(screen_y)))
-                    last_label_y = screen_y
-
-        mouse_pos = pygame.mouse.get_pos()
-        world_mouse = self.camera.screen_to_world(mouse_pos)
-        cursor_x_screen, cursor_y_screen = mouse_pos
-        if 0 <= cursor_x_screen <= screen_width:
-            pygame.gfxdraw.line(screen, int(cursor_x_screen), 0, int(cursor_x_screen), tick_length * 2, (255, 255, 0))
-            cursor_x_label = format_number(world_mouse[0])
-            text_surf = self.ruler_font.render(cursor_x_label, True, (255, 255, 0))
-            screen.blit(text_surf, (int(cursor_x_screen), tick_length * 2 + text_offset))
-        if 0 <= cursor_y_screen <= screen_height:
-            pygame.gfxdraw.line(screen, 0, int(cursor_y_screen), tick_length * 2, int(cursor_y_screen), (255, 255, 0))
-            cursor_y_label = format_number(world_mouse[1])
-            text_surf = self.ruler_font.render(cursor_y_label, True, (255, 255, 0))
-            screen.blit(text_surf, (tick_length * 2 + text_offset, int(cursor_y_screen)))
-
     def get_grid_info(self):
         if not self.enabled: return "Grid: Disabled"
         grid_spacing_world, grid_spacing_pixels = self.calculate_grid_spacing()
@@ -317,7 +369,6 @@ class GridManager:
                 self.grid_color_origin = (120, 120, 120, 255)
 
     def draw_scale_indicator(self, screen, grid_spacing_world, grid_spacing_pixels):
-
         if grid_spacing_world >= 100:
             label = f"{grid_spacing_world / 100:.2f} m"
         elif grid_spacing_world >= 1:
@@ -348,6 +399,7 @@ class GridManager:
             text_surf = pygame.font.SysFont("Consolas", 16).render(label, True, (255, 255, 255))
             screen.blit(text_surf,
                         (clamp_coord(cx1 + (cx2 - cx1) / 2 - text_surf.get_width() / 2), clamp_coord(cy - 14)))
+
 def _frange(start, stop, step):
     while start < stop:
         yield start

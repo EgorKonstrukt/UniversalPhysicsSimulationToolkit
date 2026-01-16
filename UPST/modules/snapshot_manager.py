@@ -166,15 +166,21 @@ class SnapshotManager:
                         'persistent': is_persistent
                     })
             data['text_gizmos'] = text_gizmos
-        plugin_states = {}
-        for name, instance in self.physics_manager.app.plugin_manager.plugin_instances.items():
-            plugin_def = self.physics_manager.app.plugin_manager.plugins[name]
-            if hasattr(instance, 'serialize'):
-                try:
-                    plugin_states[name] = instance.serialize()
-                except Exception as e:
-                    Debug.log_error(f"Plugin '{name}' snapshot serialization failed: {e}", "SnapshotManager")
-        data["plugin_states"] = plugin_states
+        if hasattr(self.physics_manager.app, 'plugin_manager'):
+            plugin_meta = {}
+            plugin_configs = {}
+            pm = self.physics_manager.app.plugin_manager
+            for name, plugin in pm.plugins.items():
+                plugin_meta[name] = {"version": plugin.version}
+                cfg = getattr(self.physics_manager.app.config, name, None)
+                if cfg:
+                    from dataclasses import asdict
+                    cfg_dict = asdict(cfg)
+                    if hasattr(cfg, '_to_dict_custom'):
+                        cfg_dict = cfg._to_dict_custom(cfg_dict)
+                    plugin_configs[name] = cfg_dict
+            data["plugins"] = plugin_meta
+            data["plugin_configs"] = plugin_configs
         return data
 
     def load_snapshot(self, snapshot_bytes):
@@ -322,15 +328,27 @@ class SnapshotManager:
                     gizmos_mgr.persistent_gizmos.append(g)
                 else:
                     gizmos_mgr.gizmos.append(g)
-        plugin_states = data.get("plugin_states", {})
-        for name, state in plugin_states.items():
-            if name in self.physics_manager.app.plugin_manager.plugin_instances:
-                instance = self.physics_manager.app.plugin_manager.plugin_instances[name]
-                if hasattr(instance, 'deserialize'):
+        plugin_meta = data.get("plugins", {})
+        plugin_configs = data.get("plugin_configs", {})
+        if hasattr(self.physics_manager.app, 'plugin_manager') and plugin_meta:
+            pm = self.physics_manager.app.plugin_manager
+            for name, cfg_dict in plugin_configs.items():
+                if not hasattr(self.physics_manager.app.config, name):
+                    continue
+                current_cfg = getattr(self.physics_manager.app.config, name)
+                if hasattr(current_cfg.__class__, '_from_dict_custom'):
+                    new_cfg = current_cfg.__class__._from_dict_custom(cfg_dict)
+                else:
+                    new_cfg = current_cfg.__class__(**cfg_dict)
+                setattr(self.physics_manager.app.config, name, new_cfg)
+            for name, instance in pm.plugin_instances.items():
+                plugin_def = pm.plugins[name]
+                if plugin_def.on_load:
                     try:
-                        instance.deserialize(state)
+                        plugin_def.on_load(pm, instance)
                     except Exception as e:
-                        Debug.log_error(f"Plugin '{name}' snapshot deserialization failed: {e}", "SnapshotManager")
+                        Debug.log_error(f"Plugin '{name}' on_load failed during snapshot restore: {e}",
+                                        "SnapshotManager")
         str_body_map = {str(uid): body for uid, body in body_uuid_map.items()}
         self.physics_manager.script_manager.deserialize_from_save(data.get("scripts", {}), str_body_map)
         Debug.log_success("Snapshot restored.", category="SnapshotManager")

@@ -240,15 +240,24 @@ class SaveLoadManager:
                         'persistent': is_persistent
                     })
             data['text_gizmos'] = text_gizmos
-        plugin_states = {}
-        for name, instance in self.app.plugin_manager.plugin_instances.items():
-            plugin_def = self.app.plugin_manager.plugins[name]
-            if hasattr(instance, 'serialize'):
-                try:
-                    plugin_states[name] = instance.serialize()
-                except Exception as e:
-                    Debug.log_error(f"Plugin '{name}' serialization failed: {e}", "SaveLoadManager")
-        data["plugin_states"] = plugin_states
+        if hasattr(self.app, 'plugin_manager'):
+            plugin_meta = {}
+            plugin_configs = {}
+            for name, plugin in self.app.plugin_manager.plugins.items():
+                plugin_meta[name] = {
+                    "version": plugin.version,
+                    "author": plugin.author,
+                }
+                cfg = getattr(self.app.config, name, None)
+                if cfg:
+                    from dataclasses import asdict
+                    cfg_dict = asdict(cfg)
+                    if hasattr(cfg, '_to_dict_custom'):
+                        cfg_dict = cfg._to_dict_custom(cfg_dict)
+                    plugin_configs[name] = cfg_dict
+            data["plugins"] = plugin_meta
+            data["plugin_configs"] = plugin_configs
+
         return data
 
     def load_world(self):
@@ -404,15 +413,35 @@ class SaveLoadManager:
                     gizmos_mgr.persistent_gizmos.append(g)
                 else:
                     gizmos_mgr.gizmos.append(g)
-        plugin_states = data.get("plugin_states", {})
-        for name, state in plugin_states.items():
-            if name in self.app.plugin_manager.plugin_instances:
-                instance = self.app.plugin_manager.plugin_instances[name]
-                if hasattr(instance, 'deserialize'):
+        plugin_meta = data.get("plugins", {})
+        plugin_configs = data.get("plugin_configs", {})
+        if hasattr(self.app, 'plugin_manager') and plugin_meta:
+            pm = self.app.plugin_manager
+            for name, meta in plugin_meta.items():
+                if name not in pm.plugins:
+                    Debug.log_warning(f"Plugin '{name}' was saved but is not loaded.", "SaveLoadManager")
+                    continue
+                current = pm.plugins[name]
+                if current.version != meta["version"]:
+                    Debug.log_warning(
+                        f"Plugin '{name}' version mismatch: saved {meta['version']}, current {current.version}",
+                        "SaveLoadManager")
+            for name, cfg_dict in plugin_configs.items():
+                if not hasattr(self.app.config, name):
+                    continue
+                current_cfg = getattr(self.app.config, name)
+                if hasattr(current_cfg.__class__, '_from_dict_custom'):
+                    new_cfg = current_cfg.__class__._from_dict_custom(cfg_dict)
+                else:
+                    new_cfg = current_cfg.__class__(**cfg_dict)
+                setattr(self.app.config, name, new_cfg)
+            for name, instance in pm.plugin_instances.items():
+                plugin_def = pm.plugins[name]
+                if plugin_def.on_load:
                     try:
-                        instance.deserialize(state)
+                        plugin_def.on_load(pm, instance)
                     except Exception as e:
-                        Debug.log_error(f"Plugin '{name}' deserialization failed: {e}", "SaveLoadManager")
+                        Debug.log_error(f"Plugin '{name}' on_load failed during load: {e}", "SaveLoadManager")
         self.undo_redo.take_snapshot()
 
     def set_compression_enabled(self, enabled): self.enable_compression = bool(enabled)

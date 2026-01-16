@@ -19,7 +19,6 @@ else:
     ti_f = ti.f32
     np_f = np.float32
 
-
 def _get_preset_rules(name):
     if name == 'sierpinski_triangle':
         return np.array([
@@ -47,7 +46,6 @@ def _get_preset_rules(name):
     else:
         raise ValueError(f"Unknown preset: {name}")
 
-
 def _parse_palette(palette_str):
     if not palette_str:
         return None
@@ -66,7 +64,6 @@ def _parse_palette(palette_str):
     if not rgb_list:
         return None
     return rgb_list
-
 
 class GraphManager:
     def __init__(self, ui_manager):
@@ -100,19 +97,22 @@ class GraphManager:
                 if plot_type == 'auto':
                     if expr.startswith('scatter '):
                         plot_type = 'scatter'
-                        expr = expr[8:].strip()
+                        expr_clean = expr[8:].strip()
                     elif expr.startswith('field '):
                         plot_type = 'field'
-                        expr = expr[6:].strip()
+                        expr_clean = expr[6:].strip()
                     elif expr.startswith('implicit '):
                         plot_type = 'implicit'
-                        expr = expr[9:].strip()
+                        expr_clean = expr[9:].strip()
                     elif expr.startswith('fractal '):
                         plot_type = 'fractal'
-                        expr = expr[8:].strip()
+                        expr_clean = expr[8:].strip()
                     elif expr.startswith('fractal_rule '):
                         plot_type = 'fractal_rule'
-                        expr = expr[13:].strip()
+                        expr_clean = expr[13:].strip()
+                    elif expr.startswith('complex '):
+                        plot_type = 'complex'
+                        expr_clean = expr[8:].strip()
                     else:
                         if ',' in expr:
                             parts = [p.strip() for p in expr.split(',', 1)]
@@ -128,73 +128,91 @@ class GraphManager:
                             plot_type = 'polar'
                         else:
                             plot_type = 'cartesian'
-                if plot_type == 'cartesian':
-                    clean_expr = expr[2:].strip() if expr.startswith('y=') else expr
-                    code = compile(clean_expr, '<graph>', 'eval')
-                    compiled = ('cartesian', code, current['x_range'])
-                elif plot_type == 'parametric':
-                    parts = [p.strip() for p in expr.split(',', 1)]
-                    if len(parts) != 2:
-                        raise ValueError("Parametric form must have two components separated by comma")
-                    expr_x = parts[0][2:].strip() if parts[0].startswith('x=') else parts[0]
-                    expr_y = parts[1][2:].strip() if parts[1].startswith('y=') else parts[1]
-                    if parts[0].startswith('y=') and parts[1].startswith('x='):
-                        expr_y, expr_x = expr_x, expr_y
-                    code_x = compile(expr_x, '<graph>', 'eval')
-                    code_y = compile(expr_y, '<graph>', 'eval')
-                    compiled = ('parametric', code_x, code_y, current['t_range'])
-                elif plot_type == 'polar':
-                    clean_expr = expr[2:].strip() if expr.startswith(('r=', 'θ=', 'theta=')) else expr
-                    code_r = compile(clean_expr, '<graph>', 'eval')
-                    compiled = ('polar', code_r, current['theta_range'])
-                elif plot_type == 'scatter':
-                    parts = [p.strip() for p in expr.split(',', 1)]
-                    if len(parts) != 2: raise ValueError("Scatter requires two sequences: xs, ys")
-                    compiled = ('scatter', parts[0], parts[1])
-                elif plot_type == 'field':
-                    parts = [p.strip() for p in expr.split(',', 1)]
-                    if len(parts) != 2: raise ValueError("Field requires Fx(x,y), Fy(x,y)")
-                    code_fx = compile(parts[0], '<graph>', 'eval')
-                    code_fy = compile(parts[1], '<graph>', 'eval')
-                    xr = current['x_range'] or (-5.0, 5.0)
-                    yr = current['y_range'] or (-5.0, 5.0)
-                    compiled = ('field', code_fx, code_fy, xr, yr)
-                elif plot_type == 'implicit':
-                    code_f = compile(expr, '<graph>', 'eval')
-                    xr = current['x_range'] or (-5.0, 5.0)
-                    yr = current['y_range'] or (-5.0, 5.0)
-                    compiled = ('implicit', code_f, xr, yr)
-                elif plot_type == 'fractal':
-                    if expr not in ('mandelbrot', 'julia'):
-                        raise ValueError("Supported fractals: mandelbrot, julia")
-                    c_val = current['c']
-                    c_expr = current['c_expr']
-                    if expr == 'julia' and c_val is None and c_expr is None:
-                        raise ValueError("Julia set requires 'c=<complex>' or 'c_t=...' parameter")
-                    compiled = (
-                        'fractal', expr, current['max_iter'], current['escape_radius'],
-                        c_val, current['scale'], current['palette'],
-                        current['scale_expr'], current['c_expr'], current['escape_radius_expr']
-                    )
-                elif plot_type == 'fractal_rule':
-                    rule_str = expr
-                    depth = current.get('depth', 5)
-                    if rule_str in ('sierpinski_triangle', 'sierpinski_carpet', 'koch_snowflake'):
-                        transforms = _get_preset_rules(rule_str)
-                        compiled = ('fractal_rule', transforms, depth)
-                    else:
-                        try:
-                            rule_list = ast.literal_eval(rule_str)
-                            if not isinstance(rule_list, list):
-                                raise ValueError
-                            transforms = np.array(rule_list, dtype=np.float64)
-                            if transforms.ndim != 2 or transforms.shape[1] != 6:
-                                raise ValueError
-                            compiled = ('fractal_rule', transforms, depth)
-                        except Exception:
-                            raise ValueError("Invalid rule: must be list of [a,b,c,d,e,f] or preset name")
+                        expr_clean = expr
                 else:
-                    raise ValueError(f"Unknown plot type: {plot_type}")
+                    expr_clean = expr
+
+                try:
+                    if plot_type == 'cartesian':
+                        clean_expr = expr_clean[2:].strip() if expr_clean.startswith('y=') else expr_clean
+                        code = compile(clean_expr, '<graph>', 'eval')
+                        compiled = ('cartesian', code, current['x_range'])
+                    elif plot_type == 'parametric':
+                        parts = [p.strip() for p in expr_clean.split(',', 1)]
+                        if len(parts) != 2:
+                            raise ValueError("Parametric form must have two components separated by comma")
+                        expr_x = parts[0][2:].strip() if parts[0].startswith('x=') else parts[0]
+                        expr_y = parts[1][2:].strip() if parts[1].startswith('y=') else parts[1]
+                        if parts[0].startswith('y=') and parts[1].startswith('x='):
+                            expr_y, expr_x = expr_x, expr_y
+                        code_x = compile(expr_x, '<graph>', 'eval')
+                        code_y = compile(expr_y, '<graph>', 'eval')
+                        compiled = ('parametric', code_x, code_y, current['t_range'])
+                    elif plot_type == 'polar':
+                        clean_expr = expr_clean[2:].strip() if expr_clean.startswith(
+                            ('r=', 'θ=', 'theta=')) else expr_clean
+                        code_r = compile(clean_expr, '<graph>', 'eval')
+                        compiled = ('polar', code_r, current['theta_range'])
+                    elif plot_type == 'scatter':
+                        parts = [p.strip() for p in expr_clean.split(',', 1)]
+                        if len(parts) != 2: raise ValueError("Scatter requires two sequences: xs, ys")
+                        compiled = ('scatter', parts[0], parts[1])
+                    elif plot_type == 'field':
+                        parts = [p.strip() for p in expr_clean.split(',', 1)]
+                        if len(parts) != 2: raise ValueError("Field requires Fx(x,y), Fy(x,y)")
+                        code_fx = compile(parts[0], '<graph>', 'eval')
+                        code_fy = compile(parts[1], '<graph>', 'eval')
+                        xr = current['x_range'] or (-5.0, 5.0)
+                        yr = current['y_range'] or (-5.0, 5.0)
+                        compiled = ('field', code_fx, code_fy, xr, yr)
+                    elif plot_type == 'implicit':
+                        code_f = compile(expr_clean, '<graph>', 'eval')
+                        xr = current['x_range'] or (-5.0, 5.0)
+                        yr = current['y_range'] or (-5.0, 5.0)
+                        compiled = ('implicit', code_f, xr, yr)
+                    elif plot_type == 'complex':
+                        clean_expr = re.sub(r'\^', '**', expr_clean)
+                        xr = current['x_range'] or (-3.0, 3.0)
+                        yr = current['y_range'] or (-3.0, 3.0)
+                        mode = current.get('complex_mode', 'plane')
+                        code_obj = compile(clean_expr, '<complex>', 'eval')
+                        compiled = ('complex', code_obj, xr, yr, mode)
+                    elif plot_type == 'fractal':
+                        if expr_clean not in ('mandelbrot', 'julia'):
+                            raise ValueError("Supported fractals: mandelbrot, julia")
+                        c_val = current['c']
+                        c_expr = current['c_expr']
+                        if expr_clean == 'julia' and c_val is None and c_expr is None:
+                            raise ValueError("Julia set requires 'c=<complex>' or 'c_t=...' parameter")
+                        compiled = (
+                            'fractal', expr_clean, current['max_iter'], current['escape_radius'],
+                            c_val, current['scale'], current['palette'],
+                            current['scale_expr'], current['c_expr'], current['escape_radius_expr']
+                        )
+                    elif plot_type == 'fractal_rule':
+                        rule_str = expr_clean
+                        depth = current.get('depth', 5)
+                        if rule_str in ('sierpinski_triangle', 'sierpinski_carpet', 'koch_snowflake'):
+                            transforms = _get_preset_rules(rule_str)
+                            compiled = ('fractal_rule', transforms, depth)
+                        else:
+                            try:
+                                rule_list = ast.literal_eval(rule_str)
+                                if not isinstance(rule_list, list):
+                                    raise ValueError
+                                transforms = np.array(rule_list, dtype=np.float64)
+                                if transforms.ndim != 2 or transforms.shape[1] != 6:
+                                    raise ValueError
+                                compiled = ('fractal_rule', transforms, depth)
+                            except Exception:
+                                raise ValueError("Invalid rule: must be list of [a,b,c,d,e,f] or preset name")
+                    else:
+                        raise ValueError(f"Unknown plot type: {plot_type}")
+                except SyntaxError as se:
+                    raise ValueError(f"Syntax error in expression '{expr_clean}': {se.msg} at column {se.offset}")
+                except Exception as inner_e:
+                    raise ValueError(f"Expression compilation failed: {inner_e}")
+
                 plots.append({
                     'compiled': compiled, 'color': current['color'], 'width': current['width'],
                     'style': current['style'], 'max_iter': current['max_iter'],
@@ -225,6 +243,9 @@ class GraphManager:
                             if len(rgb) == 3: current['color'] = (*rgb, 200)
                     except Exception:
                         pass
+                elif tok.startswith('mode:'):
+                    mode_val = tok[5:].strip()
+                    if mode_val in ('plane', 'color'): current['complex_mode'] = mode_val
                 elif tok.startswith('width:'):
                     try:
                         current['width'] = max(1, min(5, int(tok[6:].strip())))
@@ -300,12 +321,13 @@ class GraphManager:
             self._fractal_cache.clear()
             self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Graph set with {len(plots)} plot(s).")
         except Exception as e:
-            self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Graph error: {e}")
+            self.ui_manager.console_ui.console_window.add_output_line_to_log(f"Graph syntax error: {e}")
 
     def _parse_numeric_expr(self, expr_str):
         if not expr_str:
-            return None
+            raise ValueError("Empty numeric expression")
         s = expr_str.strip()
+        orig = s
         s = s.replace('θ', 'pi').replace('π', 'pi')
         s = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', s)
         s = re.sub(r'(\d)\(', r'\1*(', s)
@@ -316,8 +338,14 @@ class GraphManager:
         safe_env = {**math_dict, "__builtins__": {}}
         try:
             return float(eval(s, safe_env, {}))
+        except SyntaxError as se:
+            raise ValueError(f"Syntax error in '{orig}': invalid expression near '{se.text}' at offset {se.offset}")
+        except NameError as ne:
+            raise ValueError(f"Undefined symbol in '{orig}': {ne}")
+        except ZeroDivisionError:
+            raise ValueError(f"Division by zero in '{orig}'")
         except Exception as e:
-            raise ValueError(f"Invalid numeric range expression: {expr_str}")
+            raise ValueError(f"Evaluation failed in '{orig}': {type(e).__name__}: {e}")
 
     def _draw_arrow(self, surface, color, start, end, width=1):
         angle = math.atan2(end[1] - start[1], end[0] - start[0])
@@ -378,6 +406,7 @@ class GraphManager:
             segs += self._adaptive_implicit_renderer(f, x_min, xm, ym, y_max, depth + 1, max_depth)
             segs += self._adaptive_implicit_renderer(f, xm, x_max, ym, y_max, depth + 1, max_depth)
             return segs
+
     def _marching_squares(self, f, x_min, x_max, y_min, y_max, threshold=0.0, resolution=100):
         dx = (x_max - x_min) / resolution
         dy = (y_max - y_min) / resolution
@@ -573,6 +602,15 @@ class GraphManager:
                             drawables.append(('point', scr, color, max(2, width)))
                     except Exception:
                         pass
+                elif graph_type == 'complex':
+                    code_f, xr, yr, mode = compiled[1], compiled[2], compiled[3], compiled[4]
+                    if mode == 'color':
+                        drawables = [('complex_surface', *self._render_complex_color(
+                            code_f, xr[0], xr[1], yr[0], yr[1], screen_w, screen_h, cam
+                        ))]
+                    else:  # mode == 'plane'
+                        density = max(5, min(15, int(25 * cam.scaling)))
+                        drawables = self._render_complex_plane(code_f, xr, yr, density, color, width, cam)
                 elif graph_type == 'field':
                     code_fx, code_fy, xr, yr = compiled[1], compiled[2], compiled[3], compiled[4]
                     density = max(3, min(10, int(20 * cam.scaling)))
@@ -592,23 +630,24 @@ class GraphManager:
                                 drawables.append(('arrow', start, end, color, width))
                             except Exception:
                                 pass
-
-
                 elif graph_type == 'implicit':
                     code_f, xr, yr = compiled[1], compiled[2], compiled[3]
-
                     def f_eval(x, y):
                         val = eval(code_f, safe_env, {"x": x, "y": y, "t": t_now})
                         return float(val) if isinstance(val, (int, float)) else float('nan')
-
-                    segments_list = self._adaptive_implicit_renderer(f_eval, xr[0], xr[1], yr[0], yr[1])
-                    world_segments = []
-                    for seg in segments_list:
-                        if len(seg) == 2:
-                            p1 = cam.world_to_screen(seg[0])
-                            p2 = cam.world_to_screen(seg[1])
-                            world_segments.append([p1, p2])
-                    drawables = [('line', s, color, width) for s in world_segments]
+                    try:
+                        segments_list = self._adaptive_implicit_renderer(f_eval, xr[0], xr[1], yr[0], yr[1])
+                        if not segments_list:
+                            segments_list = self._marching_squares(f_eval, xr[0], xr[1], yr[0], yr[1], resolution=min(200, int(steps_base/2)))
+                        world_segments = []
+                        for seg in segments_list:
+                            if len(seg) == 2:
+                                p1 = cam.world_to_screen(seg[0])
+                                p2 = cam.world_to_screen(seg[1])
+                                world_segments.append([p1, p2])
+                        drawables = [('line', s, color, width) for s in world_segments]
+                    except Exception:
+                        drawables = []
                 elif graph_type == 'fractal':
                     (fractal_name, max_iter, escape_radius, c_param, scale_static, palette_str,
                      scale_expr, c_expr, escape_radius_expr) = compiled[1:10]
@@ -657,6 +696,91 @@ class GraphManager:
             all_drawables.extend(drawables)
         return all_drawables
 
+    def _render_complex_plane(self, code_obj, xr, yr, density, color, width, cam):
+        x_min, x_max = xr
+        y_min, y_max = yr
+        dx = (x_max - x_min) / density
+        dy = (y_max - y_min) / density
+        t_now = pygame.time.get_ticks() / 1000.0
+        math_dict = {k: getattr(math, k) for k in dir(math) if not k.startswith('_')}
+        base_env = {"t": t_now, "__builtins__": {}, **math_dict}
+        drawables = []
+        for i in range(density + 1):
+            for j in range(density + 1):
+                x = x_min + i * dx
+                y = y_min + j * dy
+                z = complex(x, y)
+                try:
+                    env = {"z": z, "x": x, "y": y, **base_env}
+                    f_val = eval(code_obj, {"__builtins__": {}}, env)
+                    if isinstance(f_val, complex):
+                        w = f_val
+                    elif isinstance(f_val, (int, float)):
+                        w = complex(f_val, 0)
+                    else:
+                        continue
+                    if not (math.isfinite(w.real) and math.isfinite(w.imag)):
+                        continue
+                    start = cam.world_to_screen((x, y))
+                    end = cam.world_to_screen((w.real, w.imag))
+                    drawables.append(('arrow', start, end, color, width))
+                except Exception:
+                    continue
+        return drawables
+
+    def _render_complex_color(self, code_obj, x_min, x_max, y_min, y_max, w, h, cam):
+        if w <= 0 or h <= 0:
+            empty_surf = pygame.Surface((1, 1))
+            return empty_surf, (0, 0)
+        arr = np.zeros((h, w, 3), dtype=np.uint8)
+        t_now = pygame.time.get_ticks() / 1000.0
+        math_dict = {k: getattr(math, k) for k in dir(math) if not k.startswith('_')}
+        base_env = {"t": t_now, "__builtins__": {}, **math_dict}
+        for j in range(h):
+            y = y_max - (j / h) * (y_max - y_min)
+            for i in range(w):
+                x = x_min + (i / w) * (x_max - x_min)
+                z = complex(x, y)
+                try:
+                    env = {"z": z, "x": x, "y": y, **base_env}
+                    f_val = eval(code_obj, {"__builtins__": {}}, env)
+                    if isinstance(f_val, complex):
+                        w_val = f_val
+                    elif isinstance(f_val, (int, float)):
+                        w_val = complex(f_val, 0)
+                    else:
+                        w_val = complex(0, 0)
+                    if not (math.isfinite(w_val.real) and math.isfinite(w_val.imag)):
+                        hue, val = 0.0, 0.0
+                    else:
+                        arg = math.atan2(w_val.imag, w_val.real)
+                        hue = (arg + math.pi) / (2 * math.pi)
+                        mag = abs(w_val)
+                        val = min(1.0, math.log1p(mag) / 5.0)
+                    r, g, b = self._hsv_to_rgb(hue, 1.0, val)
+                    arr[j, i] = (int(r * 255), int(g * 255), int(b * 255))
+                except Exception:
+                    arr[j, i] = (0, 0, 0)
+        surface = pygame.surfarray.make_surface(arr.swapaxes(0, 1))
+        offset_x = cam.world_to_screen((x_min, 0))[0]
+        offset_y = cam.world_to_screen((0, y_max))[1]
+        return surface, (offset_x, offset_y)
+
+    def _hsv_to_rgb(self, h, s, v):
+        if s == 0.0:
+            return v, v, v
+        i = int(h * 6.0)
+        f = (h * 6.0) - i
+        p = v * (1.0 - s)
+        q = v * (1.0 - s * f)
+        t = v * (1.0 - s * (1.0 - f))
+        i %= 6
+        if i == 0: return v, t, p
+        if i == 1: return q, v, p
+        if i == 2: return p, v, t
+        if i == 3: return p, q, v
+        if i == 4: return t, p, v
+        if i == 5: return v, p, q
     def _render_fractal(self, name, x_min, x_max, y_min, y_max, w, h, max_iter, escape_radius, c_param, palette_obj):
         if w <= 0 or h <= 0:
             empty_surf = pygame.Surface((1, 1))
