@@ -8,8 +8,8 @@ class SpringTool(BaseTool):
     name = "Spring"
     icon_path = "sprites/gui/tools/spring.png"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.first_body = None
         self.first_pos = None
         self.stiffness = 200.0
@@ -47,13 +47,14 @@ class SpringTool(BaseTool):
                     anchor1 = self.first_body.world_to_local(self.first_pos)
                     anchor2 = body.world_to_local(world_pos)
                     try:
-
                         rest_len_text = self.rest_len_entry.get_text().strip()
                         rest_len = self.first_body.position.get_distance(body.position) if rest_len_text == "auto" else float(rest_len_text)
                         stiffness = float(self.stiffness_entry.get_text() or "200")
                         damping = float(self.damping_entry.get_text() or "10")
                         spring = pymunk.DampedSpring(self.first_body, body, anchor1, anchor2, rest_len, stiffness, damping)
                         spring.color = self._get_color("spring")
+                        spring.rest_length = rest_len
+                        spring.size = 1 * self.app.camera.inv_scaling
                         self.pm.space.add(spring)
                         self.undo_redo.take_snapshot()
                     except ValueError:

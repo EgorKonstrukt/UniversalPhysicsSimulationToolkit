@@ -9,8 +9,8 @@ class RotateTool(BaseTool):
     name = "Rotate"
     icon_path = "sprites/gui/tools/rotate.png"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.tgt = None
         self.drag = False
         self.start_angle = 0.0

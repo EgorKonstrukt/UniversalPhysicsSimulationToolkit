@@ -12,8 +12,8 @@ class LabelTool(BaseTool):
     icon_path = "sprites/gui/label.png"
     tooltip = "Create world-space text labels"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.settings = {
             "text": "New Label",
             "color": pygame.Color(255, 255, 255),

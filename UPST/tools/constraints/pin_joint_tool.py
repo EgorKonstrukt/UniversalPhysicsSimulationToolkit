@@ -9,8 +9,8 @@ class PinJointTool(BaseTool):
     name = "PinJoint"
     icon_path = "sprites/gui/tools/rigid.png"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.first_body = None
         self.first_pos = None
         self.distance = 0.0

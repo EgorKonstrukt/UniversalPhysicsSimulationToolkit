@@ -10,8 +10,8 @@ class PlaneTool(BaseTool):
     name = "Plane"
     icon_path = "sprites/gui/tools/plane.png"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.start_pos = None
 
     def create_settings_window(self):

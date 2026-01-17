@@ -8,8 +8,8 @@ import pygame_gui
 class GearTool(BaseTool):
     name="Gear"
     icon_path="sprites/gui/tools/gear.png"
-    def __init__(self,pm):
-        super().__init__(pm)
+    def __init__(self,pm, app):
+        super().__init__(pm, app)
         self.center=None
         self.settings_window=None
         self.teeth_entry=None

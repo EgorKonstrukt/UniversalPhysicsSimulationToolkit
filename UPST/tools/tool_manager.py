@@ -68,8 +68,9 @@ class ResizableToolWindow(pygame_gui.elements.UIWindow):
         config.save()
 
 class ToolSystem:
-    def __init__(self, physics_manager, sound_manager):
+    def __init__(self, physics_manager, sound_manager, app):
         self.pm = physics_manager
+        self.app = app
         self.sm = sound_manager
         self.ui_manager = None
         self.input_handler = None
@@ -96,32 +97,32 @@ class ToolSystem:
 
         self.laser_processor = LaserProcessor(self.pm)
         spawn_tools = [
-            CircleTool(self.pm),
-            RectangleTool(self.pm),
-            TriangleTool(self.pm),
-            PolyTool(self.pm),
-            PolyhedronTool(self.pm),
-            SpamTool(self.pm),
-            GearTool(self.pm),
-            ChainTool(self.pm),
-            PlaneTool(self.pm),
+            CircleTool(self.pm, self.app),
+            RectangleTool(self.pm, self.app),
+            TriangleTool(self.pm, self.app),
+            PolyTool(self.pm, self.app),
+            PolyhedronTool(self.pm,self.app),
+            SpamTool(self.pm, self.app),
+            GearTool(self.pm, self.app),
+            ChainTool(self.pm, self.app),
+            PlaneTool(self.pm, self.app),
         ]
         constraint_tools = [
-            SpringTool(self.pm),
-            PivotJointTool(self.pm),
-            PinJointTool(self.pm),
-            FixateTool(self.pm)
+            SpringTool(self.pm, self.app),
+            PivotJointTool(self.pm, self.app),
+            PinJointTool(self.pm, self.app),
+            FixateTool(self.pm, self.app)
         ]
         special_tools = [
-            ExplosionTool(self.pm),
-            StaticLineTool(self.pm),
-            LaserTool(self.pm, self.laser_processor),
-            DragTool(self.pm),
-            MoveTool(self.pm),
-            RotateTool(self.pm),
-            CutTool(self.pm),
-            ScriptTool(self.pm),
-            LabelTool(self.pm),
+            ExplosionTool(self.pm, self.app),
+            StaticLineTool(self.pm, self.app),
+            LaserTool(self.pm, self.laser_processor, self.app),
+            DragTool(self.pm, self.app),
+            MoveTool(self.pm, self.app),
+            RotateTool(self.pm, self.app),
+            CutTool(self.pm, self.app),
+            ScriptTool(self.pm, self.app),
+            LabelTool(self.pm, self.app),
         ]
         self._pending_tools = spawn_tools + constraint_tools + special_tools
 

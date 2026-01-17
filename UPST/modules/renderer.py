@@ -72,6 +72,7 @@ class Renderer:
             a_scr = self.camera.world_to_screen(a_world)
             b_scr = self.camera.world_to_screen(b_world)
             dx, dy = b_scr[0] - a_scr[0], b_scr[1] - a_scr[1]
+            visual_size = getattr(constraint, 'size', 10.0)
             if not (clip_rect.collidepoint(a_scr) or clip_rect.collidepoint(b_scr)):
                 lsq = dx * dx + dy * dy
                 if lsq == 0: continue
@@ -96,7 +97,7 @@ class Renderer:
                     seg_y0 = a_scr[1] + i * seg_len_scr * sin_a
                     key = (round(seg_len_scr, 1), round(angle, 2))
                     if key not in seg_cache:
-                        stretched = pygame.transform.smoothscale(base_scaled, (max(1, int(seg_len_scr)), base_scaled.get_height()))
+                        stretched = pygame.transform.smoothscale(base_scaled, (max(1, int(seg_len_scr)), visual_size *base_scaled.get_height()))
                         rotated = pygame.transform.rotate(stretched, math.degrees(-angle))
                         seg_cache[key] = rotated
                     sprite = seg_cache[key]
@@ -106,12 +107,13 @@ class Renderer:
                     cy = seg_y0 + seg_len_scr * sin_a * 0.5
                     screen.blit(colored, (int(cx - colored.get_width() // 2), int(cy - colored.get_height() // 2)))
             else:
-                width = max(1, int(2 * cam_scale))
+                width = max(1, int(visual_size * 2 * cam_scale))
                 draw_line(screen, constraint_color[:3], a_scr, b_scr, width)
             for anchor_scr, tex_key in [(a_scr, 'spring_point_a_texture'), (b_scr, 'spring_point_b_texture')]:
                 tex_path = getattr(config.rendering, tex_key, '')
                 if tex_path:
-                    pt_tex = self._get_scaled_texture(tex_path, 0.1 * cam_scale)
+
+                    pt_tex = self._get_scaled_texture(tex_path, visual_size * 0.1 * cam_scale)
                     if pt_tex: screen.blit(pt_tex, (anchor_scr[0] - pt_tex.get_width() // 2, anchor_scr[1] - pt_tex.get_height() // 2))
                 else:
                     r = max(1, int(1 * cam_scale))

@@ -9,8 +9,8 @@ from UPST.modules.statistics import stats
 class CutTool(BaseTool):
     name = "Cut"
     icon_path = "sprites/gui/tools/knife.png"
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.start_pos=None
         self.thickness_entry=None
         self.remove_circles_cb=None

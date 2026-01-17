@@ -11,8 +11,8 @@ class ScriptTool(BaseTool):
     name = "ScriptTool"
     icon_path = "sprites/gui/python.png"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.scripts = []
         self.rects = []
         self.font = pygame.font.SysFont("Consolas", 14)

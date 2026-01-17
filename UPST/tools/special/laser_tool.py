@@ -20,8 +20,8 @@ class LaserEmitter:
 
 class LaserTool(BaseTool):
     name = "Laser"; icon_path = "sprites/gui/tools/laserpen.png"
-    def __init__(self, pm, laser_processor):
-        super().__init__(pm)
+    def __init__(self, pm, laser_processor, app):
+        super().__init__(pm, app)
         self.lp = laser_processor
         self.phase = 0
         self.tmp_pos = None; self.tmp_angle = 0

@@ -11,8 +11,8 @@ class PolyTool(BaseTool):
     name = "Poly"
     icon_path = "sprites/gui/tools/polygon.png"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.points = []
         self.preview_closed = False
 

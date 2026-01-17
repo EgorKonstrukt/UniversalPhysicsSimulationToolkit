@@ -10,8 +10,8 @@ class ExplosionTool(BaseTool):
     name = "Explosion"
     icon_path = "sprites/gui/tools/explosion.png"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.radius = 100.0
         self.strength = 1000.0
         self.preview_pos = None

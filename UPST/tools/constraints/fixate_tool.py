@@ -9,8 +9,8 @@ class FixateTool(BaseTool):
     name = "Fixate"
     icon_path = "sprites/gui/tools/fixate.png"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.first_body = None
         self.first_anchor = None
         self.distance = 0.0

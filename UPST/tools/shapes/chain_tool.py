@@ -9,8 +9,8 @@ class ChainTool(BaseTool):
     name = "Chain"
     icon_path = "sprites/gui/tools/chain.png"
 
-    def __init__(self, pm):
-        super().__init__(pm)
+    def __init__(self, pm, app):
+        super().__init__(pm, app)
         self.start_pos = None
         self.start_body = None
         self.preview_points = []

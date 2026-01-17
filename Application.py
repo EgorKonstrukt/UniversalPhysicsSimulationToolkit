@@ -4,6 +4,7 @@ import math
 import pymunk
 import time
 
+
 from UPST.scripting.script_manager import ScriptManager
 from UPST.splash_screen import SplashScreen, FreezeWatcher
 from UPST.config import config
@@ -96,7 +97,7 @@ class Application:
 
 
         self.tool_manager = ToolSystem(physics_manager=self.physics_manager,
-                                       sound_manager=self.sound_manager)
+                                       sound_manager=self.sound_manager, app=self)
 
         self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
                                     self.physics_manager, self.camera, None, self.screen, self.font,
