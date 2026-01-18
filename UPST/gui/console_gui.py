@@ -4,7 +4,6 @@ from typing import List, Callable
 from collections import deque
 from UPST.debug.debug_manager import DebugManager, LogLevel, LogEntry
 
-
 class ConsoleGUI:
     def __init__(self, ui_manager: pygame_gui.UIManager, debug_manager: DebugManager, 
                  width: int = 800, height: int = 300):

@@ -26,10 +26,8 @@ class GridManager:
     def __init__(self, camera, force_field_manager=None):
         self.camera = camera
         self.force_field_manager = force_field_manager
-        self.enabled = True
-        self.grid_color_major = (80, 80, 80, 255)
-        self.grid_color_minor = (40, 40, 40, 255)
-        self.grid_color_origin = (120, 120, 120, 255)
+        self.enabled = config.grid.enabled_by_default
+        self.polar_enabled = config.grid.polar.enabled_by_default
         self.base_grid_size = config.grid.base_size
         self.major_grid_multiplier = config.grid.major_multiplier
         self.min_pixel_spacing = config.grid.min_pixel_spacing
@@ -39,14 +37,26 @@ class GridManager:
         self.origin_line_thickness = config.grid.origin_line_thickness
         self.snap_radius_pixels = config.grid.snap_radius_pixels
         self.snap_strength = config.grid.snap_strength
-        self.ruler_font = pygame.font.SysFont("Consolas", 12)
+        self.alpha_fade_enabled = config.grid.alpha_fade_enabled
+        self.min_alpha = config.grid.min_alpha
+        self.max_alpha = config.grid.max_alpha
+        self.ruler_skip_factor = config.grid.ruler_skip_factor
+        self.coordinate_display_mode = "screen"
         self._was_grabbed = False
         self._was_visible = False
         self._snapping_active = False
-        self.coordinate_display_mode = "screen"  # or "world"
+        self.ruler_font = pygame.font.SysFont("Consolas", config.grid.label_font_size if hasattr(config.grid, 'label_font_size') else 12)
+        self._apply_grid_colors()
+        self._apply_polar_colors()
+        self._polar_cache = None
+        self._polar_cache_scale = 0.0
+        self._polar_cache_pos = (0, 0)
 
     def toggle_coordinate_display_mode(self):
         self.coordinate_display_mode = "world" if self.coordinate_display_mode == "screen" else "screen"
+
+    def toggle_polar_grid(self):
+        self.polar_enabled = not self.polar_enabled
 
     def draw(self, screen):
         grid_spacing_world, grid_spacing_pixels = self.calculate_grid_spacing()
@@ -75,6 +85,9 @@ class GridManager:
             if self.coordinate_display_mode == "world":
                 self._draw_world_label(screen, 0, y, is_x=False)
 
+        if self.polar_enabled:
+            self._draw_polar_grid(screen, top_left_world, bottom_right_world)
+
         if self.coordinate_display_mode == "world":
             self._draw_axis_labels(screen)
             self._draw_cursor_coordinates(screen)
@@ -85,6 +98,89 @@ class GridManager:
         self.draw_scale_indicator(screen, grid_spacing_world, grid_spacing_pixels)
         if self.coordinate_display_mode == "screen":
             self.draw_rulers(screen)
+    def _apply_grid_colors(self):
+        scheme = config.grid.default_colors
+        self.grid_color_major = (*scheme.major, 255) if len(scheme.major) == 3 else scheme.major
+        self.grid_color_minor = (*scheme.minor, 255) if len(scheme.minor) == 3 else scheme.minor
+        self.grid_color_origin = (*scheme.origin, 255) if len(scheme.origin) == 3 else scheme.origin
+
+    def _apply_polar_colors(self):
+        polar = config.grid.polar
+        self.polar_color_radial = polar.radial_line_color
+        self.polar_color_circular = polar.circular_line_color
+
+    def _draw_polar_grid(self, screen, top_left, bottom_right):
+        if not config.grid.polar.visible:
+            return
+        polar = config.grid.polar
+        origin = (0.0, 0.0)
+        origin_screen = self.camera.world_to_screen(origin)
+        screen_w, screen_h = screen.get_width(), screen.get_height()
+
+        corner_world = self.camera.screen_to_world((screen_w, screen_h))
+        max_radius_world = math.hypot(-corner_world[0], -corner_world[1]) * 1.05
+        grid_spacing_world, _ = self.calculate_grid_spacing()
+        if grid_spacing_world <= 1e-12:
+            return
+        num_circles = min(int(max_radius_world / grid_spacing_world) + 1, polar.max_circles)
+
+        alpha = polar.max_alpha
+        if polar.fade_with_zoom:
+            _, pixel_spacing = self.calculate_grid_spacing()
+            t = min(1.0, max(0.0, (pixel_spacing - self.min_pixel_spacing) / (
+                        self.max_pixel_spacing - self.min_pixel_spacing)))
+            alpha = int(polar.min_alpha + (polar.max_alpha - polar.min_alpha) * (1.0 - t))
+        circle_color = (*self.polar_color_circular[:3], alpha)
+        radial_color = (*self.polar_color_radial[:3], alpha)
+        label_font = pygame.font.SysFont("Consolas", polar.label_font_size)
+
+        def clamp(c):
+            return max(-32768, min(32767, int(round(c))))
+
+        for i in range(1, num_circles + 1):
+            radius = i * grid_spacing_world
+            radius_px = radius * self.camera.scaling
+            if radius_px < 1.0:
+                continue
+            if radius_px > 32767:
+                break
+
+            steps = 8 if radius_px < 5 else (16 if radius_px < 20 else polar.circular_resolution_theta_steps)
+            pts = []
+            for j in range(steps):
+                theta = 2 * math.pi * j / steps
+                x = radius * math.cos(theta)
+                y = radius * math.sin(theta)
+                sx, sy = self.camera.world_to_screen((x, y))
+                pts.append((clamp(sx), clamp(sy)))
+            # if len(pts) > 2:
+            #     pygame.gfxdraw.filled_polygon(screen, pts, (*circle_color[:3], min(30, alpha // 8)))
+            #     pygame.gfxdraw.aapolygon(screen, pts, circle_color[:3])
+
+
+        angle_step_rad = math.radians(polar.angle_step_deg)
+        theta = 0.0
+        while theta < 2 * math.pi + angle_step_rad / 2:
+            deg = int(round(math.degrees(theta)) % 360)
+            dx, dy = math.cos(theta), math.sin(theta)
+
+            end_world = (dx * max_radius_world, dy * max_radius_world)
+            end_screen = self.camera.world_to_screen(end_world)
+            ox, oy = clamp(origin_screen[0]), clamp(origin_screen[1])
+            ex, ey = clamp(end_screen[0]), clamp(end_screen[1])
+            if -32768 <= ex <= 32767 and -32768 <= ey <= 32767:
+                pygame.gfxdraw.line(screen, ox, oy, ex, ey, radial_color)
+
+            if polar.enable_labels and deg % polar.major_angle_step_deg == 0 and deg != 0:
+                label_offset = polar.min_radius_label_distance_px
+                label_x = origin_screen[0] + dx * label_offset
+                label_y = origin_screen[1] + dy * label_offset
+                if 0 <= label_x < screen_w and 0 <= label_y < screen_h:
+                    label = f"{deg}°"
+                    text_surf = label_font.render(label, True, polar.label_color_radial)
+                    screen.blit(text_surf, (clamp(label_x) - text_surf.get_width() // 2,
+                                            clamp(label_y) - text_surf.get_height() // 2))
+            theta += angle_step_rad
     def _draw_axis_labels(self, screen):
         offset = 1.5 * self.calculate_grid_spacing()[0]
         x_label_pos = self.camera.world_to_screen((offset, 0))

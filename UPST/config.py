@@ -3,7 +3,7 @@ import random
 
 import pygame
 from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, Tuple, List, Type, Optional, get_type_hints
+from typing import Any, Dict, Tuple, List, Type, Optional, get_type_hints, ClassVar
 import json
 
 @dataclass
@@ -160,18 +160,38 @@ class GridColorScheme:
     origin: Tuple[int, int, int, int] = (120, 120, 120, 255)
 
 @dataclass
+class PolarGridConfig:
+    enabled_by_default: bool = False
+    visible: bool = True
+    radial_line_color: Tuple[int, int, int, int] = (100, 100, 100, 180)
+    circular_line_color: Tuple[int, int, int, int] = (100, 100, 100, 180)
+    label_color_radial: Tuple[int, int, int] = (220, 220, 220)
+    label_color_circular: Tuple[int, int, int] = (220, 220, 220)
+    angle_step_deg: int = 15
+    major_angle_step_deg: int = 30
+    min_radius_label_distance_px: int = 200
+    circular_resolution_theta_steps: int = 36  # 360° / 5° = 72
+    max_circles: int = 20
+    enable_labels: bool = True
+    label_font_size: int = 12
+    fade_with_zoom: bool = True
+    min_alpha: int = 200
+    max_alpha: int = 200
+    theme_overrides: Dict[str, 'PolarGridConfig'] = field(default_factory=dict)
+
+@dataclass
 class GridConfig:
     enabled_by_default: bool = True
-    is_visible:bool = True
+    is_visible: bool = True
     base_size: int = 100
-    major_multiplier: int = 20
-    min_pixel_spacing: int = 40
+    major_multiplier: int = 10
+    min_pixel_spacing: int = 200
     max_pixel_spacing: int = 400
     minor_line_thickness: int = 1
     major_line_thickness: int = 2
     origin_line_thickness: int = 3
-    default_colors: GridColorScheme = field(default_factory=lambda: GridColorScheme())
-    theme_colors: Dict[str, GridColorScheme] = field(default_factory=lambda: {
+    default_colors: 'GridColorScheme' = field(default_factory=lambda: GridColorScheme())
+    theme_colors: Dict[str, 'GridColorScheme'] = field(default_factory=lambda: {
         "light": GridColorScheme((100,100,100,255), (60,60,60,255), (140,140,140,255)),
         "dark": GridColorScheme((80,80,80,255), (40,40,40,255), (120,120,120,255)),
         "blue": GridColorScheme((100,120,140,255), (60,80,100,255), (140,160,180,255)),
@@ -183,11 +203,14 @@ class GridConfig:
     max_alpha: int = 255
     snap_to_grid_enabled: bool = False
     snap_tolerance: int = 100
-    snap_radius_pixels:int = 100
+    snap_radius_pixels: int = 100
     snap_strength: float = 0.25
     max_lines: int = 1000
     skip_offscreen_lines: bool = True
-    ruler_skip_factor = 2
+    ruler_skip_factor: int = 2
+    polar: PolarGridConfig = field(default_factory=PolarGridConfig)
+
+    _subconfigs: ClassVar[Dict[str, Type]] = {"polar": PolarGridConfig}
 
 
 
@@ -501,6 +524,10 @@ def grid_from_dict_custom(cls, d: Dict) -> "GridConfig":
     d.setdefault("theme_colors", {})
     d["default_colors"] = GridColorScheme(**d["default_colors"])
     d["theme_colors"] = {k: GridColorScheme(**v) for k, v in d["theme_colors"].items()}
+    if "polar" in d and isinstance(d["polar"], dict):
+        d["polar"] = PolarGridConfig(**d["polar"])
+    else:
+        d.setdefault("polar", PolarGridConfig())
     return cls(**d)
 
 def world_to_dict_custom(self, d: Dict) -> Dict:
