@@ -204,7 +204,16 @@ class SaveLoadManager:
             cd = {"type":c.__class__.__name__,"a":body_map[c.a],"b":body_map[c.b]}
             if isinstance(c,pymunk.PinJoint): cd.update({"anchor_a":c.anchor_a,"anchor_b":c.anchor_b})
             elif isinstance(c,pymunk.PivotJoint): cd["anchor"] = c.anchor_a
-            elif isinstance(c,pymunk.DampedSpring): cd.update({"anchor_a":c.anchor_a,"anchor_b":c.anchor_b,"rest_length":float(c.rest_length),"stiffness":float(c.stiffness),"damping":float(c.damping)})
+            elif isinstance(c, pymunk.DampedSpring):
+                cd.update({
+                    "anchor_a": tuple(c.anchor_a),
+                    "anchor_b": tuple(c.anchor_b),
+                    "rest_length": float(c.rest_length),
+                    "stiffness": float(c.stiffness),
+                    "damping": float(c.damping),
+                    "size": float(getattr(c, 'size', 10.0)),
+                    "color": getattr(c, 'color', (200, 200, 200, 255))
+                })
             elif isinstance(c,pymunk.SimpleMotor): cd["rate"] = float(c.rate)
             elif isinstance(c,pymunk.GearJoint): cd.update({"phase":float(c.phase),"ratio":float(c.ratio)})
             elif isinstance(c,pymunk.SlideJoint): cd.update({"anchor_a":c.anchor_a,"anchor_b":c.anchor_b,"min":float(c.min),"max":float(c.max)})
@@ -360,7 +369,13 @@ class SaveLoadManager:
             a = loaded_bodies[cd["a"]]; b = loaded_bodies[cd["b"]]; ctype = cd["type"]; c = None
             if ctype == "PinJoint": c = pymunk.PinJoint(a,b,cd["anchor_a"],cd["anchor_b"])
             elif ctype == "PivotJoint": c = pymunk.PivotJoint(a,b,cd["anchor"])
-            elif ctype == "DampedSpring": c = pymunk.DampedSpring(a,b,cd["anchor_a"],cd["anchor_b"],float(cd["rest_length"]),float(cd["stiffness"]),float(cd["damping"]))
+            elif ctype == "DampedSpring":
+                c = pymunk.DampedSpring(a, b, cd["anchor_a"], cd["anchor_b"], float(cd["rest_length"]),
+                                        float(cd["stiffness"]), float(cd["damping"]))
+                if "size" in cd:
+                    c.size = float(cd["size"])
+                if "color" in cd:
+                    c.color = tuple(cd["color"])
             elif ctype == "SimpleMotor": c = pymunk.SimpleMotor(a,b,float(cd["rate"]))
             elif ctype == "GearJoint": c = pymunk.GearJoint(a,b,float(cd["phase"]),float(cd["ratio"]))
             elif ctype == "SlideJoint": c = pymunk.SlideJoint(a,b,cd["anchor_a"],cd["anchor_b"],float(cd["min"]),float(cd["max"]))

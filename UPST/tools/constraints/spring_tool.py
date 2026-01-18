@@ -54,7 +54,7 @@ class SpringTool(BaseTool):
                         spring = pymunk.DampedSpring(self.first_body, body, anchor1, anchor2, rest_len, stiffness, damping)
                         spring.color = self._get_color("spring")
                         spring.rest_length = rest_len
-                        spring.size = 1 * self.app.camera.inv_scaling
+                        spring.size = 10 * self.app.camera.inv_scaling
                         self.pm.space.add(spring)
                         self.undo_redo.take_snapshot()
                     except ValueError:

@@ -106,8 +106,15 @@ class SnapshotManager:
                 elif isinstance(c, pymunk.PivotJoint):
                     cd["anchor"] = tuple(c.anchor_a)
                 elif isinstance(c, pymunk.DampedSpring):
-                    cd.update({"anchor_a": tuple(c.anchor_a), "anchor_b": tuple(c.anchor_b), "rest_length": float(c.rest_length),
-                               "stiffness": float(c.stiffness), "damping": float(c.damping)})
+                    cd.update({
+                        "anchor_a": tuple(c.anchor_a),
+                        "anchor_b": tuple(c.anchor_b),
+                        "rest_length": float(c.rest_length),
+                        "stiffness": float(c.stiffness),
+                        "damping": float(c.damping),
+                        "size": float(getattr(c, 'size', 10.0)),
+                        "color": getattr(c, 'color', (200, 200, 200, 255))
+                    })
                 elif isinstance(c, pymunk.SimpleMotor):
                     cd["rate"] = float(c.rate)
                 elif isinstance(c, pymunk.GearJoint):
@@ -263,6 +270,10 @@ class SnapshotManager:
                 elif ctype == "DampedSpring":
                     c = pymunk.DampedSpring(a, b, cd["anchor_a"], cd["anchor_b"], float(cd["rest_length"]),
                                             float(cd["stiffness"]), float(cd["damping"]))
+                    if "size" in cd:
+                        c.size = float(cd["size"])
+                    if "color" in cd:
+                        c.color = tuple(cd["color"])
                 elif ctype == "SimpleMotor":
                     c = pymunk.SimpleMotor(a, b, float(cd["rate"]))
                 elif ctype == "GearJoint":

@@ -97,7 +97,7 @@ class Renderer:
                     seg_y0 = a_scr[1] + i * seg_len_scr * sin_a
                     key = (round(seg_len_scr, 1), round(angle, 2))
                     if key not in seg_cache:
-                        stretched = pygame.transform.smoothscale(base_scaled, (max(1, int(seg_len_scr)), visual_size *base_scaled.get_height()))
+                        stretched = pygame.transform.smoothscale(base_scaled, (max(1, int(seg_len_scr)), visual_size *base_scaled.get_height()/10))
                         rotated = pygame.transform.rotate(stretched, math.degrees(-angle))
                         seg_cache[key] = rotated
                     sprite = seg_cache[key]
@@ -112,8 +112,7 @@ class Renderer:
             for anchor_scr, tex_key in [(a_scr, 'spring_point_a_texture'), (b_scr, 'spring_point_b_texture')]:
                 tex_path = getattr(config.rendering, tex_key, '')
                 if tex_path:
-
-                    pt_tex = self._get_scaled_texture(tex_path, visual_size * 0.1 * cam_scale)
+                    pt_tex = self._get_scaled_texture(tex_path, 0.1 * cam_scale*(visual_size/5))
                     if pt_tex: screen.blit(pt_tex, (anchor_scr[0] - pt_tex.get_width() // 2, anchor_scr[1] - pt_tex.get_height() // 2))
                 else:
                     r = max(1, int(1 * cam_scale))
