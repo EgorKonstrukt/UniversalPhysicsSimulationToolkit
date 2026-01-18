@@ -183,10 +183,10 @@ class PolarGridConfig:
 class GridConfig:
     enabled_by_default: bool = True
     is_visible: bool = True
-    base_size: int = 100
+    base_size: int = 50
     major_multiplier: int = 10
-    min_pixel_spacing: int = 200
-    max_pixel_spacing: int = 400
+    min_pixel_spacing: int = 10
+    max_pixel_spacing: int = 500
     minor_line_thickness: int = 1
     major_line_thickness: int = 2
     origin_line_thickness: int = 3

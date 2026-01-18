@@ -52,11 +52,11 @@ class InputHandler:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_g and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 self.app.toggle_grid()
-            mods = pygame.key.get_mods()
             if event.key == pygame.K_r and (mods & pygame.KMOD_CTRL):
                 self.app.grid_manager.toggle_coordinate_display_mode()
             if event.key == pygame.K_t and (mods & pygame.KMOD_CTRL):
                 self.app.grid_manager.toggle_polar_grid()
+
             if event.key == pygame.K_r and (mods & pygame.KMOD_CTRL) and (mods & pygame.KMOD_SHIFT):
                 if hasattr(self.app, 'script_manager'):
                     self.app.script_manager.reload_all_scripts()

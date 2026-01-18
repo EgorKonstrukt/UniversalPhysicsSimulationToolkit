@@ -53,8 +53,9 @@ class GridManager:
         self._polar_cache_pos = (0, 0)
 
     def toggle_coordinate_display_mode(self):
-        self.coordinate_display_mode = "world" if self.coordinate_display_mode == "screen" else "screen"
-
+        modes = ["screen", "world", "relative"]
+        idx = (modes.index(self.coordinate_display_mode) + 1) % len(modes)
+        self.coordinate_display_mode = modes[idx]
     def toggle_polar_grid(self):
         self.polar_enabled = not self.polar_enabled
 
@@ -88,7 +89,7 @@ class GridManager:
         if self.polar_enabled:
             self._draw_polar_grid(screen, top_left_world, bottom_right_world)
 
-        if self.coordinate_display_mode == "world":
+        if self.coordinate_display_mode in ("world", "relative"):
             self._draw_axis_labels(screen)
             self._draw_cursor_coordinates(screen)
 
@@ -211,11 +212,16 @@ class GridManager:
         elif abs_val >= 1e-3: return f"{val * 1e3:.0f}mm"
         elif abs_val >= 1e-6: return f"{val * 1e6:.0f}µm"
         else: return f"{val * 1e9:.0f}nm"
+
     def _draw_cursor_coordinates(self, screen):
         mouse_pos = pygame.mouse.get_pos()
         world_mouse = self.camera.screen_to_world(mouse_pos)
-        label_x = f"X: {self._format_number(world_mouse[0])}"
-        label_y = f"Y: {self._format_number(world_mouse[1])}"
+        if self.coordinate_display_mode == "relative":
+            label_x = f"ΔX: {self._format_number(0)}"
+            label_y = f"ΔY: {self._format_number(0)}"
+        else:
+            label_x = f"X: {self._format_number(world_mouse[0])}"
+            label_y = f"Y: {self._format_number(world_mouse[1])}"
         text_x = self.ruler_font.render(label_x, True, (255, 255, 0))
         text_y = self.ruler_font.render(label_y, True, (255, 255, 0))
         margin = 8
