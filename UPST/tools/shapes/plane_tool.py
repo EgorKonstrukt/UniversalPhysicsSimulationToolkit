@@ -10,8 +10,8 @@ class PlaneTool(BaseTool):
     name = "Plane"
     icon_path = "sprites/gui/tools/plane.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.start_pos = None
 
     def create_settings_window(self):
@@ -61,14 +61,14 @@ class PlaneTool(BaseTool):
             center - normal * extent + perp * (-extent),
         ]
 
-        body = self.pm.static_body
+        body = self.app.physics_manager.static_body
         shape = pymunk.Poly(body, corners)
         shape.friction = friction
         shape.elasticity = elasticity
         shape.filter = pymunk.ShapeFilter(group=1)
 
-        self.pm.space.add(shape)
-        self.pm.static_lines.append(shape)
+        self.app.physics_manager.space.add(shape)
+        self.app.physics_manager.static_lines.append(shape)
         self.undo_redo.take_snapshot()
         synthesizer.play_frequency(150, duration=0.05, waveform='sine')
 

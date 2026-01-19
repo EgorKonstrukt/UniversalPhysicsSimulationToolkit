@@ -9,8 +9,8 @@ class PinJointTool(BaseTool):
     name = "PinJoint"
     icon_path = "sprites/gui/tools/rigid.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.first_body = None
         self.first_pos = None
         self.distance = 0.0
@@ -29,8 +29,8 @@ class PinJointTool(BaseTool):
         if self.ui_manager.manager.get_focus_set():
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            info = self.pm.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())
-            body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None
+            info = self.app.physics_manager.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())
+            body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
             if not body:
                 self.first_body = None
                 return
@@ -46,7 +46,7 @@ class PinJointTool(BaseTool):
                         dist = 0.0 if dist_text == "auto" else float(dist_text)
                         rigid = pymunk.PinJoint(self.first_body, body, anchor1, anchor2)
                         rigid.distance = dist
-                        self.pm.space.add(rigid)
+                        self.app.physics_manager.space.add(rigid)
                         self.undo_redo.take_snapshot()
                     except ValueError:
                         pass

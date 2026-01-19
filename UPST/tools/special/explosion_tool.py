@@ -10,8 +10,8 @@ class ExplosionTool(BaseTool):
     name = "Explosion"
     icon_path = "sprites/gui/tools/explosion.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.radius = 100.0
         self.strength = 1000.0
         self.preview_pos = None
@@ -62,8 +62,8 @@ class ExplosionTool(BaseTool):
 
     def _trigger_explosion(self, pos):
         affected = []
-        for body in self.pm.space.bodies:
-            if body == self.pm.static_body or body.body_type == pymunk.Body.STATIC:
+        for body in self.app.physics_manager.space.bodies:
+            if body == self.app.physics_manager.static_body or body.body_type == pymunk.Body.STATIC:
                 continue
             offset = body.position - pos
             dist = offset.length

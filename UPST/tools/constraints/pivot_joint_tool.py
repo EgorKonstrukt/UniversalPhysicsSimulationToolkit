@@ -9,8 +9,8 @@ class PivotJointTool(BaseTool):
     name = "PivotJoint"
     icon_path = "sprites/gui/tools/pivot.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.first_body = None
         self.first_pos = None
 
@@ -32,8 +32,8 @@ class PivotJointTool(BaseTool):
         if self.ui_manager.manager.get_focus_set():
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            info = self.pm.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())
-            body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None
+            info = self.app.physics_manager.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())
+            body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
             if not body:
                 self.first_body = None
                 return
@@ -44,7 +44,7 @@ class PivotJointTool(BaseTool):
                 if self.first_body != body:
                     pivot = pymunk.PivotJoint(self.first_body, body, self.first_pos)
                     pivot.collide_bodies = self.collide_checkbox.get_state()
-                    self.pm.space.add(pivot)
+                    self.app.physics_manager.space.add(pivot)
                     self.undo_redo.take_snapshot()
                 self.first_body = None
 

@@ -11,8 +11,8 @@ class ScriptTool(BaseTool):
     name = "ScriptTool"
     icon_path = "sprites/gui/python.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self,app):
+        super().__init__(app)
         self.scripts = []
         self.rects = []
         self.font = pygame.font.SysFont("Consolas", 14)
@@ -35,8 +35,8 @@ class ScriptTool(BaseTool):
         self.undo_redo.take_snapshot()
 
     def _refresh_scripts(self):
-        if hasattr(self.pm, 'script_manager'):
-            self.scripts = self.pm.script_manager.get_all_scripts()
+        if hasattr(self.app.physics_manager, 'script_manager'):
+            self.scripts = self.app.physics_manager.script_manager.get_all_scripts()
             self.rects = []
             y = 100
             for script in self.scripts:
@@ -50,9 +50,9 @@ class ScriptTool(BaseTool):
                 if rect.collidepoint(world_pos):
                     script = self.scripts[i]
                     if script.running:
-                        self.pm.script_manager.stop_script(script)
+                        self.app.physics_manager.script_manager.stop_script(script)
                     else:
-                        self.pm.script_manager.start_script(script)
+                        self.app.physics_manager.script_manager.start_script(script)
                     synthesizer.play_frequency(1200 if script.running else 800, 0.05, 'sine')
                     self.undo_redo.take_snapshot()
                     return

@@ -12,8 +12,8 @@ class LabelTool(BaseTool):
     icon_path = "sprites/gui/label.png"
     tooltip = "Create world-space text labels"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.settings = {
             "text": "New Label",
             "color": pygame.Color(255, 255, 255),
@@ -167,7 +167,7 @@ class LabelTool(BaseTool):
         try:
             owner = None
             if self.settings["attach_to_body"]:
-                body = self.pm.get_body_at_position(position)
+                body = self.app.physics_manager.get_body_at_position(position)
                 if body:
                     dist = (body.position - pymunk.Vec2d(*position)).length
                     if dist <= self.settings["max_attach_distance"]:

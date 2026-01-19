@@ -8,8 +8,8 @@ class SpringTool(BaseTool):
     name = "Spring"
     icon_path = "sprites/gui/tools/spring.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.first_body = None
         self.first_pos = None
         self.stiffness = 200.0
@@ -34,7 +34,7 @@ class SpringTool(BaseTool):
         if self.ui_manager.manager.get_focus_set():
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            info = self.pm.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())
+            info = self.app.physics_manager.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())
             body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None
             if not body:
                 self.first_body = None
@@ -55,7 +55,7 @@ class SpringTool(BaseTool):
                         spring.color = self._get_color("spring")
                         spring.rest_length = rest_len
                         spring.size = 10 * self.app.camera.inv_scaling
-                        self.pm.space.add(spring)
+                        self.app.physics_manager.space.add(spring)
                         self.undo_redo.take_snapshot()
                     except ValueError:
                         pass

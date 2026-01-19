@@ -97,32 +97,32 @@ class ToolSystem:
 
         self.laser_processor = LaserProcessor(self.pm)
         spawn_tools = [
-            CircleTool(self.pm, self.app),
-            RectangleTool(self.pm, self.app),
-            TriangleTool(self.pm, self.app),
-            PolyTool(self.pm, self.app),
-            PolyhedronTool(self.pm,self.app),
-            SpamTool(self.pm, self.app),
-            GearTool(self.pm, self.app),
-            ChainTool(self.pm, self.app),
-            PlaneTool(self.pm, self.app),
+            CircleTool(self.app),
+            RectangleTool(self.app),
+            TriangleTool(self.app),
+            PolyTool(self.app),
+            PolyhedronTool(self.app),
+            SpamTool(self.app),
+            GearTool(self.app),
+            ChainTool(self.app),
+            PlaneTool(self.app),
         ]
         constraint_tools = [
-            SpringTool(self.pm, self.app),
-            PivotJointTool(self.pm, self.app),
-            PinJointTool(self.pm, self.app),
-            FixateTool(self.pm, self.app)
+            SpringTool(self.app),
+            PivotJointTool(self.app),
+            PinJointTool(self.app),
+            FixateTool(self.app)
         ]
         special_tools = [
-            ExplosionTool(self.pm, self.app),
-            StaticLineTool(self.pm, self.app),
-            LaserTool(self.pm, self.laser_processor, self.app),
-            DragTool(self.pm, self.app),
-            MoveTool(self.pm, self.app),
-            RotateTool(self.pm, self.app),
-            CutTool(self.pm, self.app),
-            ScriptTool(self.pm, self.app),
-            LabelTool(self.pm, self.app),
+            ExplosionTool(self.app),
+            StaticLineTool(self.app),
+            LaserTool( self.laser_processor, self.app),
+            DragTool(self.app),
+            MoveTool(self.app),
+            RotateTool(self.app),
+            CutTool(self.app),
+            ScriptTool(self.app),
+            LabelTool(self.app),
         ]
         self._pending_tools = spawn_tools + constraint_tools + special_tools
 

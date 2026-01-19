@@ -11,8 +11,8 @@ class PolyTool(BaseTool):
     name = "Poly"
     icon_path = "sprites/gui/tools/polygon.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.points = []
         self.preview_closed = False
 
@@ -66,7 +66,7 @@ class PolyTool(BaseTool):
             shape = pymunk.Poly(body, local_vertices, radius=0)
             shape.friction = friction
             shape.elasticity = elasticity
-            self.pm.space.add(body, shape)
+            self.app.physics_manager.space.add(body, shape)
             self.undo_redo.take_snapshot()
         except Exception as e:
             traceback.print_exc()

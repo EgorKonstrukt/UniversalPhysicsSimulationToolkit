@@ -20,8 +20,8 @@ class LaserEmitter:
 
 class LaserTool(BaseTool):
     name = "Laser"; icon_path = "sprites/gui/tools/laserpen.png"
-    def __init__(self, pm, laser_processor, app):
-        super().__init__(pm, app)
+    def __init__(self, laser_processor, app):
+        super().__init__(app)
         self.lp = laser_processor
         self.phase = 0
         self.tmp_pos = None; self.tmp_angle = 0
@@ -106,8 +106,8 @@ class LaserTool(BaseTool):
                     em.spectrum = list(self.spectrum)
                 em.use_texture = getattr(self, 'use_texture', True)
                 if self.attach_on_create:
-                    info = self.pm.space.point_query_nearest(self.tmp_pos, 0, pymunk.ShapeFilter())
-                    body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None
+                    info = self.app.physics_manager.space.point_query_nearest(self.tmp_pos, 0, pymunk.ShapeFilter())
+                    body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
                     if body:
                         em.attached_body = body
                         em.local_off = body.world_to_local(self.tmp_pos)

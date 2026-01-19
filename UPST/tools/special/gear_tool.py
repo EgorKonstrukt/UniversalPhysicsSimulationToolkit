@@ -8,8 +8,8 @@ import pygame_gui
 class GearTool(BaseTool):
     name="Gear"
     icon_path="sprites/gui/tools/gear.png"
-    def __init__(self,pm, app):
-        super().__init__(pm, app)
+    def __init__(self,app):
+        super().__init__(app)
         self.center=None
         self.settings_window=None
         self.teeth_entry=None
@@ -55,7 +55,7 @@ class GearTool(BaseTool):
 
     def _closest_gear(self,pos):
         best=None; dmin=999999
-        for s in self.pm.space.shapes:
+        for s in self.app.physics_manager.space.shapes:
             if isinstance(s,pymunk.Poly) and hasattr(s,"_is_gear"):
                 dx=s.body.position.x-pos[0]
                 dy=s.body.position.y-pos[1]
@@ -78,7 +78,7 @@ class GearTool(BaseTool):
         sh.friction=0.9
         sh.elasticity=0.0
         sh._is_gear=True
-        self.pm.space.add(body,sh)
+        self.app.physics_manager.space.add(body,sh)
         self.undo_redo.take_snapshot()
         return sh
 

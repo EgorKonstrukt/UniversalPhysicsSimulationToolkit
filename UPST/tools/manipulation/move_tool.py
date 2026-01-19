@@ -9,8 +9,8 @@ class MoveTool(BaseTool):
     name = "Move"
     icon_path = "sprites/gui/tools/move.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self,app):
+        super().__init__(app)
         self.tgt = None
         self.drag = False
         self.offset = pymunk.Vec2d(0, 0)
@@ -37,8 +37,8 @@ class MoveTool(BaseTool):
         if self.ui_manager.manager.get_focus_set():
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            info = self.pm.space.point_query_nearest(wpos, 0, pymunk.ShapeFilter())
-            body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None
+            info = self.app.physics_manager.space.point_query_nearest(wpos, 0, pymunk.ShapeFilter())
+            body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
             if body and body.body_type == pymunk.Body.DYNAMIC:
                 self.tgt = body
                 if self.cb_center.get_state():

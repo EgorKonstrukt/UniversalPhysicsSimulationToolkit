@@ -9,8 +9,8 @@ class ChainTool(BaseTool):
     name = "Chain"
     icon_path = "sprites/gui/tools/chain.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.start_pos = None
         self.start_body = None
         self.preview_points = []
@@ -51,8 +51,8 @@ class ChainTool(BaseTool):
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.start_pos = pymunk.Vec2d(*world_pos)
-            info = self.pm.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())
-            body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None
+            info = self.app.physics_manager.space.point_query_nearest(world_pos, 0, pymunk.ShapeFilter())
+            body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
             self.start_body = body
             synthesizer.play_frequency(180, 0.05, 'sine')
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.start_pos:
@@ -107,29 +107,29 @@ class ChainTool(BaseTool):
             bodies.append(body)
             shapes.append(shape)
 
-        self.pm.space.add(*bodies, *shapes)
+        self.app.physics_manager.space.add(*bodies, *shapes)
 
         for i in range(len(bodies) - 1):
             joint = pymunk.PinJoint(bodies[i], bodies[i + 1], (0, 0), (0, 0))
             joint.collide_bodies = enable_collision
             constraints.append(joint)
 
-        self.pm.space.add(*constraints)
+        self.app.physics_manager.space.add(*constraints)
 
         if self.start_body:
             anchor = self.start_body.world_to_local(p1)
             joint = pymunk.PinJoint(self.start_body, bodies[0], anchor, (0, 0))
             joint.collide_bodies = False
-            self.pm.space.add(joint)
+            self.app.physics_manager.space.add(joint)
             constraints.append(joint)
 
-        info_end = self.pm.space.point_query_nearest(p2, radius, pymunk.ShapeFilter())
-        end_body = info_end.shape.body if info_end and info_end.shape and info_end.shape.body != self.pm.static_body else None
+        info_end = self.app.physics_manager.space.point_query_nearest(p2, radius, pymunk.ShapeFilter())
+        end_body = info_end.shape.body if info_end and info_end.shape and info_end.shape.body != self.app.physics_manager.static_body else None
         if end_body and end_body not in bodies:
             anchor = end_body.world_to_local(p2)
             joint = pymunk.PinJoint(end_body, bodies[-1], anchor, (0, 0))
             joint.collide_bodies = False
-            self.pm.space.add(joint)
+            self.app.physics_manager.space.add(joint)
             constraints.append(joint)
 
         self.undo_redo.take_snapshot()

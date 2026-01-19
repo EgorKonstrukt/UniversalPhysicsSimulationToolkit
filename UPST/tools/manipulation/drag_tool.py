@@ -8,8 +8,8 @@ from UPST.config import config
 class DragTool(BaseTool):
     name = "Drag"
     icon_path = "sprites/gui/tools/drag.png"
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.mb = None
         self.tgt = None
         self.pj = None
@@ -47,7 +47,7 @@ class DragTool(BaseTool):
     def _make_mouse_body(self, pos):
         b = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
         b.position = pos
-        self.pm.space.add(b)
+        self.app.physics_manager.space.add(b)
         return b
 
     def _start_drag(self, wpos, info):
@@ -63,9 +63,9 @@ class DragTool(BaseTool):
         self.pj = pymunk.PivotJoint(self.mb, self.tgt, (0, 0), local_anchor)
         self.ds = pymunk.DampedSpring(self.mb, self.tgt, (0, 0), local_anchor, rest, k, d)
         if self.cb_stabilizer.get_state():
-            self.pm.space.add(self.pj, self.ds)
+            self.app.physics_manager.space.add(self.pj, self.ds)
         else:
-            self.pm.space.add(self.ds)
+            self.app.physics_manager.space.add(self.ds)
         if self.cb_no_rot.get_state():
             self.saved_moi = self.tgt.moment
             self.tgt.moment = float("inf")
@@ -75,12 +75,12 @@ class DragTool(BaseTool):
     def _stop_drag(self):
         for j in (self.pj, self.ds):
             if j:
-                try: self.pm.space.remove(j)
+                try: self.app.physics_manager.space.remove(j)
                 except: pass
         self.pj = None
         self.ds = None
         if self.mb:
-            try: self.pm.space.remove(self.mb)
+            try: self.app.physics_manager.space.remove(self.mb)
             except: pass
         self.mb = None
         if self.cb_no_rot.get_state() and self.saved_moi and self.tgt:
@@ -94,8 +94,8 @@ class DragTool(BaseTool):
         if self.ui_manager.manager.get_focus_set():
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            info = self.pm.space.point_query_nearest(wpos, 0, pymunk.ShapeFilter())
-            body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None
+            info = self.app.physics_manager.space.point_query_nearest(wpos, 0, pymunk.ShapeFilter())
+            body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
             if body: self._start_drag(wpos, info)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             if self.dragging: self._stop_drag()

@@ -9,8 +9,8 @@ from UPST.modules.statistics import stats
 class CutTool(BaseTool):
     name = "Cut"
     icon_path = "sprites/gui/tools/knife.png"
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self,app):
+        super().__init__(app)
         self.start_pos=None
         self.thickness_entry=None
         self.remove_circles_cb=None
@@ -100,11 +100,11 @@ class CutTool(BaseTool):
     def _remove_shape_and_maybe_body(self,shape):
         b=shape.body
         try:
-            if shape in self.pm.space.shapes: self.pm.space.remove(shape)
+            if shape in self.app.physics_manager.space.shapes: self.app.physics_manager.space.remove(shape)
         except Exception: pass
         try:
-            if len(b.shapes)==0 and b in self.pm.space.bodies:
-                try: self.pm.space.remove(b)
+            if len(b.shapes)==0 and b in self.app.physics_manager.space.bodies:
+                try: self.app.physics_manager.space.remove(b)
                 except Exception: pass
         except Exception: pass
     def _split_poly_by_segment(self,poly,a,b):
@@ -141,17 +141,17 @@ class CutTool(BaseTool):
         return [poly1, poly2]
     def _safe_add_body_shape(self,body,shape):
         try:
-            self.pm.space.add(body,shape)
+            self.app.physics_manager.space.add(body,shape)
             return True
         except Exception:
             try:
-                if body in self.pm.space.bodies:
-                    try: self.pm.space.remove(body)
+                if body in self.app.physics_manager.space.bodies:
+                    try: self.app.physics_manager.space.remove(body)
                     except Exception: pass
             except Exception: pass
             try:
-                if shape in self.pm.space.shapes:
-                    try: self.pm.space.remove(shape)
+                if shape in self.app.physics_manager.space.shapes:
+                    try: self.app.physics_manager.space.remove(shape)
                     except Exception: pass
             except Exception: pass
             return False
@@ -175,8 +175,8 @@ class CutTool(BaseTool):
         stats.increment('objects_cutted', delta=1)
         bodies_to_remove = set()
         to_add = []
-        for shape in list(self.pm.space.shapes):
-            if shape.body == self.pm.static_body:
+        for shape in list(self.app.physics_manager.space.shapes):
+            if shape.body == self.app.physics_manager.static_body:
                 continue
             if isinstance(shape, pymunk.Segment):
                 if self._seg_seg_intersection(a, b, shape.a, shape.b):
@@ -203,24 +203,24 @@ class CutTool(BaseTool):
                     if new1: to_add.append(new1)
                     if new2: to_add.append(new2)
         for body in bodies_to_remove:
-            if body in self.pm.space.bodies:
+            if body in self.app.physics_manager.space.bodies:
                 try:
-                    self.pm.space.remove(body, *body.shapes)
+                    self.app.physics_manager.space.remove(body, *body.shapes)
                 except Exception:
                     pass
-            self.pm.script_manager.remove_scripts_by_owner(body)
-        for c in list(self.pm.space.constraints):
+            self.app.physics_manager.script_manager.remove_scripts_by_owner(body)
+        for c in list(self.app.physics_manager.space.constraints):
             if c.a in bodies_to_remove or c.b in bodies_to_remove:
                 try:
-                    self.pm.space.remove(c)
+                    self.app.physics_manager.space.remove(c)
                 except:
                     pass
         for body, shape in to_add:
             added = self._safe_add_body_shape(body, shape)
             if not added and self.keep_small_cb and self.keep_small_cb.get_state():
                 try:
-                    if body in self.pm.space.bodies:
-                        self.pm.space.remove(body)
+                    if body in self.app.physics_manager.space.bodies:
+                        self.app.physics_manager.space.remove(body)
                 except:
                     pass
     def handle_event(self, event, world_pos):

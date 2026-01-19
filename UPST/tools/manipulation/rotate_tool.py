@@ -9,8 +9,8 @@ class RotateTool(BaseTool):
     name = "Rotate"
     icon_path = "sprites/gui/tools/rotate.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self, app):
+        super().__init__(app)
         self.tgt = None
         self.drag = False
         self.start_angle = 0.0
@@ -49,8 +49,8 @@ class RotateTool(BaseTool):
         mouse_pos = pymunk.Vec2d(mx, my)
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            info = self.pm.space.point_query_nearest(mouse_pos, 0, pymunk.ShapeFilter())
-            body = info.shape.body if info and info.shape and info.shape.body != self.pm.static_body else None
+            info = self.app.physics_manager.space.point_query_nearest(mouse_pos, 0, pymunk.ShapeFilter())
+            body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
             if body and body.body_type == pymunk.Body.DYNAMIC:
                 self.tgt = body
                 use_com = self.cb_center and self.cb_center.get_state()

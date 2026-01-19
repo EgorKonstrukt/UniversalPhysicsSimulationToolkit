@@ -9,8 +9,8 @@ class StaticLineTool(BaseTool):
     name = "StaticLine"
     icon_path = "sprites/app/line.png"
 
-    def __init__(self, pm, app):
-        super().__init__(pm, app)
+    def __init__(self,app):
+        super().__init__(app)
         self.start_pos = None
 
     def handle_event(self, event, world_pos):
@@ -22,11 +22,11 @@ class StaticLineTool(BaseTool):
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.start_pos:
             end_pos = world_pos
             synthesizer.play_frequency(120, duration=0.1, waveform='sine')
-            segment = pymunk.Segment(self.pm.static_body, self.start_pos, end_pos, 5)
+            segment = pymunk.Segment(self.app.physics_manager.static_body, self.start_pos, end_pos, 5)
             segment.friction = 1.0
             segment.elasticity = 0.5
-            self.pm.space.add(segment)
-            self.pm.static_lines.append(segment)
+            self.app.physics_manager.space.add(segment)
+            self.app.physics_manager.static_lines.append(segment)
             self.undo_redo.take_snapshot()
             self.start_pos = None
 
