@@ -31,6 +31,7 @@ from UPST.network.network_manager import NetworkManager
 from UI_manager import UIManager
 from UPST.modules.renderer import Renderer
 from UPST.modules.statistics import stats
+from UPST.physics.thermal_manager import ThermalManager
 
 from UPST.tools.tool_manager import ToolSystem
 
@@ -94,6 +95,8 @@ class Application:
         self.undo_redo_manager = UndoRedoManager(snapshot_manager=self.snapshot_manager)
 
         self.physics_manager.undo_redo_manager = self.undo_redo_manager
+
+        self.thermal_manager = ThermalManager(self.physics_manager, self.camera)
 
 
         self.tool_manager = ToolSystem(physics_manager=self.physics_manager,

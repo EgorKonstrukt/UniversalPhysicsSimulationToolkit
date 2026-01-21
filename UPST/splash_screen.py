@@ -12,33 +12,45 @@ class SplashScreen:
         self.root = tk.Tk()
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        self.root.configure(bg="black")
+        self.root.configure(bg="#0f0f15")
         self.logo_path = "sprites/logo2.png"
         screen_w, screen_h = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
-        win_w, win_h = 400, 200
+        win_w, win_h = 480, 240
         x, y = (screen_w - win_w) // 2, (screen_h - win_h) // 2
         self.root.geometry(f"{win_w}x{win_h}+{x}+{y}")
         self.logo_label = None
 
-        if self.logo_path and os.path.isfile(self.logo_path):
+        if os.path.isfile(self.logo_path):
             try:
                 img = Image.open(self.logo_path).convert("RGBA")
-                img.thumbnail((120, 120), Image.LANCZOS)
-                bg = Image.new("RGB", img.size, (0, 0, 0))
+                img.thumbnail((128, 128), Image.LANCZOS)
+                bg = Image.new("RGB", img.size, "#0f0f15")
                 bg.paste(img, mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None)
                 logo_img = ImageTk.PhotoImage(bg)
-                self.logo_label = tk.Label(self.root, image=logo_img, bg="black")
+                self.logo_label = tk.Label(self.root, image=logo_img, bg="#0f0f15")
                 self.logo_label.image = logo_img
-                self.logo_label.pack(pady=(20, 5))
+                self.logo_label.pack(pady=(24, 8))
             except Exception:
                 pass
 
-        label = tk.Label(self.root, text="Loading UPST...", fg="#0af", bg="black", font=("Segoe UI", 16))
-        label.pack()
+        title_label = tk.Label(
+            self.root,
+            text="Universal Physics Simulation Toolkit",
+            fg="#00ccff",
+            bg="#0f0f15",
+            font=("Segoe UI Semibold", 13),
+            wraplength=440,
+            justify="center"
+        )
+        title_label.pack()
 
-        progress = ttk.Progressbar(self.root, mode="indeterminate", length=300)
-        progress.pack(pady=15)
-        progress.start(10)
+        progress = ttk.Progressbar(self.root, mode="indeterminate", length=360, style="Splash.Horizontal.TProgressbar")
+        progress.pack(pady=(16, 0))
+        progress.start(12)
+
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure("Splash.Horizontal.TProgressbar", troughcolor="#1a1a22", background="#007acc", thickness=4)
 
         self.root.update_idletasks()
         self.root.update()

@@ -137,7 +137,7 @@ class CameraConfig:
     pan_to_cursor_speed: float = 0.2
     mouse_friction: float = 0.96
     min_zoom_scale: float = 0.000_000_001
-    max_zoom_scale: float = 10000000000000000000000.0
+    max_zoom_scale: float = 100000000000.0
 
 @dataclass
 class ProfilerConfig:
@@ -183,7 +183,7 @@ class PolarGridConfig:
 class GridConfig:
     enabled_by_default: bool = True
     is_visible: bool = True
-    base_size: int = 50
+    base_size: int = 100
     major_multiplier: int = 10
     min_pixel_spacing: int = 10
     max_pixel_spacing: int = 500
@@ -263,7 +263,7 @@ class TextureEditorConfig:
 
 @dataclass
 class AppConfig:
-    use_f64: bool = True
+    use_f64: bool = False
     config_default_path: str = "config.json"
     autosave_path: str = "autosave.space"
     screen_width: int = 1920

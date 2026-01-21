@@ -10,7 +10,7 @@ from UPST.utils import bytes_to_surface
 from UPST.modules.texture_processor import TextureProcessor, TextureState
 from UPST.modules.profiler import profile, start_profiling, stop_profiling
 from UPST.modules.cloud_manager import CloudManager, CloudRenderer
-from UPST.physics.thermal_manager import ThermalManager
+
 import pygame.gfxdraw
 
 class Renderer:
@@ -288,6 +288,8 @@ class Renderer:
         if hasattr(self.ui_manager.app, 'console_handler'): self.ui_manager.app.console_handler.draw_graph()
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw()
+        self.app.thermal_manager.render_heatmap(screen=self.screen)
+        self.app.thermal_manager.draw_hover_temperature()
         if self.script_system: self.script_system.draw(self.screen)
         if self.ui_manager.app.plugin_manager: self.ui_manager.app.plugin_manager.draw()
         self.ui_manager.draw(self.screen)
