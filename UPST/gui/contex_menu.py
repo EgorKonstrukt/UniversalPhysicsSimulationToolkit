@@ -216,15 +216,26 @@ class ContextMenu:
         total_height = len(menu_items) * (config.context_menu.button_height + config.context_menu.button_spacing) - config.context_menu.button_spacing
         window_height = total_height + 28
 
+        if self.clicked_object:
+            base_name = getattr(self.clicked_object, 'name', self.clicked_object.__class__.__name__)
+            tags = getattr(self.clicked_object, 'tags', None)
+            if isinstance(tags, (set, list)) and tags:
+                tag_str = ", ".join(sorted(str(t) for t in tags))
+                title = f"{base_name} [{tag_str}]"
+            else:
+                title = base_name
+        else:
+            title = "World"
+
         self.context_menu = UIWindow(
             rect=pygame.Rect(0, 0, 260, window_height),
             manager=self.manager,
-            window_display_title=str(self.clicked_object.__class__.__name__),
+            window_display_title=title,
             object_id=pygame_gui.core.ObjectID(object_id='#context_menu_window', class_id='@context_menu'),
             resizable=False
         )
         self.context_menu.set_blocking(False)
-        self.context_menu.border_colour= pygame.Color(255, 255, 255)
+        self.context_menu.border_colour = pygame.Color(255, 255, 255)
 
         for i, item in enumerate(menu_items):
             opt = self.menu_structure[i]
