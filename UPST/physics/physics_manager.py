@@ -426,48 +426,92 @@ class PhysicsManager:
 
         return WorldAPI()
 
+    def _is_in_space(self, obj):
+        if isinstance(obj, pymunk.Body):
+            return obj in self.space.bodies
+        elif isinstance(obj, pymunk.Shape):
+            return obj in self.space.shapes
+        elif isinstance(obj, pymunk.Constraint):
+            return obj in self.space.constraints
+        return False
+
+    def remove_body(self, body):
+        try:
+            if not isinstance(body, pymunk.Body):
+                Debug.log_warning("remove_body called with non-Body object", "Physics")
+                return
+            if not self._is_in_space(body):
+                Debug.log_info(f"Body {body.__hash__()} already removed or not in space; skipping.", "Physics")
+                return
+            Debug.log_info(f"Removing body {body.__hash__()} and its shapes.", "Physics")
+            self.script_manager.remove_scripts_by_owner(body)
+            shapes_to_remove = [s for s in list(body.shapes) if self._is_in_space(s)]
+            if shapes_to_remove:
+                self.space.remove(*shapes_to_remove)
+                for s in shapes_to_remove:
+                    Debug.log_info(f"Shape {s.__hash__()} removed from body {body.__hash__()}.", "Physics")
+            self.space.remove(body)
+            Debug.log_info(f"Body {body.__hash__()} successfully removed from physics space.", "Physics")
+        except Exception as e:
+            Debug.log_error(f"Error in remove_body: {e}", "Physics")
+
     def remove_shape_body(self, shape):
         try:
-            Debug.log_info(f"Attempting to remove shape and its body if empty. Shape ID: {shape.__hash__()}.", "Physics")
+            if not isinstance(shape, pymunk.Shape):
+                Debug.log_warning("remove_shape_body called with non-Shape object", "Physics")
+                return
+            if not self._is_in_space(shape):
+                Debug.log_info(f"Shape {shape.__hash__()} already removed or not in space; skipping.", "Physics")
+                return
+            Debug.log_info(f"Removing shape {shape.__hash__()} and possibly its body.", "Physics")
             body = shape.body
             self.space.remove(shape)
-            self.undo_redo_manager.take_snapshot()
             Debug.log_info(f"Shape {shape.__hash__()} removed from space.", "Physics")
-            if body and not body.shapes:
+            self.undo_redo_manager.take_snapshot()
+            if body and body != self.static_body and self._is_in_space(body) and not any(self._is_in_space(s) for s in body.shapes):
                 self.script_manager.remove_scripts_by_owner(body)
                 self.space.remove(body)
-                Debug.log_info(f"Body {body.__hash__()} removed as it has no more shapes.", "Physics")
+                Debug.log_info(f"Body {body.__hash__()} removed (no shapes left).", "Physics")
             else:
-                Debug.log_info(f"Body {body.__hash__()} not removed as it still has shapes.", "Physics")
+                Debug.log_info(f"Body {body.__hash__()} retained (still has active shapes).", "Physics")
         except Exception as e:
             Debug.log_error(f"Error in remove_shape_body: {e}", "Physics")
-
     def delete_all(self):
         try:
-            Debug.log_info("Deleting all bodies, shapes, and constraints from physics space.", "Physics")
-            dynamic_bodies = [b for b in self.space.bodies if b is not self.static_body]
+            Debug.log_info("Starting full physics space cleanup.", "Physics")
+            dynamic_bodies = [b for b in self.space.bodies if b is not self.static_body and self._is_in_space(b)]
             for body in dynamic_bodies:
-                self.space.remove(*body.shapes, body)
+                shapes_to_remove = [s for s in list(body.shapes) if self._is_in_space(s)]
+                if shapes_to_remove:
+                    self.space.remove(*shapes_to_remove)
+                    for s in shapes_to_remove:
+                        Debug.log_info(f"Removed shape {s.__hash__()} from body {body.__hash__()}.", "Physics")
                 self.script_manager.remove_scripts_by_owner(body)
-                Debug.log_info(f"Body {body.__hash__()} and its shapes removed.", "Physics")
-            remaining_shapes = list(self.space.shapes)
-            if remaining_shapes:
-                self.space.remove(*remaining_shapes)
-                for shape in remaining_shapes:
-                    Debug.log_info(f"Static or orphaned shape {shape.__hash__()} (type: {type(shape).__name__}) removed.", "Physics")
+                self.space.remove(body)
+                Debug.log_info(f"Removed dynamic body {body.__hash__()}.", "Physics")
+
+            orphaned_shapes = [s for s in self.space.shapes if self._is_in_space(s)]
+            if orphaned_shapes:
+                self.space.remove(*orphaned_shapes)
+                for s in orphaned_shapes:
+                    Debug.log_info(f"Removed orphaned/static shape {s.__hash__()} (type: {type(s).__name__}).", "Physics")
             self.static_lines.clear()
-            constraints = list(self.space.constraints)
+
+            constraints = [c for c in self.space.constraints if self._is_in_space(c)]
             if constraints:
                 self.space.remove(*constraints)
                 for c in constraints:
-                    Debug.log_info(f"Constraint {c.__hash__()} removed.", "Physics")
+                    Debug.log_info(f"Removed constraint {c.__hash__()}.", "Physics")
+
             gizmos_mgr = get_gizmos()
             if gizmos_mgr:
                 gizmos_mgr.clear()
                 gizmos_mgr.clear_persistent()
                 gizmos_mgr.clear_unique()
+
+            Debug.log_info("Physics space fully cleared.", "Physics")
         except Exception as e:
-            Debug.log_error(f"Error in delete_all: {e}", "Physics")
+            Debug.log_error(f"Error during delete_all: {e}", "Physics")
 
     def _shape_proj_area_and_cd(self, s, b, vel_unit):
         try:
