@@ -38,7 +38,7 @@ from UPST.tools.tool_manager import ToolSystem
 from UPST.network.repository_manager import RepositoryManager
 
 from UPST.modules.plugin_manager import PluginManager
-
+from UPST.modules.api_manager import APIManager
 import sys
 
 # sys.set_int_max_str_digits(0)
@@ -70,11 +70,19 @@ class Application:
         self.running = True
 
         self.world_theme = config.world.current_theme
-        self.script_manager = ScriptManager(self)
 
         self.sound_manager = SoundManager()
 
-        self.physics_manager = PhysicsManager(self, undo_redo_manager=None, script_manager=self.script_manager)
+        self.physics_manager = PhysicsManager(self, undo_redo_manager=None, script_manager=None)
+
+        self.upst_api = APIManager(
+            space=self.physics_manager.space,
+            script_manager=None
+        )
+
+        self.script_manager = ScriptManager(self)
+        self.physics_manager.script_manager = self.script_manager
+        self.upst_api.script_manager = self.script_manager
 
         self.world = WorldWrapper(self.physics_manager)
 

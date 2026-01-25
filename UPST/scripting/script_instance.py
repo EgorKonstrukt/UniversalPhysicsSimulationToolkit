@@ -123,7 +123,7 @@ class ScriptInstance:
             "Optional": Optional, "Any": Any, "Callable": Callable, "TypeVar": TypeVar,
             "Dict": Dict, "List": List, "Tuple": Tuple, "Union": Union, "Set": Set,
             "PlotterWindow": plotter_factory, "load_script": self._load_script_wrapper,
-            "gfxdraw": gfxdraw, "world": self.app.physics_manager.make_world_api(),
+            "gfxdraw": gfxdraw, "world": self.app.upst_api if self.app and hasattr(self.app, 'upst_api') else None,
         }
 
     def _init_namespace_and_compile(self):
