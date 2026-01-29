@@ -66,8 +66,6 @@ class ChainTool(BaseTool):
             self.start_pos = None
             self.start_body = None
             synthesizer.play_frequency(150, 0.05, 'sine')
-
-
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.drag_start = world_pos
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
