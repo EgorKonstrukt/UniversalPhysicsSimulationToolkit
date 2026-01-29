@@ -8,6 +8,7 @@ from UPST.tools.base_tool import BaseTool
 
 class ExplosionTool(BaseTool):
     name = "Explosion"
+    category = "Special"
     icon_path = "sprites/gui/tools/explosion.png"
 
     def __init__(self, app):

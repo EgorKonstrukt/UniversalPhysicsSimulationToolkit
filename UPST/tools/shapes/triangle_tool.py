@@ -6,6 +6,7 @@ import pygame_gui
 
 class TriangleTool(BaseTool):
     name = "Triangle"
+    category = "Shapes"
     icon_path = "sprites/gui/spawn/triangle.png"
 
     def create_settings_window(self):

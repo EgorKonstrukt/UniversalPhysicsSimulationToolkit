@@ -6,6 +6,7 @@ import pygame_gui
 
 class RectangleTool(BaseTool):
     name = "Rectangle"
+    category = "Shapes"
     icon_path = "sprites/gui/spawn/rectangle.png"
 
     def create_settings_window(self):

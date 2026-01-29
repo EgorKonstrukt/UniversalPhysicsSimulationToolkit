@@ -7,6 +7,7 @@ import pygame_gui
 
 class GearTool(BaseTool):
     name="Gear"
+    category = "Shapes"
     icon_path="sprites/gui/tools/gear.png"
     def __init__(self,app):
         super().__init__(app)

@@ -7,6 +7,7 @@ import pygame_gui
 
 class HumanTool(BaseTool):
     name = "Human"
+    category = "Special"
     icon_path = "sprites/gui/spawn/human.png"
 
     def spawn_at(self, pos):

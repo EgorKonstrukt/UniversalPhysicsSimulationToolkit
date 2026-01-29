@@ -7,6 +7,7 @@ import pygame_gui
 
 class FixateTool(BaseTool):
     name = "Fixate"
+    category = "Constraints"
     icon_path = "sprites/gui/tools/fixate.png"
 
     def __init__(self, app):

@@ -4,8 +4,6 @@ from typing import List, Any, Optional, Dict
 from UPST.debug.debug_manager import Debug
 from UPST.scripting.script_instance import ScriptInstance
 
-
-
 class ScriptManager:
     def __init__(self, app=None):
         self.app = app

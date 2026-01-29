@@ -8,6 +8,7 @@ from UPST.modules.statistics import stats
 
 class PlaneTool(BaseTool):
     name = "Plane"
+    category = "Shapes"
     icon_path = "sprites/gui/tools/plane.png"
 
     def __init__(self, app):

@@ -6,6 +6,7 @@ import pygame_gui
 
 class SpringTool(BaseTool):
     name = "Spring"
+    category = "Constraints"
     icon_path = "sprites/gui/tools/spring.png"
 
     def __init__(self, app):

@@ -6,6 +6,7 @@ import pygame_gui
 
 class SpamTool(BaseTool):
     name = "Spam"
+    category = "Special"
     icon_path = "sprites/gui/spawn/spam.png"
 
     def spawn_at(self, pos):

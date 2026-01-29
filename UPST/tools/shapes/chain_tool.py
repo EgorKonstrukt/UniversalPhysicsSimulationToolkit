@@ -7,6 +7,7 @@ import pygame_gui
 
 class ChainTool(BaseTool):
     name = "Chain"
+    category = "Shapes"
     icon_path = "sprites/gui/tools/chain.png"
 
     def __init__(self, app):

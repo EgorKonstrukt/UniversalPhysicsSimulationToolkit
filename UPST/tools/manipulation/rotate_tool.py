@@ -7,6 +7,7 @@ import pygame_gui
 
 class RotateTool(BaseTool):
     name = "Rotate"
+    category = "Manipulation"
     icon_path = "sprites/gui/tools/rotate.png"
 
     def __init__(self, app):

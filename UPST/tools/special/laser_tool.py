@@ -19,7 +19,9 @@ class LaserEmitter:
             self.tex_surf = None
 
 class LaserTool(BaseTool):
-    name = "Laser"; icon_path = "sprites/gui/tools/laserpen.png"
+    name = "Laser"
+    category = "Special"
+    icon_path = "sprites/gui/tools/laserpen.png"
     def __init__(self, laser_processor, app):
         super().__init__(app)
         self.lp = laser_processor

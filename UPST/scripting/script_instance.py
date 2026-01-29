@@ -36,8 +36,6 @@ except Exception:
 T = TypeVar('T', bound=Callable)
 
 class ScriptInstance:
-
-
     def __init__(self, code: str, owner: Any, name: str = "Unnamed Script", threaded_default: bool = False, app=None):
         self.code = code
         self.app = app

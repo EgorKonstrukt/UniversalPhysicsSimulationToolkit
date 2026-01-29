@@ -8,6 +8,7 @@ from UPST.modules.statistics import stats
 
 class CutTool(BaseTool):
     name = "Cut"
+    category = "Manipulation"
     icon_path = "sprites/gui/tools/knife.png"
     def __init__(self,app):
         super().__init__(app)

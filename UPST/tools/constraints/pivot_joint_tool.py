@@ -7,6 +7,7 @@ import pygame_gui
 
 class PivotJointTool(BaseTool):
     name = "PivotJoint"
+    category = "Constraints"
     icon_path = "sprites/gui/tools/pivot.png"
 
     def __init__(self, app):

@@ -9,6 +9,7 @@ from UPST.debug.debug_manager import Debug
 
 class ScriptTool(BaseTool):
     name = "ScriptTool"
+    category = "Special"
     icon_path = "sprites/gui/python.png"
 
     def __init__(self,app):

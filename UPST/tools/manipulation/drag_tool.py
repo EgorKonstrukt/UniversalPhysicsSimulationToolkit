@@ -7,6 +7,7 @@ from UPST.config import config
 
 class DragTool(BaseTool):
     name = "Drag"
+    category = "Manipulation"
     icon_path = "sprites/gui/tools/drag.png"
     def __init__(self, app):
         super().__init__(app)

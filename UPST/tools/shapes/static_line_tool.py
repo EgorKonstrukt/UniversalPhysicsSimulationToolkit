@@ -7,6 +7,7 @@ import pygame_gui
 
 class StaticLineTool(BaseTool):
     name = "StaticLine"
+    category = "Shapes"
     icon_path = "sprites/app/line.png"
 
     def __init__(self,app):

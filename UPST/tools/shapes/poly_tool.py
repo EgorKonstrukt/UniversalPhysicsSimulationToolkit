@@ -9,6 +9,7 @@ from UPST.modules.statistics import stats
 
 class PolyTool(BaseTool):
     name = "Poly"
+    category = "Shapes"
     icon_path = "sprites/gui/tools/polygon.png"
 
     def __init__(self, app):

@@ -9,6 +9,7 @@ from UPST.gizmos.gizmos_manager import Gizmos, get_gizmos
 
 class LabelTool(BaseTool):
     name = "Label"
+    category = "Visualization"
     icon_path = "sprites/gui/label.png"
     tooltip = "Create world-space text labels"
 

@@ -7,6 +7,7 @@ from pygame_gui.windows import UIColourPickerDialog
 
 class CircleTool(BaseTool):
     name = "Circle"
+    category = "Shapes"
     icon_path = "sprites/gui/spawn/circle.png"
 
     def create_settings_window(self):

@@ -7,6 +7,7 @@ import pygame_gui
 
 class MoveTool(BaseTool):
     name = "Move"
+    category = "Manipulation"
     icon_path = "sprites/gui/tools/move.png"
 
     def __init__(self,app):

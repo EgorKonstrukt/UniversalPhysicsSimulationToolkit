@@ -7,6 +7,7 @@ import pygame_gui
 
 class PinJointTool(BaseTool):
     name = "PinJoint"
+    category = "Constraints"
     icon_path = "sprites/gui/tools/rigid.png"
 
     def __init__(self, app):
