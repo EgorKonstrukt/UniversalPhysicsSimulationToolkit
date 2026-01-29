@@ -15,10 +15,15 @@ class PlaneTool(BaseTool):
         self.start_pos = None
 
     def create_settings_window(self):
+        screen_w, screen_h = self.ui_manager.manager.window_resolution
+        win_size = (300, 400)
+        pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
+        rect = pygame.Rect(*pos, *win_size)
         win = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect(210, 10, 300, 100),
+            rect=rect,
             manager=self.ui_manager.manager,
-            window_display_title="Plane Settings"
+            window_display_title=f"{self.name} Settings",
+            resizable=True
         )
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 10, 120, 20), text="Friction:", manager=self.ui_manager.manager, container=win)
         self.friction_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 10, 60, 20), initial_text="1.0", manager=self.ui_manager.manager, container=win)

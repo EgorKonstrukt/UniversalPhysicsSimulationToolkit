@@ -120,7 +120,7 @@ class Application:
                                           undo_redo_manager=self.undo_redo_manager,
                                           ui_manager=self.ui_manager,
                                           tool_system=self.tool_manager)
-
+        self.tool_manager.register_tools()
         self.tool_manager.set_ui_manager(self.ui_manager)
         self.tool_manager.set_input_handler(self.input_handler)
         self.ui_manager.input_handler = self.input_handler
@@ -163,6 +163,7 @@ class Application:
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
         self.repository_manager = RepositoryManager()
+
 
         self.tool_manager.create_tool_buttons()
         self.plugin_manager.load_all_plugins()

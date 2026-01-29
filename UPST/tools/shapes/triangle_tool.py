@@ -9,8 +9,16 @@ class TriangleTool(BaseTool):
     icon_path = "sprites/gui/spawn/triangle.png"
 
     def create_settings_window(self):
-        win = pygame_gui.elements.UIWindow(pygame.Rect(200, config.app.screen_height-200, 300, 200), manager=self.ui_manager.manager,
-                                           window_display_title="Triangle Settings")
+        screen_w, screen_h = self.ui_manager.manager.window_resolution
+        win_size = (300, 400)
+        pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
+        rect = pygame.Rect(*pos, *win_size)
+        win = pygame_gui.elements.UIWindow(
+            rect=rect,
+            manager=self.ui_manager.manager,
+            window_display_title=f"{self.name} Settings",
+            resizable=True
+        )
         pygame_gui.elements.UIImage(relative_rect=pygame.Rect(215, 5, 50, 50),
                                     image_surface=pygame.image.load(self.icon_path), container=win,
                                     manager=self.ui_manager.manager)

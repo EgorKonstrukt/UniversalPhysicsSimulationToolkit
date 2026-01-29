@@ -23,10 +23,15 @@ class ChainTool(BaseTool):
         self.limit_segments = 50
 
     def create_settings_window(self):
+        screen_w, screen_h = self.ui_manager.manager.window_resolution
+        win_size = (300, 400)
+        pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
+        rect = pygame.Rect(*pos, *win_size)
         win = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect(210, 10, 320, 320),
+            rect=rect,
             manager=self.ui_manager.manager,
-            window_display_title="Chain Settings"
+            window_display_title=f"{self.name} Settings",
+            resizable=True
         )
         labels = ["Segment Length:", "Segment Mass:", "Radius:", "Friction:", "Elasticity:", "Max Segments:"]
         defaults = ["15", "1", "3", "0.7", "0.3", "50"]

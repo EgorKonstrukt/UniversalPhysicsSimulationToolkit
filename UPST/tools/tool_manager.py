@@ -77,7 +77,6 @@ class ToolSystem:
         self.tools = {}
         self.current_tool = None
         self._pending_tools = []
-        self._register_tools()
         self.undo_redo = get_undo_redo()
         self.tool_panel = None
         self.tool_buttons = []
@@ -92,7 +91,7 @@ class ToolSystem:
     def set_input_handler(self, input_handler):
         self.input_handler = input_handler
 
-    def _register_tools(self):
+    def register_tools(self):
         from UPST.tools.special.laser_tool import LaserTool
 
         self.laser_processor = LaserProcessor(self.pm)
@@ -240,3 +239,20 @@ class ToolSystem:
         self.ui_manager.tool_panel = window
         self.ui_manager.tool_buttons = []
         self._rebuild_tool_layout()
+
+    def _find_non_overlapping_position(self, window_size, screen_rect):
+        """Find a non-overlapping position for a new window near top-left or bottom-left."""
+        candidates = [
+            (10, 10),  # top-left
+            (10, screen_rect.height - window_size[1] - 10)  # bottom-left
+        ]
+        existing_rects = []
+        for elem in self.ui_manager.manager.get_root_container().elements:
+            if isinstance(elem, pygame_gui.elements.UIWindow) and elem.alive() and elem.visible:
+                if hasattr(elem, 'rect'):
+                    existing_rects.append(elem.rect.copy())
+        for x, y in candidates:
+            candidate_rect = pygame.Rect(x, y, *window_size)
+            if not any(candidate_rect.colliderect(r) for r in existing_rects):
+                return (x, y)
+        return candidates[1]  # fallback

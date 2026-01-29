@@ -31,9 +31,15 @@ class LabelTool(BaseTool):
         self._world_mouse_pos = (0, 0)
 
     def create_settings_window(self):
-        rect = pygame.Rect(100, 100, 300, 440)
+        screen_w, screen_h = self.ui_manager.manager.window_resolution
+        win_size = (300, 400)
+        pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
+        rect = pygame.Rect(*pos, *win_size)
         self.settings_window = pygame_gui.elements.UIWindow(
-            rect, self.ui_manager.manager, window_display_title="Label Settings"
+            rect=rect,
+            manager=self.ui_manager.manager,
+            window_display_title=f"{self.name} Settings",
+            resizable=True
         )
         container = self.settings_window.get_container()
         y = 10

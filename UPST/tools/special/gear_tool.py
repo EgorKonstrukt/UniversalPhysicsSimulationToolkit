@@ -18,7 +18,16 @@ class GearTool(BaseTool):
         self.snap_cb=None
 
     def create_settings_window(self):
-        win=pygame_gui.elements.UIWindow(rect=pygame.Rect(200, config.app.screen_height-200, 300, 200),manager=self.ui_manager.manager,window_display_title="Gear Settings")
+        screen_w, screen_h = self.ui_manager.manager.window_resolution
+        win_size = (300, 400)
+        pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
+        rect = pygame.Rect(*pos, *win_size)
+        win = pygame_gui.elements.UIWindow(
+            rect=rect,
+            manager=self.ui_manager.manager,
+            window_display_title=f"{self.name} Settings",
+            resizable=True
+        )
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10,10,80,20),text="Teeth:",manager=self.ui_manager.manager,container=win)
         self.teeth_entry=pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(90,10,60,20),initial_text="20",manager=self.ui_manager.manager,container=win)
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(160,10,80,20),text="Module:",manager=self.ui_manager.manager,container=win)

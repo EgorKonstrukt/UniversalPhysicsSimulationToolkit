@@ -20,10 +20,15 @@ class MoveTool(BaseTool):
         self.saved_moment = None
 
     def create_settings_window(self):
+        screen_w, screen_h = self.ui_manager.manager.window_resolution
+        win_size = (300, 400)
+        pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
+        rect = pygame.Rect(*pos, *win_size)
         win = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect(200, config.app.screen_height - 130, 300, 130),
+            rect=rect,
             manager=self.ui_manager.manager,
-            window_display_title="Move Settings"
+            window_display_title=f"{self.name} Settings",
+            resizable=True
         )
         self.cb_center = pygame_gui.elements.UICheckBox(
             relative_rect=pygame.Rect(10, 10, 200, 20),

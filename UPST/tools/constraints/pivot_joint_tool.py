@@ -15,10 +15,15 @@ class PivotJointTool(BaseTool):
         self.first_pos = None
 
     def create_settings_window(self):
+        screen_w, screen_h = self.ui_manager.manager.window_resolution
+        win_size = (300, 400)
+        pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
+        rect = pygame.Rect(*pos, *win_size)
         win = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect(210, 10, 300, 130),
+            rect=rect,
             manager=self.ui_manager.manager,
-            window_display_title="Pivot Joint Settings"
+            window_display_title=f"{self.name} Settings",
+            resizable=True
         )
         self.collide_checkbox = pygame_gui.elements.UICheckBox(
             relative_rect=pygame.Rect(10, 10, 20, 20),

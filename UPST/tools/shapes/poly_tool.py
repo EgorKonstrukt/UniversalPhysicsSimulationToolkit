@@ -17,10 +17,15 @@ class PolyTool(BaseTool):
         self.preview_closed = False
 
     def create_settings_window(self):
+        screen_w, screen_h = self.ui_manager.manager.window_resolution
+        win_size = (300, 400)
+        pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
+        rect = pygame.Rect(*pos, *win_size)
         win = pygame_gui.elements.UIWindow(
-            rect=pygame.Rect(200, 10, 300, 160),
+            rect=rect,
             manager=self.ui_manager.manager,
-            window_display_title="Poly Settings"
+            window_display_title=f"{self.name} Settings",
+            resizable=True
         )
         pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 10, 120, 20), text="Min vertices:", manager=self.ui_manager.manager, container=win)
         self.min_vertices_entry = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(135, 10, 60, 20), initial_text="3", manager=self.ui_manager.manager, container=win)

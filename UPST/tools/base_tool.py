@@ -10,6 +10,7 @@ class BaseTool:
         self.drag_start = None
         self.preview = None
         self.settings_window = None
+        self.tool_system = app.tool_manager
         self.undo_redo = get_undo_redo()
         self.font = pygame.font.SysFont('Consolas', 14)
         self._last_hatch_offset = 0.0
