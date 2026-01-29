@@ -106,14 +106,14 @@ class Application:
 
         self.thermal_manager = ThermalManager(self.physics_manager, self.camera)
 
-
-        self.tool_manager = ToolSystem(physics_manager=self.physics_manager,
-                                       sound_manager=self.sound_manager, app=self)
-
         self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
                                     self.physics_manager, self.camera, None, self.screen, self.font,
                                     network_manager=None, app=self,
-                                    tool_system=self.tool_manager)
+                                    tool_system=None)
+        self.console_handler = ConsoleHandler(self.ui_manager, self.physics_manager)
+        self.tool_manager = ToolSystem(physics_manager=self.physics_manager,
+                                       sound_manager=self.sound_manager, app=self)
+        self.ui_manager.tool_system = self.tool_manager
 
         self.input_handler = InputHandler(self, gizmos_manager=self.gizmos,
                                           debug_manager=self.debug_manager,
@@ -134,7 +134,7 @@ class Application:
         self.save_load_manager = SaveLoadManager(self.physics_manager, self.camera,
                                                  self.ui_manager, self.sound_manager, app=self)
 
-        self.console_handler = ConsoleHandler(self.ui_manager, self.physics_manager)
+
 
         self.network_manager = NetworkManager(physics_manager=self.physics_manager,
                                               ui_manager=self.ui_manager,

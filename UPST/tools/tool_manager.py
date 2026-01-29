@@ -30,7 +30,8 @@ from UPST.tools.special.script_tool import ScriptTool
 from UPST.tools.manipulation.drag_tool import DragTool
 from UPST.tools.shapes.plane_tool import PlaneTool
 from UPST.tools.shapes.poly_tool import PolyTool
-from UPST.tools.special.label_tool import LabelTool
+from UPST.tools.visualization.label_tool import LabelTool
+from UPST.tools.visualization.graph_tool import GraphTool
 
 from UPST.modules.undo_redo_manager import get_undo_redo
 
@@ -122,6 +123,7 @@ class ToolSystem:
             CutTool(self.app),
             ScriptTool(self.app),
             LabelTool(self.app),
+            GraphTool(self.app)
         ]
         self._pending_tools = spawn_tools + constraint_tools + special_tools
 
