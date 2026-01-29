@@ -168,6 +168,7 @@ class UIManager:
         # self.force_field_ui.resize(screen_w, screen_h)
         self.console_ui.resize(screen_w, screen_h)
         self.bottom_bar.resize(screen_w, screen_h)
+        self.top_right_bar.resize(screen_w, screen_h)
 
     @profile("ui_manager_update")
     def update(self, time_delta, clock):

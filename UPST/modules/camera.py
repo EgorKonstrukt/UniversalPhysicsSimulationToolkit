@@ -269,7 +269,12 @@ class Camera:
             elif event.y < 0:
                 zoom_factor = 1 - self.zoom_speed
             self._zoom_at_cursor(zoom_factor)
-
+    def resize(self, new_width: int, new_height: int, new_screen):
+        self.screen_width = new_width
+        self.screen_height = new_height
+        self.screen = new_screen
+        self._cx = new_width * 0.5
+        self._cy = new_height * 0.5
     def _update_scaling_cache(self):
         self.inv_scaling = 1.0 / self.scaling if self.scaling != 0 else 0.0
 

@@ -40,6 +40,8 @@ class InputHandler:
             profiler.process_event(event)
             if event.type == pygame.QUIT:
                 self.app.running = False
+            if event.type == pygame.WINDOWRESIZED:
+                self.app.camera.resize(event.x, event.y, self.app.screen)
             self.handle_held_keys(world_mouse_pos)
             if self.tool_system.current_tool:
                 self.tool_system.handle_input(world_mouse_pos)

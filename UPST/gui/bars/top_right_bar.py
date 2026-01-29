@@ -80,7 +80,9 @@ class TopRightBar:
                 self._on_volume_pressed()
         if self.visualization_window:
             self.visualization_window.process_event(event)
-
+    def resize(self, screen_width, screen_height):
+        self.panel.set_position((screen_width - self.bar_width, 0))
+        self.panel.set_dimensions((self.bar_width, min(self.bar_height, screen_height)))
     def _on_visualization_pressed(self):
         if self.visualization_window is None or self.visualization_window.window.alive() is False:
             rect = pygame.Rect(50, 50, 1000, 500)
