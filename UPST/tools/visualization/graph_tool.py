@@ -1,12 +1,16 @@
 import pygame
 import pygame_gui
+import json
+import os
+import tkinter as tk
+from tkinter import filedialog
 from UPST.tools.base_tool import BaseTool
 from pygame_gui.windows import UIColourPickerDialog
 
 class GraphTool(BaseTool):
     name = "graph"
     category = "Visualization"
-    icon_path = None
+    icon_path = "sprites/gui/plot.png"
     tooltip = "Create multiple mathematical graphs: cartesian, parametric, polar, implicit, scatter, and vector fields"
 
     def __init__(self, app):
@@ -37,7 +41,7 @@ class GraphTool(BaseTool):
             self.settings_window.show()
             return
         screen_w, screen_h = self.ui_manager.manager.window_resolution
-        win_size = (480, 560)
+        win_size = (480, 620)
         pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
         rect = pygame.Rect(*pos, *win_size)
         self.settings_window = pygame_gui.elements.UIWindow(
@@ -108,6 +112,13 @@ class GraphTool(BaseTool):
         pygame_gui.elements.UILabel(pygame.Rect(165, y, 20, 25), "..", self.ui_manager.manager, container=container)
         self.ymax_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(190, y, 80, 25), self.ui_manager.manager, container=container)
         y += 45
+        self.save_btn = pygame_gui.elements.UIButton(
+            pygame.Rect(10, y, 100, 30), "Save JSON", self.ui_manager.manager, container=container
+        )
+        self.load_btn = pygame_gui.elements.UIButton(
+            pygame.Rect(120, y, 100, 30), "Load JSON", self.ui_manager.manager, container=container
+        )
+        y += 40
         self.apply_all_btn = pygame_gui.elements.UIButton(
             pygame.Rect(10, y, 100, 30), "Apply All", self.ui_manager.manager, container=container
         )
@@ -196,6 +207,30 @@ class GraphTool(BaseTool):
         self.ymin_entry.visible = has_y
         self.ymax_entry.visible = has_y
 
+    def save_graphs_to_json(self, filepath):
+        data = []
+        for g in self.graphs:
+            item = g.copy()
+            item['color'] = list(g['color'])
+            data.append(item)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+
+    def load_graphs_from_json(self, filepath):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        self.graphs = []
+        for item in data:
+            item['color'] = tuple(item['color'])
+            if 'x_range' not in item: item['x_range'] = (-10.0, 10.0)
+            if 'y_range' not in item: item['y_range'] = (-5.0, 5.0)
+            self.graphs.append(item)
+        if not self.graphs:
+            self.graphs = [{'expression': "y=sin(x)", 'plot_type': "cartesian", 'color': (0, 200, 255), 'width': 2, 'style': "solid", 'x_range': (-10.0, 10.0), 'y_range': (-5.0, 5.0)}]
+        self.active_graph_index = 0
+        self._rebuild_ui()
+        self._load_graph_to_ui(0)
+
     def handle_event(self, event, world_pos):
         super().handle_event(event, world_pos)
         if not self.settings_window or not self.settings_window.alive(): return
@@ -231,6 +266,24 @@ class GraphTool(BaseTool):
                     self.active_graph_index = max(0, min(self.active_graph_index, len(self.graphs) - 1))
                     self._rebuild_ui()
                     self._load_graph_to_ui(self.active_graph_index)
+            elif event.ui_element == self.save_btn:
+                self._save_ui_to_graph(self.active_graph_index)
+                default_name = "graphs.json"
+                root = tk.Tk(); root.withdraw()
+                path = filedialog.asksaveasfilename(
+                    title="Save Graphs",
+                    defaultextension=".json",
+                    initialfile=default_name,
+                    filetypes=[("JSON files", "*.json")]
+                )
+                if path: self.save_graphs_to_json(path)
+            elif event.ui_element == self.load_btn:
+                root = tk.Tk(); root.withdraw()
+                path = filedialog.askopenfilename(
+                    title="Load Graphs",
+                    filetypes=[("JSON files", "*.json")]
+                )
+                if path: self.load_graphs_from_json(path)
             elif event.ui_element == self.apply_all_btn:
                 self._save_ui_to_graph(self.active_graph_index)
                 self._apply_all_graphs()
