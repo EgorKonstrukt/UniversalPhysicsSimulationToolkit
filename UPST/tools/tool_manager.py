@@ -164,6 +164,12 @@ class ToolSystem:
         if self.current_tool and hasattr(self.current_tool, 'draw_preview'):
             self.current_tool.draw_preview(screen, camera)
 
+    def get_tool_by_name(self, name):
+        for tool in self.tools:
+            if getattr(tool, 'name', None) == name:
+                return tool
+        return None
+
     def register_tool(self, tool):
         print(f">>> Registering tool: {tool.name} (UI ready: {self.ui_manager is not None})")
         if not self.ui_manager:

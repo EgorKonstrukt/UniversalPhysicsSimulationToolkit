@@ -71,8 +71,10 @@ class GraphManager:
         self.graph_expression = None
         self._graph_cache = None
         self._fractal_cache = {}
+        self.last_command = ""
 
     def handle_graph_command(self, subcmd):
+        self.last_command = subcmd
         if subcmd == 'clear':
             self.graph_expression = None
             self._graph_cache = None
@@ -457,6 +459,17 @@ class GraphManager:
                         segments.append(seg)
         return segments
 
+    def serialize(self):
+        return {"last_command": self.last_command}
+
+    def deserialize(self, data):
+        cmd = data.get("last_command", "")
+        if cmd:
+            self.handle_graph_command(cmd)
+        else:
+            self.graph_expression = None
+            self._graph_cache = None
+            self._fractal_cache.clear()
     def draw_graph(self):
         if not self.graph_expression or not hasattr(self.ui_manager.app, 'camera'):
             self._graph_cache = None

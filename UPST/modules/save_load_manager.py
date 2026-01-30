@@ -159,6 +159,14 @@ class SaveLoadManager:
                 "constraints": [],
                 "static_lines": [],
                 "scripts": self.physics_manager.script_manager.serialize_for_save()}
+        if hasattr(self.physics_manager.app, 'console_handler') and hasattr(self.physics_manager.app.console_handler,
+                                                                            'graph_manager'):
+            graph_mgr = self.physics_manager.app.console_handler.graph_manager
+            data["graphs"] = graph_mgr.serialize()
+        if hasattr(self.app, 'tool_system'):
+            graph_tool = self.app.tool_system.get_tool_by_name('graph')
+            if graph_tool and hasattr(graph_tool, 'serialize_for_save'):
+                data['graph_tool_state'] = graph_tool.serialize_for_save()
         sim_bodies = [b for b in self.physics_manager.space.bodies if b is not self.physics_manager.static_body]
         body_map = {b: i for i, b in enumerate(sim_bodies)}
         for body in sim_bodies:
@@ -311,6 +319,14 @@ class SaveLoadManager:
         self.physics_manager.set_air_friction_quadratic(int(data.get("air_friction_quadratic",config.physics.air_friction_quadratic)))
         self.physics_manager.set_air_friction_multiplier(int(data.get("air_friction_multiplier",config.physics.air_friction_multiplier)))
         self.physics_manager.set_air_density(int(data.get("air_density",config.physics.air_density)))
+
+        if "graphs" in data and hasattr(self.physics_manager.app, 'console_handler'):
+            graph_mgr = self.physics_manager.app.console_handler.graph_manager
+            graph_mgr.deserialize(data["graphs"])
+        if "graph_tool_state" in data and hasattr(self.app, 'tool_system'):
+            graph_tool = self.app.tool_system.get_tool_by_name('graph')
+            if graph_tool and hasattr(graph_tool, 'deserialize_from_save'):
+                graph_tool.deserialize_from_save(data["graph_tool_state"])
 
         cam_tr = data.get("camera_translation")
         if cam_tr and isinstance(cam_tr,(list,tuple)) and len(cam_tr)==2: self.camera.translation = pymunk.Transform(1,0,0,1,float(cam_tr[0]),float(cam_tr[1]))

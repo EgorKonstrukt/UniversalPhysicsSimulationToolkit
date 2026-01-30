@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import filedialog
 from UPST.tools.base_tool import BaseTool
 from pygame_gui.windows import UIColourPickerDialog
+from UPST.modules.undo_redo_manager import get_undo_redo
 
 class GraphTool(BaseTool):
     name = "graph"
@@ -15,6 +16,7 @@ class GraphTool(BaseTool):
 
     def __init__(self, app):
         super().__init__(app)
+        self.undo_redo_manager = get_undo_redo()
         self.graph_manager = app.console_handler.graph_manager
         self.graphs = [{
             'expression': "y=sin(x)",
@@ -34,7 +36,8 @@ class GraphTool(BaseTool):
         self.scroll_bar = None
         self.list_height = 120
         self.item_height = 30
-        self.scroll_position = 0
+        self.scroll_position = 0.0
+        self.color = (0, 200, 255)
 
     def create_settings_window(self):
         if self.settings_window and self.settings_window.alive():
@@ -60,42 +63,22 @@ class GraphTool(BaseTool):
             manager=self.ui_manager.manager,
             container=container
         )
-        scroll_height = max(0, len(self.graphs) * self.item_height - self.list_height)
-        if scroll_height > 0:
-            self.scroll_bar = pygame_gui.elements.UIVerticalScrollBar(
-                relative_rect=pygame.Rect(200, y, 20, self.list_height),
-                visible_percentage=self.list_height / (len(self.graphs) * self.item_height),
-                manager=self.ui_manager.manager,
-                container=container
-            )
-        else:
-            self.scroll_bar = None
         self._rebuild_graph_list()
         y += self.list_height + 10
-        self.add_btn = pygame_gui.elements.UIButton(
-            pygame.Rect(10, y, 80, 30), "Add", self.ui_manager.manager, container=container
-        )
-        self.remove_btn = pygame_gui.elements.UIButton(
-            pygame.Rect(100, y, 80, 30), "Remove", self.ui_manager.manager, container=container
-        )
+        self.add_btn = pygame_gui.elements.UIButton(pygame.Rect(10, y, 80, 30), "Add", self.ui_manager.manager, container=container)
+        self.remove_btn = pygame_gui.elements.UIButton(pygame.Rect(100, y, 80, 30), "Remove", self.ui_manager.manager, container=container)
         y += 40
         self.type_dropdown = pygame_gui.elements.UIDropDownMenu(
             ['cartesian', 'parametric', 'polar', 'implicit', 'scatter', 'field'],
             self.graphs[0]['plot_type'], pygame.Rect(10, y, 180, 30),
             self.ui_manager.manager, container=container
         )
-        self.expr_entry = pygame_gui.elements.UITextEntryLine(
-            pygame.Rect(10, y + 40, 400, 30), self.ui_manager.manager, container=container
-        )
+        self.expr_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(10, y + 40, 400, 30), self.ui_manager.manager, container=container)
         y += 85
         pygame_gui.elements.UILabel(pygame.Rect(10, y, 80, 25), "Color:", self.ui_manager.manager, container=container)
-        self.color_btn = pygame_gui.elements.UIButton(
-            pygame.Rect(90, y, 60, 25), "", self.ui_manager.manager, container=container
-        )
+        self.color_btn = pygame_gui.elements.UIButton(pygame.Rect(90, y, 60, 25), "", self.ui_manager.manager, container=container)
         pygame_gui.elements.UILabel(pygame.Rect(160, y, 60, 25), "Width:", self.ui_manager.manager, container=container)
-        self.width_entry = pygame_gui.elements.UITextEntryLine(
-            pygame.Rect(220, y, 40, 25), self.ui_manager.manager, container=container
-        )
+        self.width_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(220, y, 40, 25), self.ui_manager.manager, container=container)
         pygame_gui.elements.UILabel(pygame.Rect(270, y, 50, 25), "Style:", self.ui_manager.manager, container=container)
         self.style_dropdown = pygame_gui.elements.UIDropDownMenu(
             ['solid', 'dashed', 'dotted'], self.graphs[0]['style'], pygame.Rect(320, y, 60, 25),
@@ -112,19 +95,11 @@ class GraphTool(BaseTool):
         pygame_gui.elements.UILabel(pygame.Rect(165, y, 20, 25), "..", self.ui_manager.manager, container=container)
         self.ymax_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(190, y, 80, 25), self.ui_manager.manager, container=container)
         y += 45
-        self.save_btn = pygame_gui.elements.UIButton(
-            pygame.Rect(10, y, 100, 30), "Save JSON", self.ui_manager.manager, container=container
-        )
-        self.load_btn = pygame_gui.elements.UIButton(
-            pygame.Rect(120, y, 100, 30), "Load JSON", self.ui_manager.manager, container=container
-        )
+        self.save_btn = pygame_gui.elements.UIButton(pygame.Rect(10, y, 100, 30), "Save JSON", self.ui_manager.manager, container=container)
+        self.load_btn = pygame_gui.elements.UIButton(pygame.Rect(120, y, 100, 30), "Load JSON", self.ui_manager.manager, container=container)
         y += 40
-        self.apply_all_btn = pygame_gui.elements.UIButton(
-            pygame.Rect(10, y, 100, 30), "Apply All", self.ui_manager.manager, container=container
-        )
-        self.clear_btn = pygame_gui.elements.UIButton(
-            pygame.Rect(120, y, 100, 30), "Clear", self.ui_manager.manager, container=container
-        )
+        self.apply_all_btn = pygame_gui.elements.UIButton(pygame.Rect(10, y, 100, 30), "Apply All", self.ui_manager.manager, container=container)
+        self.clear_btn = pygame_gui.elements.UIButton(pygame.Rect(120, y, 100, 30), "Clear", self.ui_manager.manager, container=container)
         self._ui_elements.update({
             'type': self.type_dropdown,
             'expr': self.expr_entry,
@@ -140,19 +115,22 @@ class GraphTool(BaseTool):
         self._update_y_range_visibility()
 
     def _rebuild_graph_list(self):
-        for btn, img in zip(self._graph_buttons, self._graph_color_previews):
+        for btn in self._graph_buttons:
             btn.kill()
+        for img in self._graph_color_previews:
             img.kill()
         self._graph_buttons.clear()
         self._graph_color_previews.clear()
         total_items = len(self.graphs)
-        visible_start = int(self.scroll_position * total_items) if self.scroll_bar else 0
-        visible_end = min(visible_start + (self.list_height // self.item_height) + 1, total_items)
-        for i in range(visible_start, visible_end):
+        visible_count = self.list_height // self.item_height
+        scroll_max = max(0, total_items - visible_count)
+        start = int(self.scroll_position * scroll_max) if scroll_max > 0 else 0
+        end = min(start + visible_count, total_items)
+        for i in range(start, end):
             g = self.graphs[i]
             expr_short = (g['expression'][:17] + '...') if len(g['expression']) > 20 else g['expression']
             btn = pygame_gui.elements.UIButton(
-                relative_rect=pygame.Rect(5, (i - visible_start) * self.item_height + 5, 160, 25),
+                relative_rect=pygame.Rect(5, (i - start) * self.item_height + 5, 160, 25),
                 text=expr_short,
                 manager=self.ui_manager.manager,
                 container=self.list_panel,
@@ -161,13 +139,25 @@ class GraphTool(BaseTool):
             color_surf = pygame.Surface((15, 15))
             color_surf.fill(g['color'])
             img = pygame_gui.elements.UIImage(
-                relative_rect=pygame.Rect(170, (i - visible_start) * self.item_height + 10, 15, 15),
+                relative_rect=pygame.Rect(170, (i - start) * self.item_height + 10, 15, 15),
                 image_surface=color_surf,
                 manager=self.ui_manager.manager,
                 container=self.list_panel
             )
             self._graph_buttons.append(btn)
             self._graph_color_previews.append(img)
+        if self.scroll_bar:
+            self.scroll_bar.kill()
+        if total_items > visible_count:
+            self.scroll_bar = pygame_gui.elements.UIVerticalScrollBar(
+                relative_rect=pygame.Rect(210, 10, 20, self.list_height),
+                visible_percentage=visible_count / total_items,
+                manager=self.ui_manager.manager,
+                container=self.settings_window.get_container()
+            )
+            self.scroll_bar.set_scroll_from_start_percentage(self.scroll_position)
+        else:
+            self.scroll_bar = None
 
     def _load_graph_to_ui(self, idx):
         g = self.graphs[idx]
@@ -187,14 +177,20 @@ class GraphTool(BaseTool):
         g['plot_type'] = self.type_dropdown.selected_option
         g['expression'] = self.expr_entry.get_text().strip() or "y=sin(x)"
         g['color'] = self.color
-        try: g['width'] = max(1, min(5, int(self.width_entry.get_text())))
-        except: pass
+        try:
+            g['width'] = max(1, min(5, int(self.width_entry.get_text())))
+        except ValueError:
+            pass
         g['style'] = self.style_dropdown.selected_option
-        try: g['x_range'] = (float(self.xmin_entry.get_text()), float(self.xmax_entry.get_text()))
-        except: pass
+        try:
+            g['x_range'] = (float(self.xmin_entry.get_text()), float(self.xmax_entry.get_text()))
+        except ValueError:
+            pass
         if g['plot_type'] in ('cartesian', 'implicit', 'field'):
-            try: g['y_range'] = (float(self.ymin_entry.get_text()), float(self.ymax_entry.get_text()))
-            except: pass
+            try:
+                g['y_range'] = (float(self.ymin_entry.get_text()), float(self.ymax_entry.get_text()))
+            except ValueError:
+                pass
 
     def _update_color_btn(self):
         surf = pygame.Surface((56, 21))
@@ -207,33 +203,57 @@ class GraphTool(BaseTool):
         self.ymin_entry.visible = has_y
         self.ymax_entry.visible = has_y
 
-    def save_graphs_to_json(self, filepath):
-        data = []
-        for g in self.graphs:
-            item = g.copy()
-            item['color'] = list(g['color'])
-            data.append(item)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
+    def serialize_for_save(self):
+        return {
+            "graphs": [
+                {
+                    "expression": g["expression"],
+                    "plot_type": g["plot_type"],
+                    "color": list(g["color"]),
+                    "width": g["width"],
+                    "style": g["style"],
+                    "x_range": list(g["x_range"]),
+                    "y_range": list(g["y_range"])
+                }
+                for g in self.graphs
+            ],
+            "active_graph_index": self.active_graph_index
+        }
 
-    def load_graphs_from_json(self, filepath):
-        with open(filepath, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        self.graphs = []
-        for item in data:
-            item['color'] = tuple(item['color'])
-            if 'x_range' not in item: item['x_range'] = (-10.0, 10.0)
-            if 'y_range' not in item: item['y_range'] = (-5.0, 5.0)
-            self.graphs.append(item)
-        if not self.graphs:
-            self.graphs = [{'expression': "y=sin(x)", 'plot_type': "cartesian", 'color': (0, 200, 255), 'width': 2, 'style': "solid", 'x_range': (-10.0, 10.0), 'y_range': (-5.0, 5.0)}]
-        self.active_graph_index = 0
-        self._rebuild_ui()
-        self._load_graph_to_ui(0)
+    def deserialize_from_save(self, data):
+        if not isinstance(data, dict):
+            return
+        graphs = []
+        for g in data.get("graphs", []):
+            graphs.append({
+                "expression": g["expression"],
+                "plot_type": g["plot_type"],
+                "color": tuple(g["color"]),
+                "width": g["width"],
+                "style": g["style"],
+                "x_range": tuple(g["x_range"]),
+                "y_range": tuple(g["y_range"])
+            })
+        if not graphs:
+            graphs = [{
+                'expression': "y=sin(x)",
+                'plot_type': "cartesian",
+                'color': (0, 200, 255),
+                'width': 2,
+                'style': "solid",
+                'x_range': (-10.0, 10.0),
+                'y_range': (-5.0, 5.0)
+            }]
+        self.graphs = graphs
+        self.active_graph_index = max(0, min(data.get("active_graph_index", 0), len(graphs) - 1))
+        if self.settings_window and self.settings_window.alive():
+            self._rebuild_graph_list()
+            self._load_graph_to_ui(self.active_graph_index)
 
     def handle_event(self, event, world_pos):
         super().handle_event(event, world_pos)
-        if not self.settings_window or not self.settings_window.alive(): return
+        if not self.settings_window or not self.settings_window.alive():
+            return
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             for i, btn in enumerate(self._graph_buttons):
                 if event.ui_element == btn:
@@ -259,31 +279,24 @@ class GraphTool(BaseTool):
                     'x_range': (-10.0, 10.0),
                     'y_range': (-5.0, 5.0)
                 })
-                self._rebuild_ui()
+                self._rebuild_graph_list()
             elif event.ui_element == self.remove_btn:
                 if len(self.graphs) > 1:
                     del self.graphs[self.active_graph_index]
                     self.active_graph_index = max(0, min(self.active_graph_index, len(self.graphs) - 1))
-                    self._rebuild_ui()
+                    self._rebuild_graph_list()
                     self._load_graph_to_ui(self.active_graph_index)
             elif event.ui_element == self.save_btn:
                 self._save_ui_to_graph(self.active_graph_index)
-                default_name = "graphs.json"
                 root = tk.Tk(); root.withdraw()
-                path = filedialog.asksaveasfilename(
-                    title="Save Graphs",
-                    defaultextension=".json",
-                    initialfile=default_name,
-                    filetypes=[("JSON files", "*.json")]
-                )
-                if path: self.save_graphs_to_json(path)
+                path = filedialog.asksaveasfilename(title="Save Graphs", defaultextension=".json", initialfile="graphs.json", filetypes=[("JSON files", "*.json")])
+                if path:
+                    self.save_graphs_to_json(path)
             elif event.ui_element == self.load_btn:
                 root = tk.Tk(); root.withdraw()
-                path = filedialog.askopenfilename(
-                    title="Load Graphs",
-                    filetypes=[("JSON files", "*.json")]
-                )
-                if path: self.load_graphs_from_json(path)
+                path = filedialog.askopenfilename(title="Load Graphs", filetypes=[("JSON files", "*.json")])
+                if path:
+                    self.load_graphs_from_json(path)
             elif event.ui_element == self.apply_all_btn:
                 self._save_ui_to_graph(self.active_graph_index)
                 self._apply_all_graphs()
@@ -292,29 +305,47 @@ class GraphTool(BaseTool):
         elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             if event.ui_element == self.type_dropdown:
                 self._update_y_range_visibility()
-        elif event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED:
-            if event.ui_element == self.width_entry:
-                try: self.graphs[self.active_graph_index]['width'] = max(1, min(5, int(event.text)))
-                except: pass
-        elif event.type == pygame_gui.UI_TEXT_ENTRY_CHANGED:
-            if event.ui_element == self.expr_entry:
-                self.graphs[self.active_graph_index]['expression'] = self.expr_entry.get_text()
-                self._rebuild_graph_list()
         elif event.type == pygame_gui.UI_COLOUR_PICKER_COLOUR_PICKED:
             if event.ui_element == self.color_picker:
                 self.color = (event.colour.r, event.colour.g, event.colour.b)
+                self.graphs[self.active_graph_index]['color'] = self.color
                 self._update_color_btn()
-                g = self.graphs[self.active_graph_index]
-                g['color'] = self.color
                 self._rebuild_graph_list()
-        elif event.type == pygame_gui.UI_2D_SLIDER_MOVED and event.ui_element == self.scroll_bar:
-            self.scroll_position = event.value
-            self._rebuild_graph_list()
+        elif event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
+            if event.ui_element == self.scroll_bar:
+                self.scroll_position = event.value
+                self._rebuild_graph_list()
+        elif event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED:
+            if event.ui_element == self.expr_entry:
+                self._save_ui_to_graph(self.active_graph_index)
+                self._rebuild_graph_list()
 
-    def _rebuild_ui(self):
-        for elem in self.settings_window.get_container().elements:
-            elem.kill()
-        self._build_ui()
+    def save_graphs_to_json(self, filepath):
+        data = []
+        for g in self.graphs:
+            item = g.copy()
+            item['color'] = list(g['color'])
+            data.append(item)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+
+    def load_graphs_from_json(self, filepath):
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        self.graphs = []
+        for item in data:
+            item['color'] = tuple(item['color'])
+            if 'x_range' not in item:
+                item['x_range'] = (-10.0, 10.0)
+            if 'y_range' not in item:
+                item['y_range'] = (-5.0, 5.0)
+            self.graphs.append(item)
+        if not self.graphs:
+            self.graphs = [{'expression': "y=sin(x)", 'plot_type': "cartesian", 'color': (0, 200, 255), 'width': 2, 'style': "solid", 'x_range': (-10.0, 10.0), 'y_range': (-5.0, 5.0)}]
+        self.active_graph_index = 0
+        if self.settings_window and self.settings_window.alive():
+            self._rebuild_graph_list()
+            self._load_graph_to_ui(0)
 
     def _apply_all_graphs(self):
         full_commands = []
@@ -331,6 +362,7 @@ class GraphTool(BaseTool):
             full_commands.append("; ".join(cmd_parts))
         full_cmd = "; clear; " + "; ".join(full_commands)
         self.graph_manager.handle_graph_command(full_cmd)
+        self.undo_redo_manager.take_snapshot()
 
     def activate(self):
         super().activate()

@@ -39,6 +39,14 @@ class SnapshotManager:
             "collision_bias": float(self.physics_manager.space.collision_bias),
             "scripts": self.script_manager.serialize_for_save(),
         }
+        if hasattr(self.physics_manager.app, 'console_handler') and hasattr(self.physics_manager.app.console_handler,
+                                                                            'graph_manager'):
+            graph_mgr = self.physics_manager.app.console_handler.graph_manager
+            data["graphs"] = graph_mgr.serialize()
+        if hasattr(self.physics_manager.app, 'tool_system'):
+            graph_tool = self.physics_manager.app.tool_system.get_tool_by_name('graph')
+            if graph_tool and hasattr(graph_tool, 'serialize_for_save'):
+                data['graph_tool_state'] = graph_tool.serialize_for_save()
 
         if config.snapshot.save_camera_position:
             tr = self.camera.translation
@@ -209,7 +217,13 @@ class SnapshotManager:
             self.camera.scaling = scale
             if hasattr(self.camera, "target_scaling"):
                 self.camera.target_scaling = scale
-
+        if "graphs" in data and hasattr(self.physics_manager.app, 'console_handler'):
+            graph_mgr = self.physics_manager.app.console_handler.graph_manager
+            graph_mgr.deserialize(data["graphs"])
+        if "graph_tool_state" in data and hasattr(self.physics_manager.app, 'tool_system'):
+            graph_tool = self.physics_manager.app.tool_system.get_tool_by_name('graph')
+            if graph_tool and hasattr(graph_tool, 'deserialize_from_save'):
+                graph_tool.deserialize_from_save(data["graph_tool_state"])
         body_uuid_map = {}
         loaded_bodies = []
         if config.snapshot.save_object_positions and "bodies" in data:
