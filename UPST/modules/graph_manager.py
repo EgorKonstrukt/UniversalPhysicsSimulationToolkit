@@ -467,29 +467,23 @@ class GraphManager:
         vp_w, vp_h = cam.get_viewport_size()
         cam_tx, cam_ty = cam.translation.tx, cam.translation.ty
         cam_scale = cam.scaling
-        steps_base = max(100, min(2000, int(vp_w * cam_scale)))
+        steps_base = max(200, min(5000, int(vp_w * cam_scale * 2)))
         uses_time = any('t' in str(item['compiled'][1]) for item in self.graph_expression if
                         item['compiled'][0] in ('cartesian', 'parametric', 'polar', 'field', 'implicit'))
         has_fractal = any(item['compiled'][0] == 'fractal' for item in self.graph_expression)
         has_animated_fractal = any(item.get('has_time_dependence', False) for item in self.graph_expression)
         if uses_time or has_fractal or has_animated_fractal:
-            all_drawables = self._render_graphs(steps_base, cam, screen_w, screen_h)
+            all_drawables, graph_metadata = self._render_graphs(steps_base, cam, screen_w, screen_h)
             self._graph_cache = None
         else:
-            cache_key = (
-                tuple(
-                    (item['compiled'], item['color'][:3], item['width'], item['style'])
-                    for item in self.graph_expression
-                ),
-                round(cam_tx, 1), round(cam_ty, 1),
-                round(cam_scale, 3),
-                screen_w, screen_h
-            )
+            cache_key = (tuple(
+                (item['compiled'], item['color'][:3], item['width'], item['style']) for item in self.graph_expression),
+                         round(cam_tx, 1), round(cam_ty, 1), round(cam_scale, 3), screen_w, screen_h)
             if self._graph_cache and self._graph_cache[0] == cache_key:
-                all_drawables = self._graph_cache[1]
+                all_drawables, graph_metadata = self._graph_cache[1]
             else:
-                all_drawables = self._render_graphs(steps_base, cam, screen_w, screen_h)
-                self._graph_cache = (cache_key, all_drawables)
+                all_drawables, graph_metadata = self._render_graphs(steps_base, cam, screen_w, screen_h)
+                self._graph_cache = (cache_key, (all_drawables, graph_metadata))
         for drawable in all_drawables:
             dtype = drawable[0]
             if dtype == 'line':
@@ -506,6 +500,73 @@ class GraphManager:
             elif dtype == 'fractal_surface':
                 _, surface, offset = drawable
                 self.ui_manager.app.screen.blit(surface, offset)
+        self._draw_cursor_interaction(graph_metadata, cam)
+
+    def _draw_cursor_interaction(self, graph_metadata, cam):
+        mx, my = pygame.mouse.get_pos()
+        nearest = self._find_nearest_point(mx, my, graph_metadata, cam)
+        if not nearest: return
+        world_pt, screen_pt, tangent_vec, color = nearest
+        pygame.draw.circle(self.ui_manager.app.screen, (255, 255, 0), screen_pt, 5, 2)
+        tangent_length = 500
+        if tangent_vec and (abs(tangent_vec[0]) > 1e-6 or abs(tangent_vec[1]) > 1e-6):
+            tangent_norm = math.hypot(tangent_vec[0], tangent_vec[1])
+            if tangent_norm > 1e-6:
+                tx_norm = tangent_vec[0] / tangent_norm
+                ty_norm = tangent_vec[1] / tangent_norm
+                test_pt = (world_pt[0] + tx_norm, world_pt[1] + ty_norm)
+                screen_test = cam.world_to_screen(test_pt)
+                scale_factor = math.hypot(screen_test[0] - screen_pt[0], screen_test[1] - screen_pt[1])
+                if scale_factor > 1e-6:
+                    world_step = tangent_length / scale_factor
+                    pt_start_world = (world_pt[0] - tx_norm * world_step * 0.5,
+                                      world_pt[1] - ty_norm * world_step * 0.5)
+                    pt_end_world = (world_pt[0] + tx_norm * world_step * 0.5, world_pt[1] + ty_norm * world_step * 0.5)
+                    pt_start_screen = cam.world_to_screen(pt_start_world)
+                    pt_end_screen = cam.world_to_screen(pt_end_world)
+                    pygame.draw.line(self.ui_manager.app.screen, (255, 0, 255), pt_start_screen, pt_end_screen, 2)
+                    self._draw_arrow(self.ui_manager.app.screen, (255, 0, 255), pt_start_screen, pt_end_screen, 2)
+        font = pygame.font.SysFont('monospace', 14)
+        coord_text = f"({world_pt[0]:.3f}, {world_pt[1]:.3f})"
+        slope = tangent_vec[1] / tangent_vec[0] if tangent_vec and abs(tangent_vec[0]) > 1e-6 else float('inf')
+        slope_text = f"slope: {slope:.2f}" if math.isfinite(slope) else "vertical"
+        texts = [coord_text, slope_text]
+        y_offset = 10
+        for txt in texts:
+            surf = font.render(txt, True, (255, 255, 255))
+            bg = pygame.Surface((surf.get_width() + 8, surf.get_height() + 4))
+            bg.fill((30, 30, 40))
+            bg.blit(surf, (4, 2))
+            self.ui_manager.app.screen.blit(bg, (mx + 10, my + y_offset))
+            y_offset += surf.get_height() + 4
+
+    def _find_nearest_point(self, mx, my, graph_metadata, cam):
+        cam_scale = cam.scaling
+        min_dist_px = max(10.0, 30.0 / cam_scale)  # Увеличиваем радиус при приближении
+        min_dist = min_dist_px ** 2  # сравниваем квадраты расстояний для производительности
+        best = None
+        for meta in graph_metadata:
+            gtype, world_pts, screen_pts, color = meta
+            if not screen_pts: continue
+            for i, (sx, sy) in enumerate(screen_pts):
+                dist_sq = (sx - mx) ** 2 + (sy - my) ** 2
+                if dist_sq < min_dist:
+                    min_dist = dist_sq
+                    wx, wy = world_pts[i]
+                    tangent = None
+                    if len(world_pts) > 1:
+                        if i == 0:
+                            nx, ny = world_pts[1]
+                            tangent = (nx - wx, ny - wy)
+                        elif i == len(world_pts) - 1:
+                            px, py = world_pts[-2]
+                            tangent = (wx - px, wy - py)
+                        else:
+                            px, py = world_pts[i - 1]
+                            nx, ny = world_pts[i + 1]
+                            tangent = (nx - px, ny - py)
+                    best = ((wx, wy), (int(sx), int(sy)), tangent, color)
+        return best
 
     def _render_graphs(self, steps_base, cam, screen_w, screen_h):
         vp_w, vp_h = cam.get_viewport_size()
@@ -514,12 +575,15 @@ class GraphManager:
         t_now = pygame.time.get_ticks() / 1000.0
         safe_env = {**math_dict, "t": t_now, "__builtins__": {}}
         all_drawables = []
+        graph_metadata = []
         for item in self.graph_expression:
             compiled = item['compiled']
             color = item['color']
             width = item['width']
             style = item['style']
             drawables = []
+            world_pts_all = []
+            screen_pts_all = []
             try:
                 graph_type = compiled[0]
                 if graph_type == 'cartesian':
@@ -529,18 +593,20 @@ class GraphManager:
                     x_min, x_max = x_range if x_range else (x_min_def, x_max_def)
                     steps = steps_base
                     dx = (x_max - x_min) / steps if steps > 0 else 0
-                    pts = []
+                    world_pts = []
+                    screen_pts = []
                     for i in range(steps + 1):
                         x = x_min + i * dx
                         try:
                             y = eval(code, safe_env, {"x": x})
-                            if not isinstance(y, (int, float)) or not math.isfinite(y):
-                                continue
-                            scr = cam.world_to_screen((x, y))
-                            pts.append(scr)
+                            if not isinstance(y, (int, float)) or not math.isfinite(y): continue
+                            world_pts.append((x, y))
+                            screen_pts.append(cam.world_to_screen((x, y)))
                         except Exception:
                             continue
-                    drawables = [('line', seg, color, width) for seg in self._apply_line_style(pts, style)]
+                    world_pts_all.extend(world_pts)
+                    screen_pts_all.extend(screen_pts)
+                    drawables = [('line', seg, color, width) for seg in self._apply_line_style(screen_pts, style)]
                 elif graph_type == 'parametric':
                     code_x, code_y, t_range = compiled[1], compiled[2], compiled[3]
                     t_min_def = cam_tx - vp_w / 2
@@ -548,154 +614,180 @@ class GraphManager:
                     t_min, t_max = t_range if t_range else (t_min_def, t_max_def)
                     steps = steps_base
                     dt = (t_max - t_min) / steps
-                    pts = []
+                    world_pts = []
+                    screen_pts = []
                     for i in range(steps + 1):
                         t_val = t_min + i * dt
                         try:
                             x_val = eval(code_x, safe_env, {"t": t_val})
                             y_val = eval(code_y, safe_env, {"t": t_val})
-                            if not (isinstance(x_val, (int, float)) and isinstance(y_val, (int, float))):
-                                continue
-                            if not (math.isfinite(x_val) and math.isfinite(y_val)):
-                                continue
-                            scr = cam.world_to_screen((x_val, y_val))
-                            pts.append(scr)
+                            if not (isinstance(x_val, (int, float)) and isinstance(y_val, (int, float))): continue
+                            if not (math.isfinite(x_val) and math.isfinite(y_val)): continue
+                            pt = (x_val, y_val)
+                            world_pts.append(pt)
+                            screen_pts.append(cam.world_to_screen(pt))
                         except Exception:
                             continue
-                    drawables = [('line', seg, color, width) for seg in self._apply_line_style(pts, style)]
+                    world_pts_all.extend(world_pts)
+                    screen_pts_all.extend(screen_pts)
+                    drawables = [('line', seg, color, width) for seg in self._apply_line_style(screen_pts, style)]
                 elif graph_type == 'polar':
                     code_r, theta_range = compiled[1], compiled[2]
                     theta_min, theta_max = theta_range if theta_range else (0, 2 * math.pi)
                     steps = steps_base
                     dtheta = (theta_max - theta_min) / steps
-                    pts = []
+                    world_pts = []
+                    screen_pts = []
                     for i in range(steps + 1):
                         theta = theta_min + i * dtheta
                         try:
                             r_val = eval(code_r, safe_env, {"theta": theta, "θ": theta})
-                            if not isinstance(r_val, (int, float)) or not math.isfinite(r_val):
-                                continue
+                            if not isinstance(r_val, (int, float)) or not math.isfinite(r_val): continue
                             x_val = r_val * math.cos(theta)
                             y_val = r_val * math.sin(theta)
-                            scr = cam.world_to_screen((x_val, y_val))
-                            pts.append(scr)
+                            pt = (x_val, y_val)
+                            world_pts.append(pt)
+                            screen_pts.append(cam.world_to_screen(pt))
                         except Exception:
                             continue
-                    drawables = [('line', seg, color, width) for seg in self._apply_line_style(pts, style)]
+                    world_pts_all.extend(world_pts)
+                    screen_pts_all.extend(screen_pts)
+                    drawables = [('line', seg, color, width) for seg in self._apply_line_style(screen_pts, style)]
                 elif graph_type == 'scatter':
                     code_xs, code_ys = compiled[1], compiled[2]
                     try:
                         xs_str = eval(code_xs, {"__builtins__": {}}, {})
                         ys_str = eval(code_ys, {"__builtins__": {}}, {})
-                        if not (isinstance(xs_str, str) and isinstance(ys_str, str)):
-                            raise ValueError("Scatter inputs must be string representations of lists")
+                        if not (isinstance(xs_str, str) and isinstance(ys_str, str)): raise ValueError
                         xs = ast.literal_eval(xs_str)
                         ys = ast.literal_eval(ys_str)
-                        if not (isinstance(xs, (list, tuple)) and isinstance(ys, (list, tuple))):
-                            raise ValueError("Scatter requires list/tuple literals")
-                        if len(xs) != len(ys):
-                            raise ValueError("Scatter sequences must have equal length")
+                        if not (isinstance(xs, (list, tuple)) and isinstance(ys, (list, tuple))): raise ValueError
+                        if len(xs) != len(ys): raise ValueError
+                        world_pts = []
+                        screen_pts = []
                         for x, y in zip(xs, ys):
                             if not (isinstance(x, (int, float)) and isinstance(y, (int, float))): continue
                             if not (math.isfinite(x) and math.isfinite(y)): continue
-                            scr = cam.world_to_screen((x, y))
+                            pt = (x, y)
+                            world_pts.append(pt)
+                            scr = cam.world_to_screen(pt)
+                            screen_pts.append(scr)
                             drawables.append(('point', scr, color, max(2, width)))
+                        world_pts_all.extend(world_pts)
+                        screen_pts_all.extend(screen_pts)
                     except Exception:
                         pass
-                elif graph_type == 'complex':
-                    code_f, xr, yr, mode = compiled[1], compiled[2], compiled[3], compiled[4]
-                    if mode == 'color':
-                        drawables = [('complex_surface', *self._render_complex_color(
-                            code_f, xr[0], xr[1], yr[0], yr[1], screen_w, screen_h, cam
-                        ))]
-                    else:  # mode == 'plane'
-                        density = max(5, min(15, int(25 * cam.scaling)))
-                        drawables = self._render_complex_plane(code_f, xr, yr, density, color, width, cam)
-                elif graph_type == 'field':
-                    code_fx, code_fy, xr, yr = compiled[1], compiled[2], compiled[3], compiled[4]
-                    density = max(3, min(10, int(20 * cam.scaling)))
-                    x_step = (xr[1] - xr[0]) / density
-                    y_step = (yr[1] - yr[0]) / density
-                    for i in range(density + 1):
-                        for j in range(density + 1):
-                            x = xr[0] + i * x_step
-                            y = yr[0] + j * y_step
-                            try:
-                                fx = eval(code_fx, safe_env, {"x": x, "y": y, "t": t_now})
-                                fy = eval(code_fy, safe_env, {"x": x, "y": y, "t": t_now})
-                                if not (isinstance(fx, (int, float)) and isinstance(fy, (int, float))): continue
-                                if not (math.isfinite(fx) and math.isfinite(fy)): continue
-                                start = cam.world_to_screen((x, y))
-                                end = cam.world_to_screen((x + fx * 0.2, y + fy * 0.2))
-                                drawables.append(('arrow', start, end, color, width))
-                            except Exception:
-                                pass
-                elif graph_type == 'implicit':
-                    code_f, xr, yr = compiled[1], compiled[2], compiled[3]
-                    def f_eval(x, y):
-                        val = eval(code_f, safe_env, {"x": x, "y": y, "t": t_now})
-                        return float(val) if isinstance(val, (int, float)) else float('nan')
-                    try:
-                        segments_list = self._adaptive_implicit_renderer(f_eval, xr[0], xr[1], yr[0], yr[1])
-                        if not segments_list:
-                            segments_list = self._marching_squares(f_eval, xr[0], xr[1], yr[0], yr[1], resolution=min(200, int(steps_base/2)))
-                        world_segments = []
-                        for seg in segments_list:
-                            if len(seg) == 2:
-                                p1 = cam.world_to_screen(seg[0])
-                                p2 = cam.world_to_screen(seg[1])
-                                world_segments.append([p1, p2])
-                        drawables = [('line', s, color, width) for s in world_segments]
-                    except Exception:
-                        drawables = []
-                elif graph_type == 'fractal':
-                    (fractal_name, max_iter, escape_radius, c_param, scale_static, palette_str,
-                     scale_expr, c_expr, escape_radius_expr) = compiled[1:10]
-                    t_val = t_now
-                    scale = scale_static
-                    if scale_expr:
-                        try:
-                            scale = max(1e-6, float(eval(scale_expr, safe_env, {})))
-                        except:
-                            pass
-                    er = escape_radius
-                    if escape_radius_expr:
-                        try:
-                            er = max(1.0, float(eval(escape_radius_expr, safe_env, {})))
-                        except:
-                            pass
-                    c_use = c_param
-                    if c_expr:
-                        try:
-                            c_complex = complex(eval(c_expr, safe_env, {}).replace('i', 'j'))
-                            c_use = c_complex
-                        except:
-                            pass
-                    base_w, base_h = vp_w, vp_h
-                    scaled_w = base_w * scale
-                    scaled_h = base_h * scale
-                    x_min, x_max = cam_tx - scaled_w / 2, cam_tx + scaled_w / 2
-                    y_min, y_max = cam_ty - scaled_h / 2, cam_ty + scaled_h / 2
-                    c_key = (float(c_use.real), float(c_use.imag)) if c_use is not None else None
-                    palette_obj = _parse_palette(palette_str)
-                    drawables = [('fractal_surface', *self._render_fractal(
-                        fractal_name, x_min, x_max, y_min, y_max, screen_w, screen_h,
-                        max_iter, er, c_use, palette_obj
-                    ))]
-                elif graph_type == 'fractal_rule':
-                    transforms, depth = compiled[1], compiled[2]
-                    init_pts = np.array([[0.0, 0.0]], dtype=np.float64)
-                    pts = _apply_transforms(init_pts, transforms, depth)
-                    drawables = []
-                    for i in range(pts.shape[0]):
-                        x, y = pts[i, 0], pts[i, 1]
-                        scr = cam.world_to_screen((x, y))
-                        drawables.append(('point', scr, color, max(1, width // 2)))
+                elif graph_type in ('field', 'implicit', 'complex', 'fractal', 'fractal_rule'):
+                    drawables = self._render_special_graph(compiled, item, cam, screen_w, screen_h, t_now, safe_env)
             except Exception:
                 drawables = []
             all_drawables.extend(drawables)
-        return all_drawables
+            if world_pts_all and screen_pts_all:
+                graph_metadata.append((graph_type, world_pts_all, screen_pts_all, color[:3]))
+        return all_drawables, graph_metadata
 
+    def _render_special_graph(self, compiled, item, cam, screen_w, screen_h, t_now, safe_env):
+        graph_type = compiled[0]
+        color = item['color']
+        width = item['width']
+        drawables = []
+        try:
+            if graph_type == 'field':
+                code_fx, code_fy, xr, yr = compiled[1], compiled[2], compiled[3], compiled[4]
+                density = max(3, min(10, int(20 * cam.scaling)))
+                x_step = (xr[1] - xr[0]) / density
+                y_step = (yr[1] - yr[0]) / density
+                for i in range(density + 1):
+                    for j in range(density + 1):
+                        x = xr[0] + i * x_step
+                        y = yr[0] + j * y_step
+                        try:
+                            fx = eval(code_fx, safe_env, {"x": x, "y": y, "t": t_now})
+                            fy = eval(code_fy, safe_env, {"x": x, "y": y, "t": t_now})
+                            if not (isinstance(fx, (int, float)) and isinstance(fy, (int, float))): continue
+                            if not (math.isfinite(fx) and math.isfinite(fy)): continue
+                            start = cam.world_to_screen((x, y))
+                            end = cam.world_to_screen((x + fx * 0.2, y + fy * 0.2))
+                            drawables.append(('arrow', start, end, color, width))
+                        except Exception:
+                            pass
+            elif graph_type == 'implicit':
+                code_f, xr, yr = compiled[1], compiled[2], compiled[3]
+
+                def f_eval(x, y):
+                    try:
+                        val = eval(code_f, safe_env, {"x": x, "y": y, "t": t_now})
+                        return float(val) if isinstance(val, (int, float)) else float('nan')
+                    except Exception:
+                        return float('nan')
+
+                vp_w, vp_h = cam.get_viewport_size()
+                cam_scale = cam.scaling
+                resolution = max(100, min(500, int(vp_w * cam_scale * 0.5)))
+                try:
+                    segments_list = self._adaptive_implicit_renderer(f_eval, xr[0], xr[1], yr[0], yr[1], max_depth=8)
+                    if not segments_list:
+                        segments_list = self._marching_squares(f_eval, xr[0], xr[1], yr[0], yr[1], threshold=0.0,
+                                                               resolution=resolution)
+                    for seg in segments_list:
+                        if len(seg) == 2:
+                            p1 = cam.world_to_screen(seg[0])
+                            p2 = cam.world_to_screen(seg[1])
+                            drawables.append(('line', [p1, p2], color, width))
+                except Exception as e:
+                    print(f"Implicit render error: {e}")
+            elif graph_type == 'complex':
+                code_f, xr, yr, mode = compiled[1], compiled[2], compiled[3], compiled[4]
+                if mode == 'color':
+                    surf, offset = self._render_complex_color(code_f, xr[0], xr[1], yr[0], yr[1], screen_w, screen_h,
+                                                              cam)
+                    drawables.append(('complex_surface', surf, offset))
+                else:
+                    density = max(5, min(15, int(25 * cam.scaling)))
+                    drawables = self._render_complex_plane(code_f, xr, yr, density, color, width, cam)
+            elif graph_type == 'fractal':
+                fractal_name, max_iter, escape_radius, c_param, scale_static, palette_str, scale_expr, c_expr, escape_radius_expr = compiled[
+                    1:10]
+                t_val = t_now
+                scale = scale_static
+                if scale_expr:
+                    try:
+                        scale = max(1e-6, float(eval(scale_expr, safe_env, {})))
+                    except:
+                        pass
+                er = escape_radius
+                if escape_radius_expr:
+                    try:
+                        er = max(1.0, float(eval(escape_radius_expr, safe_env, {})))
+                    except:
+                        pass
+                c_use = c_param
+                if c_expr:
+                    try:
+                        c_complex = complex(eval(c_expr, safe_env, {}).replace('i', 'j'))
+                        c_use = c_complex
+                    except:
+                        pass
+                base_w, base_h = cam.get_viewport_size()
+                scaled_w = base_w * scale
+                scaled_h = base_h * scale
+                x_min, x_max = cam.translation.tx - scaled_w / 2, cam.translation.tx + scaled_w / 2
+                y_min, y_max = cam.translation.ty - scaled_h / 2, cam.translation.ty + scaled_h / 2
+                palette_obj = _parse_palette(palette_str)
+                surf, offset = self._render_fractal(fractal_name, x_min, x_max, y_min, y_max, screen_w, screen_h,
+                                                    max_iter, er, c_use, palette_obj)
+                drawables.append(('fractal_surface', surf, offset))
+            elif graph_type == 'fractal_rule':
+                transforms, depth = compiled[1], compiled[2]
+                init_pts = np.array([[0.0, 0.0]], dtype=np.float64)
+                pts = _apply_transforms(init_pts, transforms, depth)
+                for i in range(pts.shape[0]):
+                    x, y = pts[i, 0], pts[i, 1]
+                    scr = cam.world_to_screen((x, y))
+                    drawables.append(('point', scr, color, max(1, width // 2)))
+        except Exception:
+            pass
+        return drawables
     def _render_complex_plane(self, code_obj, xr, yr, density, color, width, cam):
         x_min, x_max = xr
         y_min, y_max = yr
