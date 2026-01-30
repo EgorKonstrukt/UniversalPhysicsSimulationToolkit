@@ -1,6 +1,7 @@
 import pygame
 import pygame_gui
 from UPST.tools.base_tool import BaseTool
+import math
 
 class FractalTool(BaseTool):
     name = "fractal"
@@ -23,13 +24,19 @@ class FractalTool(BaseTool):
         self.y_range = (-0.722, 0.246)
         self.t_value = 0.0
         self._last_applied_t = None
+        self.anim_enabled = False
+        self.anim_t_min = 0.0
+        self.anim_t_max = 1.0
+        self.anim_duration = 5.0
+        self.anim_easing = "linear"
+        self.anim_start_time = 0.0
 
     def create_settings_window(self):
         if self.settings_window and self.settings_window.alive():
             self.settings_window.show()
             return
         screen_w, screen_h = self.ui_manager.manager.window_resolution
-        win_size = (450, 380)
+        win_size = (450, 530)
         pos = self.tool_system._find_non_overlapping_position(win_size, pygame.Rect(0, 0, screen_w, screen_h))
         rect = pygame.Rect(*pos, *win_size)
         self.settings_window = pygame_gui.elements.UIWindow(
@@ -49,7 +56,34 @@ class FractalTool(BaseTool):
         pygame_gui.elements.UILabel(pygame.Rect(10, y, 25, 25), "t =", self.ui_manager.manager, container=container)
         self.t_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(40, y, 80, 25), self.ui_manager.manager, container=container)
         self.t_entry.set_text(str(self.t_value))
+        self.t_entry.disable() if self.anim_enabled else self.t_entry.enable()
         y += 35
+        pygame_gui.elements.UILabel(pygame.Rect(10, y, 100, 25), "Animate t:", self.ui_manager.manager, container=container)
+        self.anim_checkbox = pygame_gui.elements.UICheckBox(
+            relative_rect=pygame.Rect(110, y, 25, 25),
+            text="",
+            manager=self.ui_manager.manager,
+            container=container
+        )
+        self.anim_checkbox.set_state(True) if self.anim_enabled else self.anim_checkbox.set_state(False)
+        y += 35
+        pygame_gui.elements.UILabel(pygame.Rect(10, y, 70, 25), "t range:", self.ui_manager.manager, container=container)
+        self.t_min_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(85, y, 60, 25), self.ui_manager.manager, container=container)
+        self.t_min_entry.set_text(str(self.anim_t_min))
+        self.t_max_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(155, y, 60, 25), self.ui_manager.manager, container=container)
+        self.t_max_entry.set_text(str(self.anim_t_max))
+        y += 35
+        pygame_gui.elements.UILabel(pygame.Rect(10, y, 70, 25), "Duration:", self.ui_manager.manager, container=container)
+        self.duration_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(85, y, 60, 25), self.ui_manager.manager, container=container)
+        self.duration_entry.set_text(str(self.anim_duration))
+        pygame_gui.elements.UILabel(pygame.Rect(155, y, 30, 25), "s", self.ui_manager.manager, container=container)
+        y += 35
+        pygame_gui.elements.UILabel(pygame.Rect(10, y, 70, 25), "Easing:", self.ui_manager.manager, container=container)
+        self.easing_dropdown = pygame_gui.elements.UIDropDownMenu(
+            ['linear', 'ease-out'], self.anim_easing, pygame.Rect(85, y, 100, 25),
+            self.ui_manager.manager, container=container
+        )
+        y += 40
         pygame_gui.elements.UILabel(pygame.Rect(10, y, 80, 25), "Max iter:", self.ui_manager.manager, container=container)
         self.iter_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(95, y, 60, 25), self.ui_manager.manager, container=container)
         self.iter_entry.set_text(str(self.max_iter))
@@ -82,6 +116,7 @@ class FractalTool(BaseTool):
         self.clear_btn = pygame_gui.elements.UIButton(pygame.Rect(120, y, 100, 30), "Clear", self.ui_manager.manager, container=container)
         self._update_c_visibility()
 
+
     def _update_c_visibility(self):
         is_julia = self.fractal_type == "julia"
         self.c_label.visible = is_julia
@@ -113,16 +148,35 @@ class FractalTool(BaseTool):
                 self.fractal_type = event.text
                 self._update_c_visibility()
                 self._apply_fractal_settings(force=True)
+            elif event.ui_element == self.easing_dropdown:
+                self.anim_easing = event.text
+        elif event.type in (pygame_gui.UI_CHECK_BOX_CHECKED, pygame_gui.UI_CHECK_BOX_UNCHECKED):
+            if event.ui_element == self.anim_checkbox:
+                self.anim_enabled = self.anim_checkbox.get_state()
+                if self.anim_enabled:
+                    self.anim_start_time = pygame.time.get_ticks() / 1000.0
+                    self.t_entry.disable()
+                else:
+                    self.t_entry.enable()
         elif event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED:
             if event.ui_element == self.width_entry:
                 try: self.width = max(1, min(5, int(event.text)))
                 except: pass
-            elif event.ui_element == self.t_entry:
+            elif event.ui_element == self.t_entry and not self.anim_enabled:
                 try: self.t_value = float(self.t_entry.get_text())
                 except: pass
                 self._apply_fractal_settings(force=True)
+            elif event.ui_element == self.t_min_entry:
+                try: self.anim_t_min = float(self.t_min_entry.get_text())
+                except: pass
+            elif event.ui_element == self.t_max_entry:
+                try: self.anim_t_max = float(self.t_max_entry.get_text())
+                except: pass
+            elif event.ui_element == self.duration_entry:
+                try: self.anim_duration = max(0.1, float(self.duration_entry.get_text()))
+                except: pass
         elif event.type == pygame_gui.UI_TEXT_ENTRY_CHANGED:
-            if event.ui_element == self.t_entry:
+            if event.ui_element == self.t_entry and not self.anim_enabled:
                 try:
                     new_t = float(self.t_entry.get_text() or "0")
                     if abs(new_t - self.t_value) > 1e-6:
@@ -141,6 +195,22 @@ class FractalTool(BaseTool):
             return str(float(result))
         except:
             return expr
+
+    def _ease_out(self, t):
+        return 1 - (1 - t) ** 2
+
+    def update(self, dt):
+        if self.anim_enabled and self.anim_duration > 0:
+            elapsed = (pygame.time.get_ticks() / 1000.0 - self.anim_start_time) % self.anim_duration
+            phase = elapsed / self.anim_duration
+            if self.anim_easing == "ease-out":
+                phase = self._ease_out(phase)
+            self.t_value = self.anim_t_min + (self.anim_t_max - self.anim_t_min) * phase
+            self.t_entry.set_text(f"{self.t_value:.4f}")
+            self._apply_fractal_settings(force=True)
+        elif not self.anim_enabled and self._last_applied_t != self.t_value:
+            self._apply_fractal_settings(force=True)
+
 
     def _apply_fractal_settings(self, force=False):
         try:
