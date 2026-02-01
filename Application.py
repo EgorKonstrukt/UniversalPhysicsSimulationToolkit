@@ -104,7 +104,7 @@ class Application:
 
         self.physics_manager.undo_redo_manager = self.undo_redo_manager
 
-        self.thermal_manager = ThermalManager(self.physics_manager, self.camera)
+        # self.thermal_manager = ThermalManager(self.physics_manager, self.camera)
 
         self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
                                     self.physics_manager, self.camera, None, self.screen, self.font,
@@ -241,5 +241,3 @@ if __name__ == '__main__':
         print(f"Application error: {e}")
         import traceback
         traceback.print_exc()
-
-print(1)

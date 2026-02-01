@@ -32,11 +32,7 @@ class GraphTool(BaseTool):
         self._ui_elements = {}
         self._graph_buttons = []
         self._graph_color_previews = []
-        self.list_panel = None
-        self.scroll_bar = None
-        self.list_height = 120
-        self.item_height = 30
-        self.scroll_position = 0.0
+        self.list_container = None
         self.color = (0, 200, 255)
 
     def create_settings_window(self):
@@ -58,13 +54,14 @@ class GraphTool(BaseTool):
     def _build_ui(self):
         container = self.settings_window.get_container()
         y = 10
-        self.list_panel = pygame_gui.elements.UIPanel(
-            relative_rect=pygame.Rect(10, y, 200, self.list_height),
+        self.list_container = pygame_gui.elements.UIScrollingContainer(
+            relative_rect=pygame.Rect(10, y, 250, 120),
             manager=self.ui_manager.manager,
-            container=container
+            container=container,
+            allow_scroll_x=False
         )
         self._rebuild_graph_list()
-        y += self.list_height + 10
+        y += 130
         self.add_btn = pygame_gui.elements.UIButton(pygame.Rect(10, y, 80, 30), "Add", self.ui_manager.manager, container=container)
         self.remove_btn = pygame_gui.elements.UIButton(pygame.Rect(100, y, 80, 30), "Remove", self.ui_manager.manager, container=container)
         y += 40
@@ -76,12 +73,12 @@ class GraphTool(BaseTool):
         self.expr_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(10, y + 40, 400, 30), self.ui_manager.manager, container=container)
         y += 85
         pygame_gui.elements.UILabel(pygame.Rect(10, y, 80, 25), "Color:", self.ui_manager.manager, container=container)
-        self.color_btn = pygame_gui.elements.UIButton(pygame.Rect(90, y, 60, 25), "", self.ui_manager.manager, container=container)
+        self.color_btn = pygame_gui.elements.UIButton(pygame.Rect(60, y, 95, 25), "Pick Color", self.ui_manager.manager, container=container)
         pygame_gui.elements.UILabel(pygame.Rect(160, y, 60, 25), "Width:", self.ui_manager.manager, container=container)
         self.width_entry = pygame_gui.elements.UITextEntryLine(pygame.Rect(220, y, 40, 25), self.ui_manager.manager, container=container)
         pygame_gui.elements.UILabel(pygame.Rect(270, y, 50, 25), "Style:", self.ui_manager.manager, container=container)
         self.style_dropdown = pygame_gui.elements.UIDropDownMenu(
-            ['solid', 'dashed', 'dotted'], self.graphs[0]['style'], pygame.Rect(320, y, 60, 25),
+            ['solid', 'dashed', 'dotted'], self.graphs[0]['style'], pygame.Rect(320, y, 90, 25),
             self.ui_manager.manager, container=container
         )
         y += 40
@@ -121,47 +118,35 @@ class GraphTool(BaseTool):
             img.kill()
         self._graph_buttons.clear()
         self._graph_color_previews.clear()
-        total_items = len(self.graphs)
-        visible_count = self.list_height // self.item_height
-        scroll_max = max(0, total_items - visible_count)
-        start = int(self.scroll_position * scroll_max) if scroll_max > 0 else 0
-        end = min(start + visible_count, total_items)
-        for i in range(start, end):
-            g = self.graphs[i]
+        item_height = 30
+        total_height = len(self.graphs) * item_height
+        self.list_container.set_scrollable_area_dimensions((self.list_container.rect.width - 20, max(total_height, self.list_container.rect.height)))
+        for i, g in enumerate(self.graphs):
             expr_short = (g['expression'][:17] + '...') if len(g['expression']) > 20 else g['expression']
             btn = pygame_gui.elements.UIButton(
-                relative_rect=pygame.Rect(5, (i - start) * self.item_height + 5, 160, 25),
+                relative_rect=pygame.Rect(5, i * item_height + 5, 200, 25),
                 text=expr_short,
                 manager=self.ui_manager.manager,
-                container=self.list_panel,
+                container=self.list_container,
                 object_id=f"graph_btn_{i}"
             )
-            color_surf = pygame.Surface((15, 15))
+            color_surf = pygame.Surface((18, 18))
             color_surf.fill(g['color'])
             img = pygame_gui.elements.UIImage(
-                relative_rect=pygame.Rect(170, (i - start) * self.item_height + 10, 15, 15),
+                relative_rect=pygame.Rect(210, i * item_height + 8, 18, 18),
                 image_surface=color_surf,
                 manager=self.ui_manager.manager,
-                container=self.list_panel
+                container=self.list_container
             )
             self._graph_buttons.append(btn)
             self._graph_color_previews.append(img)
-        if self.scroll_bar:
-            self.scroll_bar.kill()
-        if total_items > visible_count:
-            self.scroll_bar = pygame_gui.elements.UIVerticalScrollBar(
-                relative_rect=pygame.Rect(210, 10, 20, self.list_height),
-                visible_percentage=visible_count / total_items,
-                manager=self.ui_manager.manager,
-                container=self.settings_window.get_container()
-            )
-            self.scroll_bar.set_scroll_from_start_percentage(self.scroll_position)
-        else:
-            self.scroll_bar = None
 
     def _load_graph_to_ui(self, idx):
         g = self.graphs[idx]
-        self.type_dropdown.selected_option = g['plot_type']
+        plot_type = g['plot_type']
+        if isinstance(plot_type, (list, tuple)):
+            plot_type = plot_type[0]
+        self.type_dropdown.selected_option = plot_type
         self.expr_entry.set_text(g['expression'])
         self.color = g['color']
         self._update_color_btn()
@@ -174,7 +159,8 @@ class GraphTool(BaseTool):
 
     def _save_ui_to_graph(self, idx):
         g = self.graphs[idx]
-        g['plot_type'] = self.type_dropdown.selected_option
+        raw_type = self.type_dropdown.selected_option
+        g['plot_type'] = raw_type[0] if isinstance(raw_type, (list, tuple)) else raw_type
         g['expression'] = self.expr_entry.get_text().strip() or "y=sin(x)"
         g['color'] = self.color
         try:
@@ -225,9 +211,12 @@ class GraphTool(BaseTool):
             return
         graphs = []
         for g in data.get("graphs", []):
+            plot_type = g["plot_type"]
+            if isinstance(plot_type, (list, tuple)):
+                plot_type = plot_type[0]
             graphs.append({
                 "expression": g["expression"],
-                "plot_type": g["plot_type"],
+                "plot_type": plot_type,
                 "color": tuple(g["color"]),
                 "width": g["width"],
                 "style": g["style"],
@@ -304,16 +293,15 @@ class GraphTool(BaseTool):
                 self.graph_manager.handle_graph_command('clear')
         elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
             if event.ui_element == self.type_dropdown:
+                new_type = self.type_dropdown.selected_option
+                print(f"[DEBUG] Type changed to: {new_type} for graph {self.active_graph_index}")
+                self.graphs[self.active_graph_index]['plot_type'] = new_type
                 self._update_y_range_visibility()
         elif event.type == pygame_gui.UI_COLOUR_PICKER_COLOUR_PICKED:
             if event.ui_element == self.color_picker:
                 self.color = (event.colour.r, event.colour.g, event.colour.b)
                 self.graphs[self.active_graph_index]['color'] = self.color
                 self._update_color_btn()
-                self._rebuild_graph_list()
-        elif event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
-            if event.ui_element == self.scroll_bar:
-                self.scroll_position = event.value
                 self._rebuild_graph_list()
         elif event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED:
             if event.ui_element == self.expr_entry:
@@ -349,17 +337,28 @@ class GraphTool(BaseTool):
 
     def _apply_all_graphs(self):
         full_commands = []
-        for g in self.graphs:
-            cmd_parts = [g['expression']]
-            cmd_parts.append(f"color:{g['color'][0]},{g['color'][1]},{g['color'][2]}")
-            cmd_parts.append(f"width:{g['width']}")
-            cmd_parts.append(f"style:{g['style']}")
-            if g['plot_type'] in ('cartesian', 'implicit', 'field'):
+        for i, g in enumerate(self.graphs):
+            plot_type = g['plot_type']
+            expr = g['expression']
+            print(f"[DEBUG] Graph {i}: type={plot_type}, expr={expr}")
+            if plot_type == 'implicit':
+                cmd_expr = f"implicit {expr}"
+            elif plot_type == 'field':
+                cmd_expr = f"field {expr}"
+            elif plot_type == 'scatter':
+                cmd_expr = f"scatter {expr}"
+            else:
+                cmd_expr = expr
+            parts = [cmd_expr]
+            parts.append(f"color:{g['color'][0]},{g['color'][1]},{g['color'][2]}")
+            parts.append(f"width:{g['width']}")
+            parts.append(f"style:{g['style']}")
+            if plot_type in ('cartesian', 'implicit', 'field'):
                 xr = g['x_range']
                 yr = g['y_range']
-                cmd_parts.append(f"x={xr[0]}..{xr[1]}")
-                cmd_parts.append(f"y={yr[0]}..{yr[1]}")
-            full_commands.append("; ".join(cmd_parts))
+                parts.append(f"x={xr[0]}..{xr[1]}")
+                parts.append(f"y={yr[0]}..{yr[1]}")
+            full_commands.append("; ".join(parts))
         full_cmd = "; clear; " + "; ".join(full_commands)
         self.graph_manager.handle_graph_command(full_cmd)
         self.undo_redo_manager.take_snapshot()

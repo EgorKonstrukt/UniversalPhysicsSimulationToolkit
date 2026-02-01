@@ -70,12 +70,20 @@ class PropertiesWindow:
 
         # Mass (entry + slider)
         self._add_label(pygame.Rect(10, y, 140, 26), "Mass (kg)")
+        safe_mass = self.body.mass
+        if not (isfinite(safe_mass) and safe_mass > 0):
+            safe_mass = 1.0  # fallback for invalid/NaN/zero/negative mass
+
         mass_entry = UITextEntryLine(pygame.Rect(160, y, 130, 28), self.manager, container=self.window)
-        mass_entry.set_text(f"{self.body.mass:.4f}")
-        mass_slider = UIHorizontalSlider(pygame.Rect(300, y + 4, 220, 24),
-                                         start_value=self.body.mass,
-                                         value_range=(0.001, max(100.0, self.body.mass * 2 + 1.0)),
-                                         manager=self.manager, container=self.window)
+        mass_entry.set_text(f"{safe_mass:.4f}")
+
+        mass_slider = UIHorizontalSlider(
+            pygame.Rect(300, y + 4, 220, 24),
+            start_value=safe_mass,
+            value_range=(0.001, max(100.0, safe_mass * 2 + 1.0)),
+            manager=self.manager,
+            container=self.window
+        )
         self.elements['mass_entry'] = mass_entry
         self.elements['mass_slider'] = mass_slider
         y += 44
@@ -151,10 +159,19 @@ class PropertiesWindow:
             self.elements['shapes_panels'].append(panel)
             y = new_y + 8
 
-        lbl_help = UILabel(pygame.Rect(10, y, 520, 30),
-                           "Подсказка: введите числа, нажмите Apply. Auto Update обновляет значения из симуляции.",
-                           self.manager, container=self.window)
+        lbl_help = UILabel(
+            pygame.Rect(10, y, 520, 48),  # taller to allow 2 lines
+            "Подсказка: введите числа, нажмите Apply. Auto Update обновляет значения из симуляции.",
+            self.manager,
+            container=self.window,
+            object_id=pygame_gui.core.ObjectID(class_id='@help_label')
+        )
         self.elements['help'] = lbl_help
+        if self.body.body_type != pymunk.Body.DYNAMIC:
+            mass_entry.disable()
+            mass_slider.disable()
+            moment_lbl.set_text("N/A (non-dynamic)")
+
 
     def _add_section_title(self, text, y):
         UILabel(relative_rect=pygame.Rect(10, y, 520, 24),
@@ -482,8 +499,9 @@ class PropertiesWindow:
             lbl.set_text(f"{total:.4f}")
 
     def _apply_all(self):
-        mass_val = max(self._safe_float(self.elements.get('mass_entry').get_text(), self.body.mass), 0.001)
-        self._set_mass_and_moment(mass_val)
+        if self.body.body_type == pymunk.Body.DYNAMIC:
+            mass_val = max(self._safe_float(self.elements.get('mass_entry').get_text(), self.body.mass), 0.001)
+            self._set_mass_and_moment(mass_val)
 
         self._apply_property_key_to_body('vel_x', self.elements['vel_x'].get_text())
         self._apply_property_key_to_body('vel_y', self.elements['vel_y'].get_text())
@@ -531,7 +549,8 @@ class PropertiesWindow:
         self.elements['moment_label'].set_text(f"{self.body.moment:.4f}")
 
     def _set_mass_and_moment(self, mass):
-        """Устанавливает массу тела и момент инерции, суммируя моменты shape'ов."""
+        if self.body.body_type != pymunk.Body.DYNAMIC:
+            return  # Mass/moment are meaningless for static/kinematic bodies
         shapes = list(self.body.shapes)
         if not shapes:
             self.body.mass = mass
@@ -560,12 +579,42 @@ class PropertiesWindow:
                 space.remove(self.body, *shapes)
             except Exception:
                 pass
+
         self.body.body_type = new_type
-        self.body.position, self.body.angle = pos, angle
+
         if new_type == pymunk.Body.DYNAMIC:
-            self.body.velocity, self.body.angular_velocity = vel, ang_vel
+            self.body.velocity = vel
+            self.body.angular_velocity = ang_vel
+            if self.body.mass <= 0 or self.body.moment <= 0:
+                default_mass = 1.0
+                if shapes:
+                    total_mass = default_mass
+                    per_mass = total_mass / len(shapes)
+                    total_moment = 0.0
+                    for s in shapes:
+                        if isinstance(s, pymunk.Circle):
+                            total_moment += pymunk.moment_for_circle(per_mass, 0, s.radius, s.offset)
+                        elif isinstance(s, pymunk.Poly):
+                            verts = s.get_vertices()
+                            total_moment += pymunk.moment_for_poly(per_mass, verts)
+                        else:
+                            total_moment += 0.0
+                    self.body.mass = total_mass
+                    self.body.moment = max(total_moment, 0.001)  # Avoid zero
+                else:
+                    self.body.mass = default_mass
+                    self.body.moment = 0.1
         else:
-            self.body.velocity, self.body.angular_velocity = (0, 0), 0
+            self.body.velocity = (0, 0)
+            self.body.angular_velocity = 0
+
+            if self.body.mass <= 0:
+                self.body.mass = 1.0
+            if self.body.moment <= 0:
+                self.body.moment = 0.1
+
+        self.body.position, self.body.angle = pos, angle
+
         if space:
             try:
                 space.add(self.body, *shapes)
@@ -629,7 +678,20 @@ class PropertiesWindow:
             self.elements['vel_x'].set_text(f"{self.body.velocity.x:.4f}")
             self.elements['vel_y'].set_text(f"{self.body.velocity.y:.4f}")
             self.elements['ang_vel'].set_text(f"{self.body.angular_velocity:.4f}")
-            self.elements['mass_entry'].set_text(f"{self.body.mass:.4f}")
+            if self.body.body_type == pymunk.Body.DYNAMIC:
+                self.elements['mass_entry'].set_text(f"{self.body.mass:.4f}")
+                slider = self.elements.get('mass_slider')
+                if slider:
+                    try:
+                        slider.set_current_value(self.body.mass)
+                    except Exception:
+                        pass
+                self.elements['moment_label'].set_text(f"{self.body.moment:.4f}")
+            else:
+                # Optionally disable or grey out mass/moment fields
+                self.elements['mass_entry'].disable()
+                self.elements['mass_slider'].disable()
+                self.elements['moment_label'].set_text("N/A (non-dynamic)")
             # sync slider gently
             slider = self.elements.get('mass_slider')
             if slider:

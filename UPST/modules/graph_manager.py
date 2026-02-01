@@ -409,7 +409,7 @@ class GraphManager:
             segs += self._adaptive_implicit_renderer(f, xm, x_max, ym, y_max, depth + 1, max_depth)
             return segs
 
-    def _marching_squares(self, f, x_min, x_max, y_min, y_max, threshold=0.0, resolution=100):
+    def _marching_squares(self, f, x_min, x_max, y_min, y_max, threshold=0.0, resolution=10):
         dx = (x_max - x_min) / resolution
         dy = (y_max - y_min) / resolution
         grid = []
@@ -736,19 +736,23 @@ class GraphManager:
 
                 vp_w, vp_h = cam.get_viewport_size()
                 cam_scale = cam.scaling
-                resolution = max(100, min(500, int(vp_w * cam_scale * 0.5)))
+                resolution = 200
+                segments_list = []
                 try:
-                    segments_list = self._adaptive_implicit_renderer(f_eval, xr[0], xr[1], yr[0], yr[1], max_depth=8)
-                    if not segments_list:
+                    segments_list = self._adaptive_implicit_renderer(f_eval, xr[0], xr[1], yr[0], yr[1], max_depth=9)
+                except RecursionError:
+                    segments_list = []
+                if not segments_list:
+                    try:
                         segments_list = self._marching_squares(f_eval, xr[0], xr[1], yr[0], yr[1], threshold=0.0,
                                                                resolution=resolution)
-                    for seg in segments_list:
-                        if len(seg) == 2:
-                            p1 = cam.world_to_screen(seg[0])
-                            p2 = cam.world_to_screen(seg[1])
-                            drawables.append(('line', [p1, p2], color, width))
-                except Exception as e:
-                    print(f"Implicit render error: {e}")
+                    except Exception as e:
+                        print(f"Marching squares fallback failed: {e}")
+                for seg in segments_list:
+                    if len(seg) == 2:
+                        p1 = cam.world_to_screen(seg[0])
+                        p2 = cam.world_to_screen(seg[1])
+                        drawables.append(('line', [p1, p2], color, width))
             elif graph_type == 'complex':
                 code_f, xr, yr, mode = compiled[1], compiled[2], compiled[3], compiled[4]
                 if mode == 'color':

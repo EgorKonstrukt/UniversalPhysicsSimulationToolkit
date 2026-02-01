@@ -58,6 +58,7 @@ class DragTool(BaseTool):
 
     def _start_drag(self, wpos, info):
         self.tgt = info.shape.body
+        assert self.tgt.body_type == pymunk.Body.DYNAMIC, "DragTool: Target must be DYNAMIC"
         self.mb = self._make_mouse_body(wpos)
         if self.cb_center.get_state():
             local_anchor = (0, 0)
@@ -102,9 +103,11 @@ class DragTool(BaseTool):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             info = self.app.physics_manager.space.point_query_nearest(wpos, 0, pymunk.ShapeFilter())
             body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
-            if body: self._start_drag(wpos, info)
+            if body and body.body_type == pymunk.Body.DYNAMIC:
+                self._start_drag(wpos, info)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            if self.dragging: self._stop_drag()
+            if self.dragging:
+                self._stop_drag()
         elif event.type == pygame.MOUSEMOTION and self.dragging and self.mb:
             self.mb.position = wpos
 
