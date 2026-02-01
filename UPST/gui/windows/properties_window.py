@@ -8,6 +8,8 @@ from pygame_gui.elements import (
 import pymunk
 from math import isfinite
 
+from UPST.modules.undo_redo_manager import get_undo_redo
+
 
 class PropertiesWindow:
     _last_window_pos = (120, 120)
@@ -23,6 +25,7 @@ class PropertiesWindow:
         self.apply_to_all_shapes = False
         self._local_clip = None
         self.create_window()
+        self.undo_redo_manager = get_undo_redo()
 
     def create_window(self):
         if self.window and self.window.alive():
@@ -499,6 +502,7 @@ class PropertiesWindow:
             lbl.set_text(f"{total:.4f}")
 
     def _apply_all(self):
+        self.undo_redo_manager.take_snapshot()
         if self.body.body_type == pymunk.Body.DYNAMIC:
             mass_val = max(self._safe_float(self.elements.get('mass_entry').get_text(), self.body.mass), 0.001)
             self._set_mass_and_moment(mass_val)
@@ -548,6 +552,7 @@ class PropertiesWindow:
         self.body.activate()
         self.elements['moment_label'].set_text(f"{self.body.moment:.4f}")
 
+
     def _set_mass_and_moment(self, mass):
         if self.body.body_type != pymunk.Body.DYNAMIC:
             return  # Mass/moment are meaningless for static/kinematic bodies
@@ -567,6 +572,7 @@ class PropertiesWindow:
                 total_moment += 0.0
         self.body.mass = mass
         self.body.moment = total_moment
+        self.undo_redo_manager.take_snapshot()
 
     def _change_body_type(self, new_type):
         if new_type == self.body.body_type:
@@ -623,6 +629,7 @@ class PropertiesWindow:
         self.body.activate()
 
     def _reset_values(self):
+        self.undo_redo_manager.take_snapshot()
         self.kill()
         self.create_window()
 
