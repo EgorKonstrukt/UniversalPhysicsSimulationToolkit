@@ -68,6 +68,9 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
         self._always_on_top = always_on_top
         self._blocking_always_on_top = False
 
+        self._collapsed = False
+        self._stored_height = rect.height
+
         self.edge_hovering = [False, False, False, False]
 
         element_ids = ["window"]
@@ -120,6 +123,7 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
         self.window_element_container: UIContainer | None = None
         self.title_bar: UIButton | None = None
         self.close_window_button: UIButton | None = None
+        self.minimize_button: UIButton | None = None
 
         self.rebuild_from_changed_theme_data()
 
@@ -238,6 +242,20 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
             )
             self._window_root_container.set_relative_position(container_pos)
 
+    def toggle_minimized(self):
+        if self._collapsed:
+            self._collapsed = False
+            new_h = self._stored_height
+            self.set_dimensions((self.rect.width, new_h))
+            if self.window_element_container:
+                self.window_element_container.show()
+        else:
+            self._collapsed = True
+            self._stored_height = self.rect.height
+            new_h = self.title_bar_height + 2 * self.shadow_width
+            self.set_dimensions((self.rect.width, new_h))
+            if self.window_element_container:
+                self.window_element_container.hide()
     def process_event(self, event: pygame.event.Event) -> bool:
         """
         Handles resizing & closing windows. Gives UI Windows access to pygame events. Derived
@@ -286,6 +304,9 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
         ):
             self.resizing_mode_active = False
 
+        if event.type == UI_BUTTON_PRESSED and event.ui_element == self.minimize_button:
+            self.toggle_minimized()
+            return True
         if (
             event.type == UI_BUTTON_PRESSED
             and event.ui_element == self.close_window_button
@@ -662,69 +683,80 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
                 (self.border_width["left"], self.title_bar_height)
             )
 
-            if self.enable_title_bar:
-                if self.title_bar is not None:
-                    self.title_bar.set_dimensions(
-                        (
-                            self._window_root_container.relative_rect.width
-                            - self.title_bar_close_button_width,
-                            self.title_bar_height,
-                        )
-                    )
+            if self.enable_title_bar and self._window_root_container is not None:
+                tw = self._window_root_container.relative_rect.width
+                th = self.title_bar_height
+                cw = self.title_bar_close_button_width if self.enable_close_button else 0
+                mw = th if self.enable_close_button else 0
+                usable_w = tw - cw - mw
+
+                if self.title_bar:
+                    self.title_bar.set_dimensions((usable_w, th))
                 else:
-                    title_bar_width = (
-                        self._window_root_container.relative_rect.width
-                        - self.title_bar_close_button_width
-                    )
                     self.title_bar = UIButton(
-                        relative_rect=pygame.Rect(
-                            0, 0, title_bar_width, self.title_bar_height
-                        ),
+                        relative_rect=pygame.Rect(0, 0, usable_w, th),
                         text=self.window_display_title,
                         manager=self.ui_manager,
                         container=self._window_root_container,
                         parent_element=self,
                         object_id="#title_bar",
-                        anchors={
-                            "top": "top",
-                            "bottom": "top",
-                            "left": "left",
-                            "right": "right",
-                        },
+                        anchors={"top": "top", "bottom": "top", "left": "left", "right": "left"},
                     )
                     self.title_bar.set_hold_range((100, 100))
 
+                # Close button
                 if self.enable_close_button:
-                    if self.close_window_button is not None:
-                        close_button_pos = (-self.title_bar_close_button_width, 0)
-                        self.close_window_button.set_dimensions(
-                            (self.title_bar_close_button_width, self.title_bar_height)
-                        )
-                        self.close_window_button.set_relative_position(close_button_pos)
+                    if self.close_window_button:
+                        self.close_window_button.set_dimensions((cw, th))
+                        self.close_window_button.set_relative_position((-cw, 0))
                     else:
-                        close_rect = pygame.Rect(
-                            (-self.title_bar_close_button_width, 0),
-                            (self.title_bar_close_button_width, self.title_bar_height),
-                        )
                         self.close_window_button = UIButton(
-                            relative_rect=close_rect,
+                            relative_rect=pygame.Rect((-cw, 0), (cw, th)),
                             text="╳",
                             manager=self.ui_manager,
                             container=self._window_root_container,
                             parent_element=self,
                             object_id="#close_button",
-                            anchors={
-                                "top": "top",
-                                "bottom": "top",
-                                "left": "right",
-                                "right": "right",
-                            },
+                            anchors={"top": "top", "bottom": "top", "left": "right", "right": "right"},
                         )
 
+                btn_x = usable_w
+                if self.minimize_button:
+                    self.minimize_button.set_dimensions((mw, th))
+                    self.minimize_button.set_relative_position((btn_x, 0))
                 else:
-                    if self.close_window_button is not None:
-                        self.close_window_button.kill()
-                        self.close_window_button = None
+                    self.minimize_button = UIButton(
+                        relative_rect=pygame.Rect((btn_x, 0), (mw, th)),
+                        text="–",
+                        manager=self.ui_manager,
+                        container=self._window_root_container,
+                        parent_element=self,
+                        object_id="#minimize_button",
+                        anchors={"top": "top", "bottom": "top", "left": "left", "right": "left"},
+                    )
+
+                if self._collapsed:
+                    new_h = th + 2 * self.shadow_width
+                    self._window_root_container.set_dimensions((tw, new_h))
+                    self._window_root_container.set_relative_position((
+                        self.relative_rect.x + self.shadow_width,
+                        self.relative_rect.y + self.shadow_width
+                    ))
+                    if self.window_element_container:
+                        self.window_element_container.kill()
+                        self.window_element_container = None
+                elif self.window_element_container is None:
+                    cont_w = tw - (self.border_width["left"] + self.border_width["right"])
+                    cont_h = self._window_root_container.relative_rect.height - (th + self.border_width["bottom"])
+                    self.window_element_container = UIContainer(
+                        pygame.Rect(self.border_width["left"], th, cont_w, cont_h),
+                        self.ui_manager,
+                        starting_height=0,
+                        container=self._window_root_container,
+                        parent_element=self,
+                        object_id="#window_element_container",
+                        anchors={"top": "top", "bottom": "bottom", "left": "left", "right": "right"},
+                    )
             else:
                 if self.title_bar is not None:
                     self.title_bar.kill()
@@ -732,6 +764,9 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
                 if self.close_window_button is not None:
                     self.close_window_button.kill()
                     self.close_window_button = None
+                if self.minimize_button is not None:
+                    self.minimize_button.kill()
+                    self.minimize_button = None
 
     def rebuild_from_changed_theme_data(self):
         """
@@ -925,6 +960,8 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
             self.title_bar.show()
         if self.close_window_button is not None:
             self.close_window_button.show()
+        if self.minimize_button is not None:
+            self.minimize_button.show()
         if self.window_element_container is not None:
             self.window_element_container.show(show_contents)
 
@@ -945,6 +982,8 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
             self.title_bar.hide()
         if self.close_window_button is not None:
             self.close_window_button.hide()
+        if self.minimize_button is not None:
+            self.minimize_button.hide()
         if self.window_element_container is not None:
             self.window_element_container.hide(hide_contents)
 
