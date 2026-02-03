@@ -24,6 +24,8 @@ class BottomBar:
 
         self.undo_redo = get_undo_redo()
 
+
+
         panel_x = (screen_width - self.bar_width) // 2
         self.panel = UIPanel(
             relative_rect=pygame.Rect(panel_x, screen_height - self.bar_height, self.bar_width, self.bar_height),
@@ -147,7 +149,7 @@ class BottomBar:
 
     def process_event(self, event):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-            self.physics_manager.toggle_pause()
+            self._on_pause_pressed()
             self.states['paused'] = not self.physics_manager.running_physics
             self._update_button_states()
         elif event.type == pygame_gui.UI_BUTTON_PRESSED:
@@ -238,9 +240,13 @@ class BottomBar:
         g = (0, 981) if self.states['gravity'] else (0, 0)
         self.physics_manager.set_gravity_mode(g=g)
         self.undo_redo.take_snapshot()
-
     def _on_undo_pressed(self):
         self.undo_redo.undo()
+
+    def _on_pause_pressed(self):
+        if self.ui_manager.get_focus_set():
+            return
+        self.physics_manager.toggle_pause()
 
     def _on_redo_pressed(self):
         self.undo_redo.redo()

@@ -25,25 +25,6 @@ if TYPE_CHECKING:
 
 
 class UIElement(GUISprite, IUIElementInterface):
-    """
-    A base class for UI elements. You shouldn't create UI Element objects, instead all UI Element
-    classes should derive from this class. Inherits from pygame.sprite.Sprite.
-
-    :param relative_rect: A rectangle shape of the UI element, the position is relative to the
-                          element's container.
-    :param manager: The UIManager that manages this UIElement.
-    :param container: A container that this element is contained in.
-    :param starting_height: Used to record how many layers above its container this element
-                            should be. Normally 1.
-    :param layer_thickness: Used to record how 'thick' this element is in layers. Normally 1.
-    :param anchors: A dictionary describing what this element's relative_rect is relative to.
-    :param visible: Whether the element is visible by default. Warning - container visibility may
-                    override this.
-    :param parent_element: Element that this element 'belongs to' in theming. Elements inherit
-                    colours from parents.
-    :param object_id: An optional set of IDs to help distinguish this element from other elements.
-    :param element_id: A list of string ID representing this element's class.
-    """
 
     def __init__(
         self,
@@ -402,70 +383,27 @@ class UIElement(GUISprite, IUIElementInterface):
             self._focus_set.discard(element)
 
     def get_relative_rect(self) -> pygame.Rect | pygame.FRect:
-        """
-        The relative positioning rect.
-
-        :return: A pygame rect.
-
-        """
         return self.relative_rect
 
     def get_abs_rect(self) -> pygame.Rect | pygame.FRect:
-        """
-        The absolute positioning rect.
-
-        :return: A pygame rect.
-
-        """
         return self.rect
 
     def get_element_base_ids(self) -> List[str | None]:
-        """
-        A list of all the element base IDs in this element's theming/event hierarchy.
-
-        :return: a list of strings, one for each element in the hierarchy.
-        """
         return self.element_base_ids
 
     def get_element_ids(self) -> List[str]:
-        """
-        A list of all the element IDs in this element's theming/event hierarchy.
-
-        :return: a list of strings, one for each element in the hierarchy.
-        """
         return self.element_ids
 
     def get_class_ids(self) -> List[str | None]:
-        """
-        A list of all the class IDs in this element's theming/event hierarchy.
-
-        :return: a list of strings, one for each element in the hierarchy.
-        """
         return self.class_ids
 
     def get_object_ids(self) -> List[str | None]:
-        """
-        A list of all the object IDs in this element's theming/event hierarchy.
-
-        :return: a list of strings, one for each element in the hierarchy.
-        """
         return self.object_ids
 
     def get_anchors(self) -> Dict[str, str | IUIElementInterface]:
-        """
-        A dictionary containing all the anchors defining what the relative rect is relative to
-
-        :return: A dictionary containing all the anchors defining what the relative rect is relative to
-        """
         return self.anchors
 
     def set_anchors(self, anchors: Dict[str, str | IUIElementInterface] | None) -> None:
-        """
-        Wraps the setting of the anchors with some validation
-
-        :param anchors: A dictionary of anchors defining what the relative rect is relative to
-        :return: None
-        """
         old_anchors = self.anchors.copy()
         self.anchors.clear()
 
@@ -517,20 +455,6 @@ class UIElement(GUISprite, IUIElementInterface):
         element_id: str,
         element_base_id: Optional[str] = None,
     ):
-        """
-        Creates valid id lists for an element. It will assert if users supply object IDs that
-        won't work such as those containing full stops. These ID lists are used by the theming
-        system to identify what theming parameters to apply to which element.
-
-        :param container: The container for this element. If parent is None the container will be
-                          used as the parent.
-        :param parent_element: Element that this element 'belongs to' in theming. Elements inherit
-                               colours from parents.
-        :param object_id: An optional set of IDs to help distinguish this element
-                         from other elements.
-        :param element_id: A string ID representing this element's class.
-
-        """
         id_parent: Optional[IContainerAndContainerLike | IUIElementInterface] = None
         if parent_element is not None:
             id_parent = parent_element
@@ -579,14 +503,6 @@ class UIElement(GUISprite, IUIElementInterface):
         self.most_specific_combined_id = self.combined_element_ids[0]
 
     def change_object_id(self, new_object_id: Union[ObjectID, str, None]):
-        """
-        Allows for easy switching of an element's ObjectID used for theming and events.
-
-        Will rebuild the element after switching the ID
-
-        :param new_object_id: The new ID to use for this element.
-        :return:
-        """
         self._create_valid_ids(
             container=self.ui_container,
             parent_element=self.parent_element,
@@ -691,22 +607,6 @@ class UIElement(GUISprite, IUIElementInterface):
         dynamic_width: bool = False,
         dynamic_height: bool = False,
     ) -> Tuple[pygame.Rect, Optional[int], Optional[int]]:
-        """
-        Use this function to get the absolute rect position, given the relative rect, container and the anchors.
-        All values are assumed to be valid.
-
-        :param relative_rect: A Rect relative to the container/anchors
-        :param container: Defines the container of the rect
-        :param anchors: Defines what the Rect is relative to
-        :param relative_right_margin: The margin from the right. If not given or None, then it will be calculated
-        :param relative_bottom_margin: The margin from the bottom. If not given or None, then it will be calculated
-        :param dynamic_width: If the width of the rect is dynamic or not.
-                              If not width will be clamped to minimum of 0.
-        :param dynamic_height: If the height of the rect is dynamic or not.
-                               If not height will be clamped to minimum of 0.
-        :return: A tuple containing a Rect representing the absolute position of the rect from the screen, and the
-        relative right and bottom margins
-        """
         new_top = 0
         new_bottom = 0
         top_offset = UIElement._calc_top_offset(container, anchors)
@@ -842,17 +742,9 @@ class UIElement(GUISprite, IUIElementInterface):
             self.set_dimensions((new_width, new_height))
 
     def _update_relative_rect_position_from_anchors(self, recalculate_margins=False):
-        """
-        Called when our element's absolute position has been forcibly changed.
-        """
         if self.ui_container is None:
             return
 
-        # This is a bit easier to calculate than getting the absolute position from the
-        # relative one, because the absolute position rectangle is always relative to the top
-        # left of the screen.
-
-        # Setting these to None means we are always recalculating the margins in here.
         self.relative_bottom_margin = None
         self.relative_right_margin = None
 
@@ -925,24 +817,13 @@ class UIElement(GUISprite, IUIElementInterface):
                     self.relative_right_margin = right_offset - self.rect.right
                 new_right = self.rect.right - right_offset
 
-        # set bottom and right first in case these are only anchors available
         self.relative_rect.bottom = new_bottom
         self.relative_rect.right = new_right
 
-        # set top and left last to give these priority, in most cases where all anchors are set
-        # we want relative_rect parameters to be correct for whatever the top & left sides are
-        # anchored to. The data for the bottom and right in cases where left is anchored
-        # differently to right and/or top is anchored differently to bottom should be captured by
-        # the bottom and right margins.
         self.relative_rect.left = new_left
         self.relative_rect.top = new_top
 
     def _update_container_clip(self):
-        """
-        Creates a clipping rectangle for the element's image surface based on whether this
-        element is inside its container, part-way in it, or all the way out of it.
-
-        """
         if self.ui_container is None:
             return
         image_clipping_rect = (
@@ -979,10 +860,6 @@ class UIElement(GUISprite, IUIElementInterface):
         self._clip_images_for_container(clip_rect)
 
     def update_containing_rect_position(self):
-        """
-        Updates the position of this element based on the position of its container. Usually
-        called when the container has moved.
-        """
         self._update_absolute_rect_position_from_anchors()
 
         if self.drawable_shape is not None:
@@ -991,12 +868,6 @@ class UIElement(GUISprite, IUIElementInterface):
         self._update_container_clip()
 
     def set_relative_position(self, position: Coordinate):
-        """
-        Method to directly set the relative rect position of an element.
-
-        :param position: The new position to set.
-
-        """
         self.relative_rect.x = int(position[0])
         self.relative_rect.y = int(position[1])
 
@@ -1010,12 +881,6 @@ class UIElement(GUISprite, IUIElementInterface):
             self.ui_container.get_container().on_contained_elements_changed(self)
 
     def set_position(self, position: Coordinate):
-        """
-        Method to directly set the absolute screen rect position of an element.
-
-        :param position: The new position to set.
-
-        """
         self.rect.x = int(position[0])
         self.rect.y = int(position[1])
         self._update_relative_rect_position_from_anchors(recalculate_margins=True)
@@ -1027,14 +892,6 @@ class UIElement(GUISprite, IUIElementInterface):
             self.ui_container.get_container().on_contained_elements_changed(self)
 
     def set_minimum_dimensions(self, dimensions: Coordinate):
-        """
-        If this window is resizable, then the dimensions we set here will be the minimum that
-        users can change the window to. They are also used as the minimum size when
-        'set_dimensions' is called.
-
-        :param dimensions: The new minimum dimension for the window.
-
-        """
         if self.ui_container is not None:
             self.minimum_dimensions = (
                 min(
@@ -1055,17 +912,6 @@ class UIElement(GUISprite, IUIElementInterface):
             self.set_dimensions((new_width, new_height))
 
     def set_dimensions(self, dimensions: Coordinate, clamp_to_container: bool = False):
-        """
-        Method to directly set the dimensions of an element. And set whether the elements are dynamic.
-
-        NOTE: Using this on elements inside containers with non-default anchoring arrangements
-        may make a mess of them.
-
-        :param dimensions: The new dimensions to set. If it is a negative value, the element will become
-                            dynamically sized, otherwise it will become statically sized.
-        :param clamp_to_container: Whether we should clamp the dimensions to the
-                                   dimensions of the container or not.
-        """
         is_dynamic = False
         if dimensions[0] < 0:
             self._set_dynamic_width()
@@ -1085,14 +931,6 @@ class UIElement(GUISprite, IUIElementInterface):
             self._set_dimensions(dimensions, clamp_to_container)
 
     def _set_dimensions(self, dimensions: Coordinate, clamp_to_container: bool = False):
-        """
-        Method to directly set the dimensions of an element.
-        Dimensions must be positive values.
-
-        :param dimensions: The new dimensions to set.
-        :param clamp_to_container: Whether we should clamp the dimensions to the
-                                   dimensions of the container or not.
-        """
         dimensions = self._get_clamped_to_minimum_dimensions(
             dimensions, clamp_to_container
         )
@@ -1113,33 +951,17 @@ class UIElement(GUISprite, IUIElementInterface):
                 self.ui_container.get_container().on_contained_elements_changed(self)
 
     def update(self, time_delta: float):
-        """
-        Updates this element's drawable shape, if it has one.
-
-        :param time_delta: The time passed between frames, measured in seconds.
-
-        """
         if self.alive() and self.drawable_shape is not None:
             self.drawable_shape.update(time_delta)
             if self.drawable_shape.has_fresh_surface():
                 self.on_fresh_drawable_shape_ready()
 
     def change_layer(self, new_layer: int):
-        """
-        Changes the layer this element is on.
-
-        :param new_layer: The layer to change this element to.
-
-        """
         if new_layer != self._layer:
             self.ui_group.change_layer(self, new_layer)
             self._layer = new_layer
 
     def kill(self):
-        """
-        Overriding regular sprite kill() method to remove the element from its container.
-        Will also kill any tooltips belonging to this element.
-        """
         if self.tool_tip is not None:
             self.tool_tip.kill()
         if self.ui_container is not None:
@@ -1148,18 +970,6 @@ class UIElement(GUISprite, IUIElementInterface):
         super().kill()
 
     def check_hover(self, time_delta: float, hovered_higher_element: bool) -> bool:
-        """
-        A method that helps us to determine which, if any, UI Element is currently being hovered
-        by the mouse.
-
-        :param time_delta: A float, the time in seconds between the last call to this function
-                           and now (roughly).
-        :param hovered_higher_element: A boolean, representing whether we have already hovered a
-                                       'higher' element.
-
-        :return bool: A boolean that is true if we have hovered a UI element, either just now or
-                      before this method.
-        """
         should_block_hover = False
         if self.alive():
             mouse_x, mouse_y = self.ui_manager.get_mouse_position()
@@ -1185,23 +995,13 @@ class UIElement(GUISprite, IUIElementInterface):
         return should_block_hover
 
     def on_fresh_drawable_shape_ready(self):
-        """
-        Called when our drawable shape has finished rebuilding the active surface. This is needed
-        because sometimes we defer rebuilding until a more advantageous (read quieter) moment.
-        """
         if self.drawable_shape is not None:
             self._set_image(self.drawable_shape.get_fresh_surface())
 
     def on_hovered(self):
-        """
-        Called when this UI element first enters the 'hovered' state.
-        """
         self.hover_time = 0.0
 
     def on_unhovered(self):
-        """
-        Called when this UI element leaves the 'hovered' state.
-        """
         if self.tool_tip is not None:
             self.tool_tip.kill()
             self.tool_tip = None
@@ -1211,14 +1011,6 @@ class UIElement(GUISprite, IUIElementInterface):
         time_delta: float,
         mouse_pos: Union[pygame.math.Vector2, Tuple[int, int], Tuple[float, float]],
     ):
-        """
-        Called while we are in the hover state. It will create a tool tip if we've been in the
-        hover state for a while, the text exists to create one, and we haven't created one already.
-
-        :param time_delta: Time in seconds between calls to update.
-        :param mouse_pos: The current position of the mouse.
-
-        """
         if (
             self.tool_tip is None
             and self.tool_tip_text is not None
@@ -1238,25 +1030,9 @@ class UIElement(GUISprite, IUIElementInterface):
         self.hover_time += time_delta
 
     def can_hover(self) -> bool:
-        """
-        A stub method to override. Called to test if this method can be hovered.
-        """
         return self.alive()
 
     def hover_point(self, hover_x: float, hover_y: float) -> bool:
-        """
-        Test if a given point counts as 'hovering' this UI element. Normally that is a
-        straightforward matter of seeing if a point is inside the rectangle. Occasionally it
-        will also check if we are in a wider zone around a UI element once it is already active,
-        this makes it easier to move scroll bars and the like.
-
-        :param hover_x: The x (horizontal) position of the point.
-        :param hover_y: The y (vertical) position of the point.
-
-        :return: Returns True if we are hovering this element.
-
-        """
-
         container_clip_rect = pygame.Rect(0, 0, 0, 0)
         if self.ui_container is not None:
             container_clip_rect = self.ui_container.get_container().get_rect().copy()
@@ -1279,26 +1055,12 @@ class UIElement(GUISprite, IUIElementInterface):
 
     # pylint: disable=unused-argument
     def process_event(self, event: pygame.event.Event) -> bool:
-        """
-        A stub to override. Gives UI Elements access to pygame events.
-
-        :param event: The event to process.
-
-        :return: Should return True if this element makes use of this event.
-
-        """
         return False
 
     def focus(self):
-        """
-        A stub to override. Called when we focus this UI element.
-        """
         self._is_focused = True
 
     def unfocus(self):
-        """
-        A stub to override. Called when we stop focusing this UI element.
-        """
         self._is_focused = False
 
     def rebuild_from_changed_theme_data(self):
@@ -1307,23 +1069,11 @@ class UIElement(GUISprite, IUIElementInterface):
         """
 
     def rebuild(self):
-        """
-        Takes care of rebuilding this element. Most derived elements are going to override this,
-        and hopefully call the super() class method.
-
-        """
         if self._visual_debug_mode:
             self._set_image(self.pre_debug_image)
             self.pre_debug_image = None
 
     def set_visual_debug_mode(self, activate_mode: bool):
-        """
-        Enables a debug mode for the element which displays layer information on top of it in
-        a tiny font.
-
-        :param activate_mode: True or False to enable or disable the mode.
-
-        """
         if activate_mode:
             default_font = (
                 self.ui_manager.get_theme().get_font_dictionary().get_default_font()
@@ -1343,8 +1093,6 @@ class UIElement(GUISprite, IUIElementInterface):
 
     def _put_visual_debug_text_onto_element(self, layer_text_render):
         self.pre_debug_image = self.image.copy()
-        # check if our surface is big enough to hold the debug info,
-        # if not make a new, bigger copy
         make_new_larger_surface = False
         surf_width = self.image.get_width()
         surf_height = self.image.get_height()
@@ -1364,29 +1112,12 @@ class UIElement(GUISprite, IUIElementInterface):
         basic_blit(self.image, layer_text_render, (0, 0))
 
     def _clip_images_for_container(self, clip_rect: Union[pygame.Rect, None]):
-        """
-        Set the current image clip based on the container.
-
-        :param clip_rect: The clipping rectangle.
-
-        """
         self._set_image_clip(clip_rect)
 
     def _restore_container_clipped_images(self):
-        """
-        Clear the image clip.
-
-        """
         self._set_image_clip(None)
 
     def _set_image_clip(self, rect: Union[pygame.Rect, None]):
-        """
-        Sets a clipping rectangle on this element's image determining what portion of it will
-        actually be displayed when this element is blitted to the screen.
-
-        :param rect: A clipping rectangle, or None to clear the clip.
-
-        """
         if rect is not None:
             rect.width = max(rect.width, 0)
             rect.height = max(rect.height, 0)
@@ -1423,23 +1154,9 @@ class UIElement(GUISprite, IUIElementInterface):
             return 0, 0
 
     def get_image_clipping_rect(self) -> Union[pygame.Rect, None]:
-        """
-        Obtain the current image clipping rect.
-
-        :return: The current clipping rect. Maybe None.
-
-        """
         return self._image_clip
 
     def set_image(self, new_image: Union[pygame.surface.Surface, None]):
-        """
-        This used to be the way to set the proper way to set the .image property of a UIElement (inherited from
-        pygame.Sprite), but it is intended for internal use in the library - not for adding actual images/pictures
-        on UIElements. As such I've renamed the original function to make it protected and not part of the interface
-        and deprecated this one for most elements.
-
-        :return:
-        """
         warnings.warn(
             "This method will be removed for most elements from version 0.8.0",
             DeprecationWarning,
@@ -1448,13 +1165,6 @@ class UIElement(GUISprite, IUIElementInterface):
         self._set_image(new_image)
 
     def _set_image(self, new_image: Union[pygame.surface.Surface, None]):
-        """
-        Wraps setting the image variable of this element so that we also set the current image
-        clip on the image at the same time.
-
-        :param new_image: The new image to set.
-
-        """
         image_clipping_rect = self.get_image_clipping_rect()
         if image_clipping_rect is not None and new_image is not None:
             self._pre_clipped_image = new_image
@@ -1476,32 +1186,12 @@ class UIElement(GUISprite, IUIElementInterface):
             self._pre_clipped_image = None
 
     def get_top_layer(self) -> int:
-        """
-        Assuming we have correctly calculated the 'thickness' of it, this method will
-        return the top of this element.
-
-        :return int: An integer representing the current highest layer being used by this element.
-
-        """
         return self._layer + self.layer_thickness
 
     def get_starting_height(self) -> int:
-        """
-        Get the starting layer height of this element. (i.e. the layer we start placing it on
-        *above* its container, it may use more layers above this layer)
-
-        :return: an integer representing the starting layer height.
-
-        """
         return self.starting_height
 
     def _check_shape_theming_changed(self, defaults: Dict[str, Any]) -> bool:
-        """
-        Checks all the standard miscellaneous shape theming parameters.
-
-        :param defaults: A dictionary of default values
-        :return: True if any have changed.
-        """
         has_any_changed = False
 
         # Handle border_width specially since it can be either an int or a dict
@@ -1583,18 +1273,6 @@ class UIElement(GUISprite, IUIElementInterface):
         casting_func: Callable[[Any], Any],
         allowed_values: Union[List, None] = None,
     ) -> bool:
-        """
-        Checks if the value of a pieces of miscellaneous theming data has changed, and if it has,
-        updates the corresponding attribute on the element and returns True.
-
-        :param attribute_name: The name of the attribute.
-        :param default_value: The default value for the attribute.
-        :param casting_func: The function to cast to the type of the data.
-        :param allowed_values: A list of allowed values for this attribute.
-
-        :return: True if the attribute has changed.
-
-        """
         has_changed = False
         attribute_value = default_value
         try:
@@ -1618,45 +1296,21 @@ class UIElement(GUISprite, IUIElementInterface):
         return has_changed
 
     def disable(self):
-        """
-        Disables elements so they are no longer interactive.
-        This is just a default fallback implementation for elements that don't define their own.
-
-        Elements should handle their own enabling and disabling.
-        """
         self.is_enabled = False
 
     def enable(self):
-        """
-        Enables elements so they are interactive again.
-        This is just a default fallback implementation for elements that don't define their own.
-
-        Elements should handle their own enabling and disabling.
-        """
         self.is_enabled = True
 
     def show(self):
-        """
-        Shows the widget, which means the widget will get drawn and will process events.
-        """
         self.visible = True
 
     def hide(self):
-        """
-        Hides the widget, which means the widget will not get drawn and will not process events.
-        Clear hovered state.
-        """
         self.visible = False
 
         self.hovered = False
         self.hover_time = 0.0
 
     def _get_appropriate_state_name(self):
-        """
-        Returns a string representing the appropriate state for the widgets DrawableShapes.
-        Currently only returns either 'normal' or 'disabled' based on is_enabled.
-        """
-
         return "normal" if self.is_enabled else "disabled"
 
     def on_locale_changed(self):
@@ -1678,26 +1332,10 @@ class UIElement(GUISprite, IUIElementInterface):
 
     @staticmethod
     def tuple_extract(str_data: str) -> Tuple[int, int]:
-        """
-        Used for parsing pairs of coordinates in themes from string data into numerical tuples.
-        e.g. 5,10
-
-        :param str_data: the comma separated string of two numbers to parse.
-
-        :return: a tuple of two ints
-        """
         x, y = str_data.split(",")
         return int(x), int(y)
 
     def update_theming(self, new_theming_data: str):
-        """
-        Update the theming for this element using the most specific ID assigned to it.
-
-        If you have not given this element a unique ID, this function will also update the theming of other elements
-        of this theming class or of this element type.
-
-        :param new_theming_data: the new theming data in a json string
-        """
         self.ui_theme.update_single_element_theming(
             self.most_specific_combined_id, new_theming_data
         )
@@ -1711,16 +1349,6 @@ class UIElement(GUISprite, IUIElementInterface):
         delay: Optional[float] = None,
         wrap_width: Optional[int] = None,
     ):
-        """
-        Setup floating tool tip data for this UI element.
-
-        :param text: the text for the tool tip.
-        :param object_id: an object ID for the tooltip - useful for theming
-        :param text_kwargs: key word arguments for the tool tip text
-        :param delay: how long it takes the tooltip to appear when statically hovering the UI element
-        :param wrap_width: how wide the tooltip will grow before wrapping.
-        :return:
-        """
         self.tool_tip_text = text
         self.tool_tip_text_kwargs = {}
         if text_kwargs is not None:
