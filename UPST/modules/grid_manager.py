@@ -182,27 +182,46 @@ class GridManager:
                     screen.blit(text_surf, (clamp(label_x) - text_surf.get_width() // 2,
                                             clamp(label_y) - text_surf.get_height() // 2))
             theta += angle_step_rad
+
     def _draw_axis_labels(self, screen):
         offset = 1.5 * self.calculate_grid_spacing()[0]
         x_label_pos = self.camera.world_to_screen((offset, 0))
         y_label_pos = self.camera.world_to_screen((0, offset))
+        if not (all(math.isfinite(c) for c in x_label_pos) and all(math.isfinite(c) for c in y_label_pos)):
+            return
         font = pygame.font.SysFont("Consolas", 14, bold=True)
         x_surf = font.render("X", True, (200, 200, 200))
         y_surf = font.render("Y", True, (200, 200, 200))
-        screen.blit(x_surf, (int(x_label_pos[0]), int(x_label_pos[1] - x_surf.get_height() - 2)))
-        screen.blit(y_surf, (int(y_label_pos[0] + 2), int(y_label_pos[1])))
+
+        def clamp_coord(c):
+            return max(-32768, min(32767, int(round(c))))
+
+        x_pos = (clamp_coord(x_label_pos[0]), clamp_coord(x_label_pos[1] - x_surf.get_height() - 2))
+        y_pos = (clamp_coord(y_label_pos[0] + 2), clamp_coord(y_label_pos[1]))
+        screen.blit(x_surf, x_pos)
+        screen.blit(y_surf, y_pos)
+
     def _draw_world_label(self, screen, x, y, is_x):
         if abs(x) < 1e-12 and abs(y) < 1e-12:
             return
         world_pos = (x, y)
         screen_pos = self.camera.world_to_screen(world_pos)
+        if not all(math.isfinite(c) for c in screen_pos):
+            return
         label = self._format_number(x if is_x else y)
         text_surf = self.ruler_font.render(label, True, (200, 200, 200))
         offset = 4
         if is_x:
-            pos = (int(screen_pos[0] - text_surf.get_width() / 2), int(screen_pos[1] + offset))
+            pos_x = screen_pos[0] - text_surf.get_width() / 2
+            pos_y = screen_pos[1] + offset
         else:
-            pos = (int(screen_pos[0] + offset), int(screen_pos[1] - text_surf.get_height() / 2))
+            pos_x = screen_pos[0] + offset
+            pos_y = screen_pos[1] - text_surf.get_height() / 2
+
+        def clamp_coord(c):
+            return max(-32768, min(32767, int(round(c))))
+
+        pos = (clamp_coord(pos_x), clamp_coord(pos_y))
         screen.blit(text_surf, pos)
 
     def _format_number(self, val):
