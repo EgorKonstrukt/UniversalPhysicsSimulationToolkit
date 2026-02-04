@@ -7,8 +7,10 @@ import pymunk
 import gzip
 import lzma
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import os
+import pygame
+import pygame_gui
 
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
@@ -31,8 +33,16 @@ class SaveLoadManager:
 
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._autosave_lock = threading.Lock()
-        self._try_load_autosave()
 
+        self._autosave_load_pending = False
+        if os.path.isfile(config.app.autosave_path):
+            self._autosave_load_pending = True
+
+    def try_load_deferred_autosave(self):
+        if not self._autosave_load_pending:
+            return
+        self._autosave_load_pending = False
+        self._try_load_autosave()
     def render_preview(self, data, size=(256, 256)):
         w, h = size
         assert w == h, "Preview must be square"
@@ -88,14 +98,43 @@ class SaveLoadManager:
     def _try_load_autosave(self):
         if not os.path.isfile(config.app.autosave_path):
             return
+        future = self._executor.submit(self._load_autosave_task)
+        try:
+            success, error_msg = future.result(timeout=5.0)
+            if success:
+                self.physics_manager.set_simulation_paused(paused=False)
+                Debug.log_success("Autosave loaded from root directory.", category="SaveLoadManager")
+            else:
+                self._handle_autosave_error(error_msg)
+        except TimeoutError:
+            self._handle_autosave_error("Autosave load timed out (took longer than 5 seconds). File may be corrupted.")
+        except Exception as e:
+            self._handle_autosave_error(f"Unexpected error during autosave load: {e}")
+
+    def _load_autosave_task(self):
         try:
             with open(config.app.autosave_path, "rb") as f:
                 data = f.read()
             self._apply_loaded_data(pickle.loads(data))
-            self.physics_manager.set_simulation_paused(paused=False)
-            Debug.log_success("Autosave loaded from root directory.", category="SaveLoadManager")
+            return True, None
         except Exception as e:
-            Debug.log_exception(f"Failed to load autosave: {e}", category="SaveLoadManager")
+            return False, str(e)
+
+    def _handle_autosave_error(self, message):
+        Debug.log_error(f"Autosave failed: {message}", category="SaveLoadManager")
+        if hasattr(self.app, 'screen') and self.app.screen is not None and pygame.display.get_surface() is not None:
+            try:
+                pygame_gui.windows.UIMessageWindow(
+                    rect=pygame.Rect(100, 100, 400, 200),
+                    window_title="Autosave Load Failed",
+                    html_message=f"<b>Failed to load autosave:</b><br>{message}<br><br>The simulation will start empty.",
+                    manager=self.ui_manager
+                )
+            except Exception as gui_err:
+                Debug.log_error(f"Failed to show autosave error dialog: {gui_err}", category="SaveLoadManager")
+        else:
+            # Too early to show GUI; just log
+            Debug.log_warning("Autosave error occurred before UI was ready. Message: " + message, category="SaveLoadManager")
 
     def _write_autosave_background(self, data):
         if not self._autosave_lock.acquire(blocking=False):
@@ -133,10 +172,8 @@ class SaveLoadManager:
                 if self.compression_method == "lzma": lzma.open(fp,"wb").__enter__().write(pickle.dumps(data))
                 else: gzip.open(fp,"wb").__enter__().write(pickle.dumps(data))
             else: open(fp,"wb").write(pickle.dumps(data))
-            # self.ui_manager.console_window.add_output_line_to_log("Save successful!")
             Debug.log_success(f"Saved to {fp}", "SaveLoadManager")
         except Exception as e:
-            # self.ui_manager.console_window.add_output_line_to_log(f"Save error: {e}")
             Debug.log_exception(f"Save failed for {fp}: {traceback.format_exc()}", "SaveLoadManager")
 
     def _prepare_save_data(self):
@@ -285,11 +322,9 @@ class SaveLoadManager:
         try:
             data = self._load_data_with_fallback(fp)
             self._apply_loaded_data(data)
-            # self.ui_manager.console_window.add_output_line_to_log("Load successful!")
             self.physics_manager.set_simulation_paused(paused=False)
             Debug.log_success(f"Loaded from {fp}", "SaveLoadManager")
         except Exception as e:
-            # self.ui_manager.console_window.add_output_line_to_log(f"Load error: {e}")
             Debug.log_exception(f"Load failed for {fp}: {traceback.format_exc()}", "SaveLoadManager")
 
     def _load_data_with_fallback(self, fp):
@@ -375,10 +410,6 @@ class SaveLoadManager:
             if shapes: self.physics_manager.space.add(bt,*shapes)
             else: self.physics_manager.space.add(bt)
             loaded_bodies.append(bt)
-        # for bd, bt in zip(data.get("bodies", []), loaded_bodies):
-        #     if '_script_uuid' in bd:
-        #         bt._script_uuid = uuid.UUID(bd['_script_uuid'])
-        #         body_uuid_map[bt._script_uuid] = bt
         script_data = data.get("scripts", {})
         self.physics_manager.script_manager.deserialize_from_save(script_data, body_uuid_map)
         for cd in data.get("constraints",[]):

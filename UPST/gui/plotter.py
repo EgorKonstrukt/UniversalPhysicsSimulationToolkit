@@ -348,7 +348,7 @@ class Plotter:
         if len(lnamps) < 2: return sum(amps) / len(amps), 0.0
         n = len(lnamps)
         xs_lr = tvals[:n]
-        sumx = sum(xs_lr);
+        sumx = sum(xs_lr)
         sumy = sum(lnamps)
         sumxy = sum(x * y for x, y in zip(xs_lr, lnamps))
         sumx2 = sum(x * x for x in xs_lr)

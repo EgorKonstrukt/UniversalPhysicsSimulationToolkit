@@ -170,6 +170,7 @@ class Application:
         self.tool_manager.clear_tool_buttons()
         self.tool_manager.create_tool_buttons()
         self.plugin_manager.register_console_commands(self.console_handler)
+        self.save_load_manager.try_load_deferred_autosave()
 
     def setup_screen(self):
         flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE | pygame.SWSURFACE | pygame.SRCALPHA
