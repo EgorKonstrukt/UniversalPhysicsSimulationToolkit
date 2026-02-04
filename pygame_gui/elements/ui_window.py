@@ -68,6 +68,10 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
         self._always_on_top = always_on_top
         self._blocking_always_on_top = False
 
+        self.velocity = [0.0, 0.0]
+        self.drag_friction = 2.0  # higher = faster stop; adjust as needed
+        self.last_mouse_pos = None
+
         self._collapsed = False
         self._stored_height = rect.height
 
@@ -347,53 +351,73 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
         return consumed_event
 
     def update(self, time_delta: float):
-        """
-        A method called every update cycle of our application. Designed to be overridden by
-        derived classes but also has a little functionality to make sure the window's layer
-        'thickness' is accurate and to handle window resizing.
-
-        :param time_delta: time passed in seconds between one call to this method and the next.
-
-        """
         super().update(time_delta)
 
-        # This is needed to keep the window in sync with the container after adding elements to it
-        if (
-            self._window_root_container is not None
-            and self._window_root_container.layer_thickness != self.layer_thickness
-        ):
+        if self._window_root_container is not None and self._window_root_container.layer_thickness != self.layer_thickness:
             self.layer_thickness = self._window_root_container.layer_thickness
             self.window_stack.refresh_window_stack_from_window(self)
+
+        mouse_x, mouse_y = self.ui_manager.get_mouse_position()
+        current_mouse_pos = (mouse_x, mouse_y)
+
+        container_rect = self.ui_container.get_rect() if self.ui_container else pygame.Rect(0, 0,
+                                                                                            self.ui_manager.window_resolution[
+                                                                                                0],
+                                                                                            self.ui_manager.window_resolution[
+                                                                                                1])
+
         if self.title_bar is not None:
             if self.title_bar.held:
-                mouse_x, mouse_y = self.ui_manager.get_mouse_position()
                 if not self.grabbed_window:
                     self.window_stack.move_window_to_front(self)
                     self.grabbed_window = True
-                    self.starting_grab_difference = (
-                        mouse_x - self.rect.x,
-                        mouse_y - self.rect.y,
-                    )
+                    self.starting_grab_difference = (mouse_x - self.rect.x, mouse_y - self.rect.y)
+                    self.velocity = [0.0, 0.0]
+                    self.last_mouse_pos = current_mouse_pos
 
                 if self.draggable:
-                    current_grab_difference = (
-                        mouse_x - self.rect.x,
-                        mouse_y - self.rect.y,
-                    )
+                    dx = mouse_x - self.last_mouse_pos[0] if self.last_mouse_pos else 0
+                    dy = mouse_y - self.last_mouse_pos[1] if self.last_mouse_pos else 0
+                    self.velocity = [dx / time_delta if time_delta > 0 else 0,
+                                     dy / time_delta if time_delta > 0 else 0]
+                    self.last_mouse_pos = current_mouse_pos
 
-                    adjustment_required = (
-                        current_grab_difference[0] - self.starting_grab_difference[0],
-                        current_grab_difference[1] - self.starting_grab_difference[1],
-                    )
+                    new_x = mouse_x - self.starting_grab_difference[0]
+                    new_y = mouse_y - self.starting_grab_difference[1]
 
-                    self.set_relative_position(
-                        (
-                            self.relative_rect.x + adjustment_required[0],
-                            self.relative_rect.y + adjustment_required[1],
-                        )
-                    )
+                    new_x = max(0, min(container_rect.width - self.rect.width, new_x))
+                    new_y = max(0, min(container_rect.height - self.rect.height, new_y))
+
+                    self.set_position((new_x, new_y))
             else:
-                self.grabbed_window = False
+                if self.grabbed_window:
+                    self.grabbed_window = False
+                    self.last_mouse_pos = None
+
+                if abs(self.velocity[0]) > 0.1 or abs(self.velocity[1]) > 0.1:
+                    decay = pow(0.001, time_delta * self.drag_friction)
+                    self.velocity[0] *= decay
+                    self.velocity[1] *= decay
+
+                    new_x = self.rect.x + self.velocity[0] * time_delta
+                    new_y = self.rect.y + self.velocity[1] * time_delta
+
+                    min_x, max_x = 0, container_rect.width - self.rect.width
+                    min_y, max_y = 0, container_rect.height - self.rect.height
+
+                    clamped_x = max(min_x, min(max_x, new_x))
+                    clamped_y = max(min_y, min(max_y, new_y))
+
+                    if clamped_x != new_x:
+                        self.velocity[0] = 0.0
+                        new_x = clamped_x
+                    if clamped_y != new_y:
+                        self.velocity[1] = 0.0
+                        new_y = clamped_y
+
+                    self.set_position((new_x, new_y))
+                else:
+                    self.velocity = [0.0, 0.0]
 
         if self.resizing_mode_active:
             self._update_drag_resizing()

@@ -1,4 +1,5 @@
 import pygame_gui
+from UPST.debug.debug_manager import Debug
 from pygame_gui.elements import UIButton, UIImage, \
     UIWindow, UICheckBox
 import pygame
@@ -185,13 +186,20 @@ class ContextMenu:
         plotter_win.show()
 
     def center_to_scene(self):
+        Debug.log("center_to_scene called!", "ContextMenu")
         if self.ui_manager.camera:
-
+            Debug.log("Calling camera.center_to_scene", "ContextMenu")
             self.ui_manager.camera.center_to_scene()
+        else:
+            Debug.log("NO CAMERA!", "ContextMenu")
 
     def center_to_origin(self):
+        Debug.log("center_to_origin called!", "ContextMenu")
         if self.ui_manager.camera:
+            Debug.log("Calling camera.center_to_origin", "ContextMenu")
             self.ui_manager.camera.center_to_origin()
+        else:
+            Debug.log("NO CAMERA!", "ContextMenu")
 
     def set_camera_target(self):
         cam = self.ui_manager.camera
@@ -472,8 +480,6 @@ class ContextMenu:
         pygame.draw.line(screen, (255, 255, 255), start_screen, end_screen, 2)
 
     def _execute_option(self, option):
-        if not self.clicked_object and option.name not in ("Run Python Script", "Script Management"):
-            return
         if option.handler:
             option.handler()
 
