@@ -45,17 +45,18 @@ class MoveTool(BaseTool):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             info = self.app.physics_manager.space.point_query_nearest(wpos, 0, pymunk.ShapeFilter())
             body = info.shape.body if info and info.shape and info.shape.body != self.app.physics_manager.static_body else None
-            if body and body.body_type == pymunk.Body.DYNAMIC:
-                self.tgt = body
-                if self.cb_center.get_state():
-                    self.offset = pymunk.Vec2d(0, 0)
-                else:
-                    self.offset = wpos - self.tgt.position
-                self.saved_body_type = self.tgt.body_type
-                self.saved_mass = self.tgt.mass
-                self.saved_moment = self.tgt.moment
-                self.tgt.body_type = pymunk.Body.KINEMATIC
-                self.drag = True
+            if body and body in self.app.physics_manager.selected_bodies:
+                pass
+            else:
+                self.app.physics_manager.clear_selection()
+                if body and body.body_type == pymunk.Body.DYNAMIC:
+                    self.tgt = body
+                    self.offset = wpos - self.tgt.position if not self.cb_center.get_state() else pymunk.Vec2d(0, 0)
+                    self.saved_body_type = self.tgt.body_type
+                    self.saved_mass = self.tgt.mass
+                    self.saved_moment = self.tgt.moment
+                    self.tgt.body_type = pymunk.Body.KINEMATIC
+                    self.drag = True
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             if self.drag:
                 self._stop_move()
@@ -66,18 +67,15 @@ class MoveTool(BaseTool):
         self.tgt.position = wpos - self.offset
 
     def _stop_move(self):
-        if self.tgt and self.saved_body_type is not None:
-            self.tgt.body_type = self.saved_body_type
-            if self.saved_body_type == pymunk.Body.DYNAMIC:
-                self.tgt.mass = self.saved_mass
-                self.tgt.moment = self.saved_moment
-        self.drag = False
-        self.tgt = None
-        self.saved_body_type = None
-        self.saved_mass = None
-        self.saved_moment = None
-        if hasattr(self, 'undo_redo'):
-            self.undo_redo.take_snapshot()
+        if self.tgt and self.saved_states:
+            for i, b in enumerate(self.tgt):
+                b.body_type, b.mass, b.moment = self.saved_states[i]
+            self.drag = False
+            self.tgt = None
+            self.saved_states = None
+            self.offsets = None
+            if hasattr(self, 'undo_redo'):
+                self.undo_redo.take_snapshot()
 
     def deactivate(self):
         if self.drag:

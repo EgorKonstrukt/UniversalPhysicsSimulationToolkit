@@ -285,6 +285,19 @@ class Renderer:
         self.tool_manager.laser_processor.update()
         self.tool_manager.laser_processor.draw(self.screen, self.camera)
         self._draw_textured_bodies()
+
+        selected_set = getattr(self.physics_manager, 'selected_bodies', set())
+        for body in selected_set:
+            if body not in self.physics_manager.space.bodies: continue
+            for shape in body.shapes:
+                if isinstance(shape, pymunk.Circle):
+                    scr = self.camera.world_to_screen(body.position)
+                    r = shape.radius * self.camera.scaling
+                    pygame.draw.circle(self.screen, (255, 255, 255), (int(scr[0]), int(scr[1])), int(r), 2)
+                elif isinstance(shape, pymunk.Poly):
+                    verts = [self.camera.world_to_screen(body.local_to_world(v)) for v in shape.get_vertices()]
+                    pygame.draw.polygon(self.screen, (255, 255, 255), verts, 3)
+
         if hasattr(self.ui_manager.app, 'console_handler'): self.ui_manager.app.console_handler.draw_graph()
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw()

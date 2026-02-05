@@ -53,17 +53,36 @@ class RectangleTool(BaseTool):
                                                     image_surface=pygame.image.load("sprites/gui/checkbox_true.png"),
                                                     container=win, manager=self.ui_manager.manager)
         self.settings_window = win
+
     def handle_event(self, event, world_pos):
         if self.ui_manager.manager.get_focus_set():
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.pm.clear_selection()
             self.drag_start = world_pos
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             if self.drag_start:
-                self.spawn_dragged(self.drag_start, world_pos)
-            self.drag_start = None
+                dx = world_pos[0] - self.drag_start[0]
+                dy = world_pos[1] - self.drag_start[1]
+                if abs(dx) > 5 or abs(dy) > 5:
+                    x0, y0 = min(self.drag_start[0], world_pos[0]), min(self.drag_start[1], world_pos[1])
+                    w, h = abs(dx), abs(dy)
+                    query_rect = pygame.Rect(x0, y0, w, h)
+                    bodies_in_rect = []
+                    for shape in self.pm.space.shapes:
+                        if not hasattr(shape, 'body') or not shape.body: continue
+                        pos = shape.body.position
+                        if query_rect.collidepoint(pos.x, pos.y):
+                            bodies_in_rect.append(shape.body)
+                    if bodies_in_rect:
+                        self.pm.selected_bodies = set(bodies_in_rect)
+                    else:
+                        self.spawn_dragged(self.drag_start, world_pos)
+                self.drag_start = None
+                self.preview = None
         elif event.type == pygame.MOUSEMOTION and self.drag_start:
             self.preview = self._calc_preview(world_pos)
+
     def spawn_at(self, pos):
         w = float(self.w_entry.get_text())
         h = float(self.h_entry.get_text())
@@ -102,7 +121,6 @@ class RectangleTool(BaseTool):
         shape.color = self._get_color('rectangle')
         self.pm.add_body_shape(body, shape)
         self.undo_redo.take_snapshot()
-        self.preview = None
 
     def _calc_preview(self, end_pos):
         dx = end_pos[0] - self.drag_start[0]
@@ -123,9 +141,7 @@ class RectangleTool(BaseTool):
         p3 = (cx - w/2, cy + h/2)
         world_pts = [p0, p1, p2, p3]
         screen_pts = [camera.world_to_screen(p) for p in world_pts]
-
         pygame.draw.polygon(screen, self.preview['color'], screen_pts, 1)
-
         self._draw_moving_hatch(screen, camera, world_pts)
 
     def _draw_moving_hatch(self, screen, camera, world_rect):
@@ -134,51 +150,35 @@ class RectangleTool(BaseTool):
         w = abs(world_rect[1][0] - world_rect[0][0])
         h = abs(world_rect[2][1] - world_rect[1][1])
         half_w, half_h = w / 2, h / 2
-
         x_min = cx - half_w
         x_max = cx + half_w
         y_min = cy - half_h
         y_max = cy + half_h
-
         period = 10.0
-        offset = self._last_hatch_offset
+        offset = getattr(self, '_last_hatch_offset', 0)
         line_color = (*self.preview['color'][:3], 128)
         max_lines = 100
-
         c_low = (y_min - x_max) - offset
         c_high = (y_max - x_min) - offset
-
         c_start = int(c_low / period) * period
         c_end = int(c_high / period + 1) * period
-
         total_lines = int((c_end - c_start) / period)
         if total_lines <= max_lines:
             c_values = [c_start + i * period for i in range(total_lines)]
         else:
             step = total_lines / max_lines
             c_values = [c_start + int(i * step) * period for i in range(max_lines)]
-
         for c_unshifted in c_values:
             const = c_unshifted + offset
             points = []
-
-            # Левая грань
             y = x_min + const
-            if y_min <= y <= y_max:
-                points.append((x_min, y))
-            # Правая грань
+            if y_min <= y <= y_max: points.append((x_min, y))
             y = x_max + const
-            if y_min <= y <= y_max:
-                points.append((x_max, y))
-            # Верхняя грань
+            if y_min <= y <= y_max: points.append((x_max, y))
             x = y_min - const
-            if x_min <= x <= x_max:
-                points.append((x, y_min))
-            # Нижняя грань
+            if x_min <= x <= x_max: points.append((x, y_min))
             x = y_max - const
-            if x_min <= x <= x_max:
-                points.append((x, y_max))
-
+            if x_min <= x <= x_max: points.append((x, y_max))
             if len(points) >= 2:
                 p1 = camera.world_to_screen(points[0])
                 p2 = camera.world_to_screen(points[1])

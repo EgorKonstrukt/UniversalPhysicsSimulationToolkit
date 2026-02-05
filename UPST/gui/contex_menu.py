@@ -46,6 +46,18 @@ class ContextMenu:
 
     def _build_menu_structure(self):
         base_items = []
+        if isinstance(self.clicked_object, list):
+            base_items = [
+                ConfigOption("Erase All", handler=self.delete_selected_objects),
+                ConfigOption("Group Manipulate", children=[
+                    ConfigOption("Freeze/Unfreeze All", handler=self.toggle_freeze_selected),
+                    ConfigOption("Make Static", handler=self.make_static_selected),
+                    ConfigOption("Make Dynamic", handler=self.make_dynamic_selected),
+                    ConfigOption("Reset Positions", handler=self.reset_positions_selected)
+                ])
+            ]
+            plugin_items = self.app.plugin_manager.get_context_menu_items(self.clicked_object)
+            return base_items + plugin_items
         if self.clicked_object is None:
             base_items = [
                 ConfigOption("Scripts", children=[
@@ -107,6 +119,40 @@ class ContextMenu:
             ]
         plugin_items = self.app.plugin_manager.get_context_menu_items(self.clicked_object)
         return base_items + plugin_items
+    def delete_selected_objects(self):
+        for body in list(self.app.physics_manager.selected_bodies):
+            self.ui_manager.physics_manager.remove_body(body)
+        self.undo_redo.take_snapshot()
+        self.app.physics_manager.clear_selection()
+
+    def toggle_freeze_selected(self):
+        for body in self.app.physics_manager.selected_bodies:
+            if body.velocity.length < 0.1 and abs(body.angular_velocity) < 0.1:
+                body.velocity, body.angular_velocity = (100, 0), 1.0
+            else:
+                body.velocity, body.angular_velocity = (0, 0), 0
+        self.undo_redo.take_snapshot()
+        self.app.physics_manager.clear_selection()
+
+    def make_static_selected(self):
+        for body in self.app.physics_manager.selected_bodies:
+            body.body_type = pymunk.Body.STATIC
+        self.undo_redo.take_snapshot()
+        self.app.physics_manager.clear_selection()
+
+    def make_dynamic_selected(self):
+        for body in self.app.physics_manager.selected_bodies:
+            body.body_type = pymunk.Body.DYNAMIC
+        self.undo_redo.take_snapshot()
+        self.app.physics_manager.clear_selection()
+
+    def reset_positions_selected(self):
+        for body in self.app.physics_manager.selected_bodies:
+            body.position = (0, 0)
+            body.velocity = (0, 0)
+            body.angular_velocity = 0.0
+        self.undo_redo.take_snapshot()
+        self.app.physics_manager.clear_selection()
 
     def rename_hierarchy_node(self):
         if not self.clicked_object:
@@ -278,7 +324,10 @@ class ContextMenu:
 
 
     def show_menu(self, position, clicked_object):
-        self.clicked_object = clicked_object
+        if clicked_object is None and self.app.physics_manager.selected_bodies:
+            self.clicked_object = list(self.app.physics_manager.selected_bodies)
+        else:
+            self.clicked_object = clicked_object
         self.menu_structure = self._build_menu_structure()
         self.create_menu()
         x, y = position

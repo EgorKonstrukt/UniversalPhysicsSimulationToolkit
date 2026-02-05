@@ -42,6 +42,7 @@ class PhysicsManager:
             self.air_density = 1.225
             self.theme = config.world.themes.get(config.world.current_theme, config.world.themes["Default"])
             self.simulation_time = 0.0
+            self.selected_bodies = set()
 
             if not self.theme:
                 Debug.log_warning(f"Theme '{self.app.world_theme}' not found, defaulting to Classic.", "Physics")
@@ -51,6 +52,16 @@ class PhysicsManager:
         except Exception as e:
             Debug.log_error(f"Failed to initialize PhysicsManager: {e}", "Physics")
 
+    def select_bodies_in_rect(self, rect_world):
+        self.selected_bodies.clear()
+        for shape in self.space.shapes:
+            if not hasattr(shape, 'body') or not shape.body: continue
+            pos = shape.body.position
+            if rect_world.collidepoint(pos.x, pos.y):
+                self.selected_bodies.add(shape.body)
+
+    def clear_selection(self):
+        self.selected_bodies.clear()
     def weld_bodies(self, b_master, b_slave):
         if b_master is b_slave:
             return

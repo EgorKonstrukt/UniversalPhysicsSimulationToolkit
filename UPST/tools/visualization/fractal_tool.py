@@ -6,7 +6,7 @@ import math
 class FractalTool(BaseTool):
     name = "fractal"
     category = "Visualization"
-    icon_path = None
+    icon_path = "sprites/gui/fractal1.png"
     tooltip = "Render animated Mandelbrot/Julia fractals with time parameter 't'"
 
     def __init__(self, app):
