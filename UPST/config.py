@@ -493,6 +493,7 @@ class Config:
         kwargs.update(extra)
         return cls(**kwargs)
 
+
 Config.register("app", AppConfig)
 Config.register("physics", PhysicsConfig)
 Config.register("physics_debug", PhysicsDebugConfig)
@@ -588,6 +589,7 @@ def get_optimal_subdivision(self, pixel_spacing: float) -> float:
         return 0.1
     else:
         return 1.0
+
 
 Config.background_color = background_color
 Config.get_grid_colors = get_grid_colors

@@ -8,7 +8,7 @@ from pygame_gui import ui_manager
 
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
-from UPST.gui.contex_menu import ContextMenu
+from UPST.gui.windows.context_menu import ContextMenu
 from UPST.gui.bars.bottom_bar import BottomBar
 from UPST.gui.bars.top_left_bar import TopLeftBar
 from UPST.gui.bars.top_right_bar import TopRightBar
