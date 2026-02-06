@@ -541,11 +541,11 @@ class PhysicsDebugManager:
                     Gizmos.draw_arrow(midpoint, (force_end_x, force_end_y), (0, 255, 255), 3, duration=0.1)
                     if config.physics_debug.show_vector_labels:
                         Gizmos.draw_text((force_end_x + 10, force_end_y - 10),
-                                         f"F_spring={total_force_magnitude:.{debug_cache['precision_digits']}f}N",
+                                         f"F_spring={total_force_magnitude*0.01:.{debug_cache['precision_digits']}f}N",
                                          (0, 255, 255), duration=0.1, font_size=12 * int(debug_cache['text_scale']),
                                          background_color=(0, 0, 0, 128))
                     spring_potential_energy = 0.5 * constraint.stiffness * (length - constraint.rest_length) ** 2
-                    info_lines.append(f"PE_spring: {spring_potential_energy:.{debug_cache['precision_digits']}f}J")
+                    info_lines.append(f"PE_spring: {spring_potential_energy*0.01:.{debug_cache['precision_digits']}f}J")
             for i, line in enumerate(info_lines):
                 Gizmos.draw_text((midpoint[0], midpoint[1] + i * 15), line, config.physics_debug.constraint_color,
                                  duration=0.1, font_size=12 * int(debug_cache['text_scale']),
