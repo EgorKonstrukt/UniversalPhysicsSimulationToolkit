@@ -209,7 +209,13 @@ class PhysicsDebugManager:
         total_energy = kinetic_energy + rotational_energy + potential_energy
         linear_momentum = body_mass * velocity_length
         angular_momentum = body_moment * body_angular_velocity
-        return velocity_length, kinetic_energy, rotational_energy, potential_energy, total_energy, linear_momentum, angular_momentum
+        return (velocity_length     ,
+                kinetic_energy      ,
+                rotational_energy   ,
+                potential_energy    ,
+                total_energy        ,
+                linear_momentum     ,
+                angular_momentum    )
 
     def _update_body_debug(self, body: pymunk.Body, dt: float, t: float, debug_cache: dict):
         pos = body.position
@@ -365,7 +371,7 @@ class PhysicsDebugManager:
             pm = debug_cache['precision_digits']
             angle_deg = math.degrees(math.atan2(vy, vx))
             label_main = (pos.x + vx * scale * 0.6, pos.y + vy * scale * 0.6 - 15)
-            Gizmos.draw_text(label_main, f"v={speed:.{pm}f}m/s ∠{angle_deg:+.{pm}f}°", col, duration=duration,
+            Gizmos.draw_text(label_main, f"v={speed*0.01:.{pm}f}m/s ∠{angle_deg:+.{pm}f}°", col, duration=duration,
                              font_size=16 * int(debug_cache['text_scale']), background_color=(0, 0, 0, 128))
 
     @profile("_draw_acceleration_vector", "physics_debug_manager")
@@ -394,7 +400,7 @@ class PhysicsDebugManager:
             pm = debug_cache['precision_digits']
             angle_deg = math.degrees(math.atan2(acc_y, acc_x))
             label_pos = (pos.x + acc_x * scale * 0.6, pos.y + acc_y * scale * 0.6 + 15)
-            Gizmos.draw_text(label_pos, f"a={acc_mag:.{pm}f}m/s² ∠{angle_deg:+.{pm}f}°", col, duration=duration,
+            Gizmos.draw_text(label_pos, f"a={acc_mag*0.01:.{pm}f}m/s² ∠{angle_deg:+.{pm}f}°", col, duration=duration,
                              font_size=16 * int(debug_cache['text_scale']), background_color=(0, 0, 0, 128))
         self.previous_velocities[body] = current_velocity
 
@@ -414,7 +420,7 @@ class PhysicsDebugManager:
                 if config.physics_debug.show_vector_labels:
                     label_x = pos.x + gravitational_force[0] * scale * 0.6 + 20
                     label_y = pos.y + gravitational_force[1] * scale * 0.6
-                    Gizmos.draw_text((label_x, label_y), f"F_g={force_magnitude:.{debug_cache['precision_digits']}f}N",
+                    Gizmos.draw_text((label_x, label_y), f"F_g={force_magnitude*0.01:.{debug_cache['precision_digits']}f}N",
                                      color, duration=duration, font_size=16 * int(debug_cache['text_scale']),
                                      background_color=(0, 0, 0, 128))
         net_force = body.force
@@ -429,7 +435,7 @@ class PhysicsDebugManager:
                 label_x = pos.x + net_force.x * scale * 0.6 + 30
                 label_y = pos.y + net_force.y * scale * 0.6
                 Gizmos.draw_text((label_x, label_y),
-                                 f"F_net={net_force_magnitude:.{debug_cache['precision_digits']}f}N", (255, 255, 255),
+                                 f"F_net={net_force_magnitude*0.01:.{debug_cache['precision_digits']}f}N", (255, 255, 255),
                                  duration=duration, font_size=16 * int(debug_cache['text_scale']),
                                  background_color=(0, 0, 0, 128))
 
@@ -439,7 +445,7 @@ class PhysicsDebugManager:
         if abs(angular_velocity) > 0.01:
             if config.physics_debug.show_vector_labels:
                 Gizmos.draw_text((pos.x + 40, pos.y - 10),
-                                 f"ω={angular_velocity:.{debug_cache['precision_digits']}f}rad/s",
+                                 f"ω={angular_velocity*0.01:.{debug_cache['precision_digits']}f}rad/s",
                                  config.physics_debug.angular_color, duration=0.1,
                                  font_size=16 * int(debug_cache['text_scale']), background_color=(0, 0, 0, 128))
 
@@ -452,7 +458,7 @@ class PhysicsDebugManager:
                                duration=0.1)
             if config.physics_debug.show_vector_labels:
                 Gizmos.draw_text((pos.x + 30, pos.y + 15),
-                                 f"L={angular_momentum:.{debug_cache['precision_digits']}f}kg⋅m²/s",
+                                 f"L={angular_momentum*0.01:.{debug_cache['precision_digits']}f}kg⋅m²/s",
                                  config.physics_debug.angular_momentum_color, duration=0.1,
                                  font_size=14 * int(debug_cache['text_scale']), background_color=(0, 0, 0, 128))
 

@@ -15,7 +15,7 @@ from packaging.version import Version, InvalidVersion
 
 from UPST.debug.debug_manager import Debug
 from UPST.config import config, Config
-from UPST.gui.contex_menu import ConfigOption
+from UPST.gui.windows.context_menu.config_option import ConfigOption
 
 
 @dataclass
