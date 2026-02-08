@@ -1,5 +1,6 @@
 import pathlib
 import tkinter as tk
+from enum import Enum
 from tkinter import ttk
 import threading
 import time
@@ -57,23 +58,38 @@ class SplashScreen:
 
     def destroy(self):
         try:
-            self.root.destroy()
+            if self.root:
+                self.root.destroy()
         except tk.TclError:
             pass
 
+
+class FreezeState(Enum):
+    OK = 0
+    FROZEN = 1
 
 class FreezeWatcher:
     def __init__(self, threshold_sec=1.0):
         self.threshold = threshold_sec
         self.last_ping = time.perf_counter()
-        self.splash = None
         self.lock = threading.Lock()
         self.paused = False
         self.pause_counter = 0
+        self._frozen = False
+        self._state_change_callback = None
+
+    def set_state_change_callback(self, callback):
+        self._state_change_callback = callback
 
     def ping(self):
         with self.lock:
             self.last_ping = time.perf_counter()
+            elapsed = time.perf_counter() - self.last_ping
+            was_frozen = self._frozen
+            self._frozen = elapsed >= self.threshold
+            if was_frozen != self._frozen and self._state_change_callback:
+                # Notify main thread via callback (called from ping, which is on main thread)
+                self._state_change_callback(self._frozen)
 
     def pause(self):
         with self.lock:
@@ -86,25 +102,3 @@ class FreezeWatcher:
             if self.pause_counter == 0:
                 self.paused = False
                 self.last_ping = time.perf_counter()
-
-    def _watch(self):
-        while True:
-            time.sleep(0.2)
-            with self.lock:
-                if self.paused:
-                    if self.splash:
-                        self.splash.destroy()
-                        self.splash = None
-                    continue
-                elapsed = time.perf_counter() - self.last_ping
-                if elapsed >= self.threshold:
-                    if not self.splash:
-                        self.splash = SplashScreen()
-                else:
-                    if self.splash:
-                        self.splash.destroy()
-                        self.splash = None
-
-    def start(self):
-        thread = threading.Thread(target=self._watch, daemon=True)
-        thread.start()

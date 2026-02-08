@@ -57,7 +57,10 @@ class WorldWrapper:
 class Application:
     def __init__(self):
         pygame.init()
-        self.freeze_watcher = None
+        self.freeze_splash = None
+        self.freeze_watcher = FreezeWatcher(threshold_sec=0.5)
+        self.freeze_watcher.set_state_change_callback(self._on_freeze_state_change)
+
         self.plugin_manager = PluginManager(self)
         self.stats = stats
         config.load_from_file()
@@ -176,6 +179,15 @@ class Application:
         self.plugin_manager.register_console_commands(self.console_handler)
         self.save_load_manager.try_load_deferred_autosave()
 
+    def _on_freeze_state_change(self, is_frozen):
+        if is_frozen:
+            if self.freeze_splash is None:
+                self.freeze_splash = SplashScreen()
+        else:
+            if self.freeze_splash is not None:
+                self.freeze_splash.destroy()
+                self.freeze_splash = None
+
     def setup_screen(self):
         flags = pygame.RESIZABLE | pygame.DOUBLEBUF | pygame.HWSURFACE | pygame.SWSURFACE | pygame.SRCALPHA
         if config.app.fullscreen: flags |= pygame.FULLSCREEN
@@ -190,7 +202,6 @@ class Application:
     def run(self):
         # synthesizer.play_note("A3", duration=0.1, waveform="sine", adsr=(0.01, 0.1, 0.7, 0.1), volume=0.5, pan=0.0)
         self.freeze_watcher = FreezeWatcher(threshold_sec=0.1)
-        self.freeze_watcher.start()
         stats.accumulate_session_time()
         stats.session_start = time.time()
         while self.running:

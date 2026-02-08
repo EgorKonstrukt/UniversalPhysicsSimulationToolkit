@@ -15,8 +15,7 @@ class ContraptionSaveLoadManager:
             data = json.load(f)
         new_bodies = []
         for body_data in data:
-            body = deserialize_body(body_data)
-            if body:
-                self.physics_manager.space.add(body, *body.shapes)
-                new_bodies.append(body)
+            body, shapes = deserialize_body(body_data)
+            self.physics_manager.space.add(body, *shapes)
+            new_bodies.append(body)
         return new_bodies
