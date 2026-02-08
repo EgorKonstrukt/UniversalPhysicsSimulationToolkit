@@ -9,7 +9,7 @@ from UPST.modules.profiler import get_profiler
 from UPST.gui.windows.theme_selection_dialog import ThemeSelectionDialog
 from UPST.gui.windows.theme_editor_window import ThemeEditorWindow
 from UPST.gui.windows.plugin_manager_window import PluginManagerWindow
-from UPST.utils import get_resource_path
+from UPST.utils.utils import get_resource_path
 
 class TopLeftBar:
     def __init__(self, screen_width, screen_height, ui_manager, bar_width=410, bar_height=45, app=None, physics_manager=None):

@@ -1,10 +1,7 @@
 import pygame
 import pygame_gui
-import os
-import sys
 
 import pymunk
-from pygame_gui import ui_manager
 
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
@@ -12,10 +9,9 @@ from UPST.gui.windows.context_menu import ContextMenu
 from UPST.gui.bars.bottom_bar import BottomBar
 from UPST.gui.bars.top_left_bar import TopLeftBar
 from UPST.gui.bars.top_right_bar import TopRightBar
-from UPST.gui.force_field_ui import ForceFieldUI
 from UPST.gui.console_ui import ConsoleUI
 from UPST.modules.profiler import profile
-from UPST.utils import get_resource_path
+from UPST.utils.utils import get_resource_path
 
 
 REPO_LIST_LOADED_EVENT = pygame.event.custom_type()

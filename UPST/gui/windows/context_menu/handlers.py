@@ -1,3 +1,5 @@
+import os
+
 import pygame
 import pymunk
 
@@ -166,4 +168,35 @@ class ContextMenuHandlers:
     def select_for_debug(self):
         if self.clicked_object and self.ui_manager.physics_debug_manager:
             self.ui_manager.physics_debug_manager.selected_body = self.clicked_object
+
+    def save_contraption_as(self):
+        if not self.app.physics_manager.selected_bodies: return
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        path = filedialog.asksaveasfilename(
+            title="Save Contraption",
+            defaultextension=".ucf",
+            filetypes=[("Contraption files", "*.ucf")]
+        )
+        root.destroy()
+        if path:
+            self.app.contraption_saveload_manager.save_contraption(path, list(self.app.physics_manager.selected_bodies))
+
+    def load_contraption_from(self):
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        path = filedialog.askopenfilename(
+            title="Load Contraption",
+            filetypes=[("Contraption files", "*.ucf")]
+        )
+        root.destroy()
+        if path and os.path.exists(path):
+            new_bodies = self.app.contraption_saveload_manager.load_contraption(path)
+            self.app.physics_manager.clear_selection()
+            self.app.physics_manager.selected_bodies.update(new_bodies)
+            get_undo_redo().take_snapshot()
 

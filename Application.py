@@ -39,6 +39,8 @@ from UPST.network.repository_manager import RepositoryManager
 
 from UPST.modules.plugin_manager import PluginManager
 from UPST.modules.api_manager import APIManager
+
+from UPST.modules.contraption_save_load_manager import ContraptionSaveLoadManager
 import sys
 
 # sys.set_int_max_str_digits(0)
@@ -80,8 +82,12 @@ class Application:
             script_manager=None
         )
 
+
         self.script_manager = ScriptManager(self)
         self.physics_manager.script_manager = self.script_manager
+
+        self.contraption_saveload_manager = ContraptionSaveLoadManager(self.physics_manager)
+
         self.upst_api.script_manager = self.script_manager
 
         self.world = WorldWrapper(self.physics_manager)
@@ -104,7 +110,7 @@ class Application:
 
         self.physics_manager.undo_redo_manager = self.undo_redo_manager
 
-        # self.thermal_manager = ThermalManager(self.physics_manager, self.camera)
+        self.thermal_manager = ThermalManager(self.physics_manager, self.camera)
 
         self.ui_manager = UIManager(config.app.screen_width, config.app.screen_height,
                                     self.physics_manager, self.camera, None, self.screen, self.font,
@@ -163,8 +169,6 @@ class Application:
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
         self.repository_manager = RepositoryManager()
-
-
         self.tool_manager.create_tool_buttons()
         self.plugin_manager.load_all_plugins()
         self.tool_manager.clear_tool_buttons()

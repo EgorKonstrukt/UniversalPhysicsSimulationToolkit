@@ -3,10 +3,9 @@ import threading
 
 import pygame
 import pygame_gui
-from pygame_gui.elements import UIWindow, UIButton, UIPanel, UISelectionList, UILabel, UIProgressBar, UITextEntryLine, \
-    UITextBox, UITextEntryBox, UIImage
-from UPST.config import config
-from UPST.utils import surface_to_bytes, bytes_to_surface
+from pygame_gui.elements import UIWindow, UIButton, UIPanel, UILabel, UIProgressBar, UITextEntryLine, \
+    UITextEntryBox, UIImage
+from UPST.utils.utils import surface_to_bytes, bytes_to_surface
 from UPST.debug.debug_manager import Debug
 
 

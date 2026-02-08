@@ -7,11 +7,10 @@ import tkinter as tk
 from tkinter import filedialog
 import os
 import keyword
-import re
 import tokenize
 import io
 from UPST.modules.undo_redo_manager import get_undo_redo
-from UPST.utils import safe_filedialog
+from UPST.utils.utils import safe_filedialog
 from UPST.modules.statistics import stats
 
 class ScriptEditorWindow:

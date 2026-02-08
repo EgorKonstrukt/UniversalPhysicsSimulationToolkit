@@ -2,13 +2,10 @@ import pygame
 import math
 import pymunk
 import time
-import random
-import os
-from pymunk import Vec2d
 from UPST.config import config
-from UPST.utils import bytes_to_surface
+from UPST.utils.utils import bytes_to_surface
 from UPST.modules.texture_processor import TextureProcessor, TextureState
-from UPST.modules.profiler import profile, start_profiling, stop_profiling
+from UPST.modules.profiler import profile
 from UPST.modules.cloud_manager import CloudManager, CloudRenderer
 
 import pygame.gfxdraw
@@ -298,17 +295,19 @@ class Renderer:
                     verts = [self.camera.world_to_screen(body.local_to_world(v)) for v in shape.get_vertices()]
                     pygame.draw.polygon(self.screen, (255, 255, 255), verts, 3)
 
+
         if hasattr(self.ui_manager.app, 'console_handler'): self.ui_manager.app.console_handler.draw_graph()
         self.grid_manager.draw(self.screen)
         self.gizmos_manager.draw()
-        # self.app.thermal_manager.render_heatmap(screen=self.screen)
-        # self.app.thermal_manager.draw_hover_temperature()
+        self.app.thermal_manager.render_heatmap(screen=self.screen)
+        self.app.thermal_manager.draw_hover_temperature()
         if self.script_system: self.script_system.draw(self.screen)
         if self.ui_manager.app.plugin_manager: self.ui_manager.app.plugin_manager.draw()
         self.ui_manager.draw(self.screen)
         self._draw_cursor_icon()
         self.app.debug_manager.draw_all_debug_info(self.screen, self.physics_manager, self.camera)
         if self.script_system: self._draw_script_info()
+
         pygame.display.flip()
         draw_ms = pygame.time.get_ticks() - start_time
         self.app.debug_manager.set_performance_counter("Draw Time", draw_ms)

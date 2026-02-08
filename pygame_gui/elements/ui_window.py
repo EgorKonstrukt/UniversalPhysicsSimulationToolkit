@@ -69,7 +69,7 @@ class UIWindow(UIElement, IContainerLikeInterface, IWindowInterface):
         self._blocking_always_on_top = False
 
         self.velocity = [0.0, 0.0]
-        self.drag_friction = 2.0  # higher = faster stop; adjust as needed
+        self.drag_friction = 1.5  # higher = faster stop; adjust as needed
         self.last_mouse_pos = None
 
         self._collapsed = False

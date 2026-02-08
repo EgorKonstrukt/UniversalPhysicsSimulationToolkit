@@ -1,13 +1,10 @@
-import os
 import pickle
 import uuid
-import threading
-from concurrent.futures import ThreadPoolExecutor
 import pymunk
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
-from UPST.utils import surface_to_bytes, bytes_to_surface
-from UPST.gizmos.gizmos_manager import get_gizmos, Gizmos, GizmoType, GizmoData
+from UPST.utils.utils import surface_to_bytes, bytes_to_surface
+from UPST.gizmos.gizmos_manager import get_gizmos, GizmoType, GizmoData
 
 class SnapshotManager:
 

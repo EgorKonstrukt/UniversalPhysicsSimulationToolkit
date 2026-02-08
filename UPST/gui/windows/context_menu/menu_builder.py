@@ -23,7 +23,9 @@ def build_selection_menu(app, plugin_manager):
             ConfigOption("Make Static", handler=lambda cm: cm.make_static_selected()),
             ConfigOption("Make Dynamic", handler=lambda cm: cm.make_dynamic_selected()),
             ConfigOption("Reset Positions", handler=lambda cm: cm.reset_positions_selected())
-        ])
+        ]),
+        ConfigOption("Save Contraption...", handler=lambda cm: cm.save_contraption_as(), icon="sprites/gui/save.png"),
+        ConfigOption("Load Contraption...", handler=lambda cm: cm.load_contraption_from(), icon="sprites/gui/load.png"),
     ]
     return base + plugin_manager.get_context_menu_items(list(app.physics_manager.selected_bodies))
 

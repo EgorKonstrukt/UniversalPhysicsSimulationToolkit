@@ -69,15 +69,22 @@ class ContextMenu(ContextMenuHandlers):
             self.context_menu_buttons.append((btn, opt))
 
     def show_menu(self, position, clicked_object):
-        self.clicked_object = list(self.app.physics_manager.selected_bodies) if clicked_object is None and self.app.physics_manager.selected_bodies else clicked_object
+        selected_bodies = list(self.app.physics_manager.selected_bodies)
+        if len(selected_bodies) > 1:
+            self.clicked_object = selected_bodies
+        else:
+            self.clicked_object = clicked_object
         self.menu_structure = build_menu_structure(self.clicked_object, self.app, self.plugin_manager)
         self.create_menu()
-        x, y = position; max_x, max_y = pygame.display.get_surface().get_size()
+        x, y = position
+        max_x, max_y = pygame.display.get_surface().get_size()
         rect = self.context_menu.get_abs_rect()
-        x = min(x, max_x - rect.width); y = min(y, max_y - rect.height)
+        x = min(x, max_x - rect.width)
+        y = min(y, max_y - rect.height)
         self.context_menu.set_position((x, y))
         self.context_menu.show()
-        self.menu_line_start_pos = getattr(self.clicked_object, 'position', None)
+        self.menu_line_start_pos = getattr(self.clicked_object, 'position', None) if not isinstance(self.clicked_object,
+                                                                                                    list) else None
         self.last_object_pos = self.menu_line_start_pos
 
     def hide(self):
