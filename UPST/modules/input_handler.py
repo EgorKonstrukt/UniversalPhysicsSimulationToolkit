@@ -46,6 +46,7 @@ class InputHandler:
             if self.tool_system.current_tool:
                 self.tool_system.handle_input(world_mouse_pos)
 
+
     def handle_keyboard_events(self, event, world_mouse_pos):
         if self.is_mouse_on_ui():
             return

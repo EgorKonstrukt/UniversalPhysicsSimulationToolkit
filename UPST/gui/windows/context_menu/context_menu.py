@@ -145,6 +145,7 @@ class ContextMenu(ContextMenuHandlers):
                             menu_rect = btn.get_abs_rect()
                             self._show_submenu(option.children, (menu_rect.right, menu_rect.top))
                         else:
+                            self.hide_submenu()
                             self._execute_option(option)
                             self.hide()
                         return True
@@ -198,10 +199,16 @@ class ContextMenu(ContextMenuHandlers):
                 self.hover_start_time[btn_id] = pygame.time.get_ticks()
             else:
                 elapsed = (pygame.time.get_ticks() - self.hover_start_time[btn_id]) / 1000.0
-                if elapsed >= config.context_menu.hover_delay and option.children:
-                    menu_rect = btn.get_abs_rect()
-                    self._show_submenu(option.children, (menu_rect.right, menu_rect.top))
-                    self.hover_start_time.clear()
+                is_main_menu_button = any(b == btn for b, _ in self.context_menu_buttons)
+                if is_main_mode_button := is_main_menu_button:
+                    if option.children:
+                        if elapsed >= config.context_menu.hover_delay:
+                            menu_rect = btn.get_abs_rect()
+                            self._show_submenu(option.children, (menu_rect.right, menu_rect.top))
+                            self.hover_start_time.clear()
+                    else:
+                        if self.submenu_window:
+                            self.hide_submenu()
         else:
             self.hover_start_time.clear()
         if self.clicked_object and self.menu_line_start_pos and hasattr(self.clicked_object, 'position'):

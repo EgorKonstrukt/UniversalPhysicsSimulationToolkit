@@ -12,7 +12,7 @@ def build_world_menu(app, plugin_manager):
         ], icon="sprites/gui/python.png"),
         ConfigOption("Center to Scene", handler=lambda cm: cm.center_to_scene(), icon="sprites/gui/zoom2scene.png"),
         ConfigOption("Center to Origin", handler=lambda cm: cm.center_to_origin()),
-        ConfigOption("Open Plotter", handler=lambda cm: cm.open_plotter(), icon="sprites/gui/plot.png")
+        ConfigOption("Load Contraption...", handler=lambda cm: cm.load_contraption_from(), icon="sprites/gui/load.png"),
     ] + plugin_manager.get_context_menu_items(None)
 
 def build_selection_menu(app, plugin_manager):
@@ -25,7 +25,7 @@ def build_selection_menu(app, plugin_manager):
             ConfigOption("Reset Positions", handler=lambda cm: cm.reset_positions_selected())
         ]),
         ConfigOption("Save Contraption...", handler=lambda cm: cm.save_contraption_as(), icon="sprites/gui/save.png"),
-        ConfigOption("Load Contraption...", handler=lambda cm: cm.load_contraption_from(), icon="sprites/gui/load.png"),
+        # ConfigOption("Load Contraption...", handler=lambda cm: cm.load_contraption_from(), icon="sprites/gui/load.png"),
     ]
     return base + plugin_manager.get_context_menu_items(list(app.physics_manager.selected_bodies))
 

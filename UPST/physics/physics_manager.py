@@ -448,21 +448,7 @@ class PhysicsManager:
             Debug.log_error(f"Error in get_last_body: {e}", "Physics")
             return None
 
-    def remove_body(self, body):
-        try:
-            Debug.log_info(f"Attempting to remove body {body.__hash__()} and its shapes.", "Physics")
-            if body in self.space.bodies:
-                self.script_manager.remove_scripts_by_owner(body)
-                for shape in list(body.shapes):
-                    if shape in self.space.shapes:
-                        self.space.remove(shape)
-                        Debug.log_info(f"Shape {shape.__hash__()} removed from body {body.__hash__()}.", "Physics")
-                self.space.remove(body)
-                Debug.log_info(f"Body {body.__hash__()} removed from physics space.", "Physics")
-            else:
-                Debug.log_warning(f"Attempted to remove body {body.__hash__()} but it was not found in space.", "Physics")
-        except Exception as e:
-            Debug.log_error(f"Error in remove_body: {e}", "Physics")
+
 
     def set_simulation_paused(self, paused: bool):
         try:
