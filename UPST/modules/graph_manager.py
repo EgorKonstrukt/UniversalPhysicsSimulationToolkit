@@ -740,32 +740,59 @@ class GraphManager:
         if i==3: return p,q,v
         if i==4: return t,p,v
         if i==5: return v,p,q
+
     def _render_fractal(self, name, x_min, x_max, y_min, y_max, w, h, max_iter, escape_radius, c_param, palette_obj):
-        if w<=0 or h<=0:
-            empty_surf = pygame.Surface((1,1))
-            return empty_surf, (0,0)
-        arr = np.zeros((h,w,3), dtype=np.uint8, order='C')
-        esc_sq = np_f(escape_radius*escape_radius)
-        fractal_type = 0 if name=='mandelbrot' else 1
-        c_real = np_f(c_param.real) if c_param else np_f(0.0)
-        c_imag = np_f(c_param.imag) if c_param else np_f(0.0)
-        if palette_obj is None:
-            default_len = min(max_iter,256)
-            r_vals = np.array([min(255,int(95+160*i/default_len)) for i in range(default_len)], dtype=np.uint8)
-            g_vals = np.array([min(255,int(20+100*i/default_len)) for i in range(default_len)], dtype=np.uint8)
-            b_vals = np.array([min(255,int(150*(1.0-i/default_len))) for i in range(default_len)], dtype=np.uint8)
+        zoom_x = x_max - x_min
+        zoom_y = y_max - y_min
+        zoom = max(zoom_x, zoom_y)
+        zoom_world = max(x_max - x_min, y_max - y_min)
+        if zoom < 1e-10 and config.app.use_f64:
+            center_x = (x_min + x_max) * 0.5
+            center_y = (y_min + y_max) * 0.5
+            ref_x, ref_y = self._select_reference_point(name, x_min, x_max, y_min, y_max, max_iter, escape_radius,
+                                                        c_param)
+
+            return self._render_fractal_deepzoom(name,
+                                                 center_x=ref_x,
+                                                 center_y=ref_y,
+                                                 zoom=zoom,
+                                                 w=w,
+                                                 h=h,
+                                                 max_iter=max_iter,
+                                                 escape_radius=escape_radius,
+                                                 c_param=c_param,
+                                                 palette_obj=palette_obj)
         else:
-            pal_len = len(palette_obj)
-            r_vals = np.array([c[0] for c in palette_obj], dtype=np.uint8)
-            g_vals = np.array([c[1] for c in palette_obj], dtype=np.uint8)
-            b_vals = np.array([c[2] for c in palette_obj], dtype=np.uint8)
-        try:
-            _taichi_compute_fractal(arr,np_f(x_min),np_f(x_max),np_f(y_min),np_f(y_max),int(w),int(h),int(max_iter),esc_sq,int(fractal_type),c_real,c_imag,r_vals,g_vals,b_vals,len(r_vals))
-        except Exception as e:
-            print(f"Taichi fractal error: {e}")
-            arr.fill(0)
-        surface = pygame.surfarray.make_surface(arr.swapaxes(0,1))
-        return surface, (0,0)
+            if w <= 0 or h <= 0:
+                empty_surf = pygame.Surface((1, 1))
+                return empty_surf, (0, 0)
+            arr = np.zeros((h, w, 3), dtype=np.uint8, order='C')
+            esc_sq = np_f(escape_radius * escape_radius)
+            fractal_type = 0 if name == 'mandelbrot' else 1
+            c_real = np_f(c_param.real) if c_param else np_f(0.0)
+            c_imag = np_f(c_param.imag) if c_param else np_f(0.0)
+            if palette_obj is None:
+                default_len = min(max_iter, 256)
+                r_vals = np.array([min(255, int(95 + 160 * i / default_len)) for i in range(default_len)],
+                                  dtype=np.uint8)
+                g_vals = np.array([min(255, int(20 + 100 * i / default_len)) for i in range(default_len)],
+                                  dtype=np.uint8)
+                b_vals = np.array([min(255, int(150 * (1.0 - i / default_len))) for i in range(default_len)],
+                                  dtype=np.uint8)
+            else:
+                pal_len = len(palette_obj)
+                r_vals = np.array([c[0] for c in palette_obj], dtype=np.uint8)
+                g_vals = np.array([c[1] for c in palette_obj], dtype=np.uint8)
+                b_vals = np.array([c[2] for c in palette_obj], dtype=np.uint8)
+            try:
+                _taichi_compute_fractal(arr, np_f(x_min), np_f(x_max), np_f(y_min), np_f(y_max),
+                                        int(w), int(h), int(max_iter), esc_sq, int(fractal_type),
+                                        c_real, c_imag, r_vals, g_vals, b_vals, len(r_vals))
+            except Exception as e:
+                print(f"Taichi fractal error: {e}")
+                arr.fill(0)
+            surface = pygame.surfarray.make_surface(arr.swapaxes(0, 1))
+            return surface, (0, 0)
     def _apply_line_style(self, points, style):
         if style=='solid' or len(points)<2: return [points]
         step = 4 if style=='dotted' else 8
@@ -777,3 +804,89 @@ class GraphManager:
                 current = []
         if current: segments.append(current)
         return segments
+
+    def _compute_reference_orbit(self, cx, cy, max_iter, esc_sq):
+        zx = zy = np_f(0.0)
+        orbit_x = np.empty(max_iter, dtype=np_f)
+        orbit_y = np.empty(max_iter, dtype=np_f)
+        for i in range(max_iter):
+            orbit_x[i] = zx
+            orbit_y[i] = zy
+            zx2 = zx * zx
+            zy2 = zy * zy
+            if zx2 + zy2 > esc_sq:
+                break
+            tmp = zx
+            zx = zx2 - zy2 + cx
+            zy = np_f(2.0) * tmp * zy + cy
+        return orbit_x, orbit_y
+
+    def _render_fractal_deepzoom(self, name, center_x, center_y, zoom, w, h, max_iter, escape_radius, c_param,
+                                 palette_obj):
+        if w <= 0 or h <= 0:
+            empty_surf = pygame.Surface((1, 1))
+            return empty_surf, (0, 0)
+        esc_sq = np_f(escape_radius * escape_radius)
+        fractal_type = 0 if name == 'mandelbrot' else 1
+        ref_cx = np_f(center_x)
+        ref_cy = np_f(center_y)
+        orbit_x, orbit_y = self._compute_reference_orbit(ref_cx, ref_cy, max_iter, esc_sq)
+        arr = np.zeros((h, w, 3), dtype=np.uint8, order='C')
+        half_w, half_h = np_f(w) * 0.5, np_f(h) * 0.5
+        scale = np_f(zoom) / half_w
+        c_real = np_f(c_param.real) if c_param else np_f(0.0)
+        c_imag = np_f(c_param.imag) if c_param else np_f(0.0)
+        if palette_obj is None:
+            default_len = min(max_iter, 256)
+            r_vals = np.array([min(255, int(95 + 160 * i / default_len)) for i in range(default_len)], dtype=np.uint8)
+            g_vals = np.array([min(255, int(20 + 100 * i / default_len)) for i in range(default_len)], dtype=np.uint8)
+            b_vals = np.array([min(255, int(150 * (1.0 - i / default_len))) for i in range(default_len)],
+                              dtype=np.uint8)
+        else:
+            pal_len = len(palette_obj)
+            r_vals = np.array([c[0] for c in palette_obj], dtype=np.uint8)
+            g_vals = np.array([c[1] for c in palette_obj], dtype=np.uint8)
+            b_vals = np.array([c[2] for c in palette_obj], dtype=np.uint8)
+        try:
+            from UPST.modules.taichi_kernels import _taichi_compute_fractal_deepzoom
+            _taichi_compute_fractal_deepzoom(
+                arr, np_f(center_x), np_f(center_y), np_f(zoom), int(w), int(h),
+                int(max_iter), esc_sq, int(fractal_type), c_real, c_imag,
+                r_vals, g_vals, b_vals, len(r_vals),
+                orbit_x, orbit_y, ref_cx, ref_cy
+            )
+        except Exception as e:
+            print(f"Taichi deepzoom error: {e}")
+            arr.fill(0)
+        surface = pygame.surfarray.make_surface(arr.swapaxes(0, 1))
+        return surface, (0, 0)
+
+    def _select_reference_point(self, name, x_min, x_max, y_min, y_max, max_iter, escape_radius, c_param):
+        # Пробуем 9 точек на сетке 3×3
+        best_pt = None
+        best_iter = -1
+        steps = 3
+        for i in range(steps):
+            for j in range(steps):
+                rx = x_min + (i + 0.5) * (x_max - x_min) / steps
+                ry = y_min + (j + 0.5) * (y_max - y_min) / steps
+                iters = self._estimate_iterations(name, rx, ry, max_iter, escape_radius, c_param)
+                if iters > best_iter:
+                    best_iter = iters
+                    best_pt = (rx, ry)
+        return best_pt if best_iter > max_iter * 0.3 else (x_min + (x_max - x_min) * 0.5, y_min + (y_max - y_min) * 0.5)
+
+    def _estimate_iterations(self, name, x, y, max_iter, esc_radius, c_param):
+        zx = zy = 0.0
+        cx = x if name == 'mandelbrot' else (c_param.real if c_param else 0.0)
+        cy = y if name == 'mandelbrot' else (c_param.imag if c_param else 0.0)
+        esc_sq = esc_radius * esc_radius
+        for i in range(max_iter):
+            zx2 = zx * zx
+            zy2 = zy * zy
+            if zx2 + zy2 > esc_sq:
+                return i
+            tmp = zx
+            zx = zx2 - zy2 + cx
+            zy = 2.0 * tmp * zy + cy
+        return max_iter
