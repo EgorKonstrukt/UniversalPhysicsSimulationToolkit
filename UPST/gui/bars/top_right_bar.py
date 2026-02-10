@@ -85,7 +85,7 @@ class TopRightBar:
         self.panel.set_dimensions((self.bar_width, min(self.bar_height, screen_height)))
     def _on_visualization_pressed(self):
         if self.visualization_window is None or self.visualization_window.window.alive() is False:
-            rect = pygame.Rect(50, 50, 1000, 500)
+            rect = pygame.Rect(50, 50, 1000, 520)
             self.visualization_window = VisualizationWindow(rect, self.ui_manager, app=self.app)
         else:
             self.visualization_window.window.kill()

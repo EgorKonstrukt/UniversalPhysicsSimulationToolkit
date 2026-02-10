@@ -8,6 +8,8 @@ from UPST.modules.profiler import profile
 from UPST.scripting.script_manager import ScriptManager
 from UPST.modules.undo_redo_manager import get_undo_redo
 from UPST.modules.statistics import stats
+from numba import njit, prange
+import numpy as np
 
 class PhysicsManager:
     def __init__(self, game_app, undo_redo_manager, script_manager):
@@ -43,6 +45,9 @@ class PhysicsManager:
             self.theme = config.world.themes.get(config.world.current_theme, config.world.themes["Default"])
             self.simulation_time = 0.0
             self.selected_bodies = set()
+
+            self.aero_enabled = True
+            self.wind_velocity = pymunk.Vec2d(0.0, 0.0)  # Глобальный ветер
 
             if not self.theme:
                 Debug.log_warning(f"Theme '{self.app.world_theme}' not found, defaulting to Classic.", "Physics")
@@ -676,5 +681,6 @@ class PhysicsManager:
                 av_abs = abs(av)
                 torque_lin = -self.air_friction_multiplier * self.air_friction_linear * area_rot * av
                 torque_quad = -self.air_friction_multiplier * self.air_friction_quadratic * 0.5 * self.air_density * area_rot * av_abs * av
-                total_torque = torque_lin + torque_quad
+                total_torque = torque_lin + torque_quad * 10000
                 b.torque += total_torque
+

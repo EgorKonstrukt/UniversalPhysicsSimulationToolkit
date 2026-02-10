@@ -92,6 +92,7 @@ class ScriptingConfig:
 class PhysicsDebugConfig:
     smoothing = True
     smoothing_window = 5  # Глубина буфера (рекомендуется 3–5)
+    show_object_dimensions: bool = True
     show_velocity_vectors: bool = True
     show_acceleration_vectors: bool = True
     show_forces: bool = True
@@ -110,6 +111,7 @@ class PhysicsDebugConfig:
     show_constraints: bool = True
     constraint_color: Tuple[int, int, int] = (255, 200, 0)
     show_constraint_info: bool = True
+    dimension_color: Tuple[int, int, int] = (180, 220, 255)
     velocity_color: Tuple[int, int, int] = (0, 255, 0)
     acceleration_color: Tuple[int, int, int] = (255, 0, 0)
     force_color: Tuple[int, int, int] = (255, 255, 0)

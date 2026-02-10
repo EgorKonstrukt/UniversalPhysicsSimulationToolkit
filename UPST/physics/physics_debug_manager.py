@@ -50,6 +50,7 @@ class PhysicsDebugManager:
     def _update_debug_cache(self):
         cfg = config.physics_debug
         self._debug_settings_cache = {
+            'show_object_dimensions': cfg.show_object_dimensions,
             'show_trails': cfg.show_trails,
             'show_center_of_mass': cfg.show_center_of_mass,
             'show_colliders': cfg.show_colliders,
@@ -253,6 +254,8 @@ class PhysicsDebugManager:
                     value = body.torque
                 self.plotter.add_data(key, value, group)
 
+        if debug_cache['show_object_dimensions']:
+            self._draw_object_dimensions(body, pos, debug_cache)
         if debug_cache['show_trails']:
             self._update_trail(body, pos, debug_cache)
         if debug_cache['show_center_of_mass']:
@@ -300,6 +303,70 @@ class PhysicsDebugManager:
         history.append((body.velocity.x, body.velocity.y))
         if len(history) > 200:
             history.pop(0)
+
+    @profile("_draw_object_dimensions", "physics_debug_manager")
+    def _draw_object_dimensions(self, body, pos, debug_cache):
+        shapes = list(body.shapes)
+        if not shapes:
+            return
+        color = config.physics_debug.dimension_color or (180, 220, 255)
+        duration = 0.1
+        thickness = 2
+        pm = debug_cache['precision_digits']
+        scale_m = 0.001
+
+        # Handle single circle: draw diameter
+        if len(shapes) == 1 and isinstance(shapes[0], pymunk.Circle):
+            shape = shapes[0]
+            center = body.local_to_world(shape.offset)
+            radius = shape.radius
+            diameter_px = 2 * radius
+            if diameter_px <= 0:
+                return
+            start = (center.x - radius, center.y)
+            end = (center.x + radius, center.y)
+            Gizmos.draw_line(start, end, color, thickness, duration=duration)
+            Gizmos.draw_arrow((start[0] + 5, start[1]), start, color, thickness, duration=duration)
+            Gizmos.draw_arrow((end[0] - 5, end[1]), end, color, thickness, duration=duration)
+            if config.physics_debug.show_vector_labels:
+                d_m = diameter_px * scale_m*10
+                Gizmos.draw_text((center.x, center.y - 12), f"D={d_m:.{pm}f}m", color, duration=duration,
+                                 font_size=14 * int(debug_cache['text_scale']), background_color=(0, 0, 0, 128))
+        else:
+            aabb = None
+            for shape in shapes:
+                shape_aabb = shape.bb
+                if aabb is None:
+                    aabb = shape_aabb
+                else:
+                    aabb = aabb.merge(shape_aabb)
+            if aabb is None:
+                return
+            width = aabb.right - aabb.left
+            height = aabb.top - aabb.bottom
+            if width <= 0 or height <= 0:
+                return
+            center_x = (aabb.left + aabb.right) * 0.5
+            center_y = (aabb.bottom + aabb.top) * 0.5
+            offset = 20
+            h_start = (aabb.left, center_y + offset)
+            h_end = (aabb.right, center_y + offset)
+            Gizmos.draw_line(h_start, h_end, color, thickness, duration=duration)
+            Gizmos.draw_arrow((h_start[0] + 5, h_start[1]), h_start, color, thickness, duration=duration)
+            Gizmos.draw_arrow((h_end[0] - 5, h_end[1]), h_end, color, thickness, duration=duration)
+            if config.physics_debug.show_vector_labels:
+                w_m = width * scale_m*10
+                Gizmos.draw_text((center_x, center_y + offset + 10), f"W={w_m:.{pm}f}m", color, duration=duration,
+                                 font_size=14 * int(debug_cache['text_scale']), background_color=(0, 0, 0, 128))
+            v_start = (center_x + offset, aabb.bottom)
+            v_end = (center_x + offset, aabb.top)
+            Gizmos.draw_line(v_start, v_end, color, thickness, duration=duration)
+            Gizmos.draw_arrow((v_start[0], v_start[1] + 5), v_start, color, thickness, duration=duration)
+            Gizmos.draw_arrow((v_end[0], v_end[1] - 5), v_end, color, thickness, duration=duration)
+            if config.physics_debug.show_vector_labels:
+                h_m = height * scale_m*10
+                Gizmos.draw_text((center_x + offset + 10, center_y), f"H={h_m:.{pm}f}m", color, duration=duration,
+                                 font_size=14 * int(debug_cache['text_scale']), background_color=(0, 0, 0, 128))
 
     @profile("_draw_center_of_mass", "physics_debug_manager")
     def _draw_center_of_mass(self, body, pos, debug_cache):
