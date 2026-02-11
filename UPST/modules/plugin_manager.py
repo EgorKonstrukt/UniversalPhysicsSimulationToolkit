@@ -3,13 +3,14 @@ import os
 import sys
 import importlib
 import importlib.util
+from functools import partial
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable, List, Set
 from collections import defaultdict, deque
 
 import pygame
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 from packaging.version import Version, InvalidVersion
 
@@ -21,20 +22,20 @@ from UPST.gui.windows.context_menu.config_option import ConfigOption
 @dataclass
 class Plugin:
     name: str
-    version: str
-    description: str
-    author: str
-    icon_path: Optional[str]
-    dependency_specs: Dict[str, str]
+    version: str = "0.0.0"
+    description: str = ""
+    author: str = ""
+    icon_path: Optional[str] = None
+    dependency_specs: Dict[str, str] = field(default_factory=dict)
     config_class: Optional[type] = None
     on_load: Optional[Callable[["PluginManager", Any], None]] = None
     on_unload: Optional[Callable[["PluginManager", Any], None]] = None
-    on_update: Optional[Callable[["PluginManager", float], None]] = None
-    on_draw: Optional[Callable[["PluginManager"], None]] = None
-    on_event: Optional[Callable[["PluginManager", Any], bool]] = None
-    console_commands: Dict[str, Callable] = None
-    command_help: Dict[str, str] = None
-    context_menu_items: Optional[Callable[["PluginManager", Any, bool], List["ConfigOption"]]] = None
+    on_update: Optional[Callable[["PluginManager", float, Any], None]] = None
+    on_draw: Optional[Callable[["PluginManager", Any], None]] = None
+    on_event: Optional[Callable[["PluginManager", Any, Any], bool]] = None
+    console_commands: Dict[str, Callable] = field(default_factory=dict)
+    command_help: Dict[str, str] = field(default_factory=dict)
+    context_menu_items: Optional[Callable[["PluginManager", Any, Any], List[Any]]] = None
 
     def __post_init__(self):
         if self.console_commands is None:
@@ -153,7 +154,11 @@ class PluginManager:
         module = importlib.util.module_from_spec(spec)
         module.Plugin = Plugin
         sys.modules[module_name] = module
-        spec.loader.exec_module(module)
+        try:
+            spec.loader.exec_module(module)
+        except Exception as e:
+            raise RuntimeError(f"Failed to execute plugin module '{module_name}'") from e
+
         if not hasattr(module, "PLUGIN"):
             raise AttributeError(f"Plugin at {plugin_dir} missing PLUGIN definition")
         plugin_def: Plugin = module.PLUGIN
@@ -184,7 +189,7 @@ class PluginManager:
                     else:
                         config_instance = plugin_def.config_class(**cfg_data)
                 except (json.JSONDecodeError, OSError, TypeError) as e:
-                    print(f"Warning: Failed to load config for plugin '{name}' ({e}). Using defaults.")
+                    Debug.log_warning(f"Failed to load config for plugin '{name}' ({e}). Using defaults.", "Plugins")
                     config_instance = plugin_def.config_class()
             else:
                 config_instance = plugin_def.config_class()
@@ -196,22 +201,48 @@ class PluginManager:
                 json.dump(cfg_dict, f, indent=4, ensure_ascii=False)
             setattr(self.app.config, name, config_instance)
 
-        plugin_instance = module.PluginImpl(self.app)
+        try:
+            plugin_instance = module.PluginImpl(self.app)
+        except Exception as e:
+            raise RuntimeError(f"Failed to instantiate PluginImpl for '{name}'") from e
+
         self.plugins[name] = plugin_def
         self.plugin_instances[name] = plugin_instance
         self.plugin_modules[name] = module
         self.plugin_paths[name] = plugin_dir
+
         if plugin_def.on_load:
-            plugin_def.on_load(self, plugin_instance)
+            try:
+                plugin_def.on_load(self, plugin_instance)
+            except Exception as e:
+                Debug.log_exception(f"Plugin '{name}' on_load handler failed", "Plugins")
+                raise
+
         if plugin_def.context_menu_items:
-            self.register_context_menu_contributor(name, lambda pm, obj, pd=plugin_def, pi=plugin_instance: pd.context_menu_items(pm, pi, obj))
+            self.register_context_menu_contributor(name, lambda pm, obj, pd=plugin_def,
+                                                                pi=plugin_instance: pd.context_menu_items(pm, pi, obj))
+
         if hasattr(plugin_instance, 'get_tools') and callable(getattr(plugin_instance, 'get_tools')):
             try:
                 tools = plugin_instance.get_tools(self.app)
-                for tool in tools:
+                for i, tool in enumerate(tools):
+                    if not hasattr(tool, '__class__'):
+                        Debug.log_error(f"Plugin '{name}': tool[{i}] is not a valid object", "Plugins")
+                        continue
+                    # Validate BaseTool contract
+                    base_init = getattr(tool.__class__.__bases__[0], '__init__',
+                                        None) if tool.__class__.__bases__ else None
+                    if base_init and hasattr(base_init, '__code__'):
+                        argcount = base_init.__code__.co_argcount
+                        if argcount != 2:  # self + app
+                            Debug.log_error(f"Plugin '{name}': BaseTool.__init__ expects 2 args, got {argcount}",
+                                            "Plugins")
                     self.app.tool_manager.register_tool(tool)
             except Exception as e:
-                Debug.log_error(f"Failed to register tools from plugin '{name}': {e}", "Plugins")
+                import traceback
+                tb_lines = traceback.format_exception(type(e), e, e.__traceback__)
+                Debug.log_error(f"Failed to register tools from plugin '{name}': {e}\n{''.join(tb_lines)}", "Plugins")
+                raise
         return plugin_instance
 
     def unload_plugin(self, name: str):
@@ -219,17 +250,25 @@ class PluginManager:
             return
         plugin_def = self.plugins[name]
         plugin_instance = self.plugin_instances[name]
+        if hasattr(self.app, 'console_handler'):
+            for cmd in list(plugin_def.console_commands.keys()):
+                try:
+                    self.app.console_handler.unregister_plugin_command(cmd)
+                except Exception as e:
+                    Debug.log_warning(f"Failed to unregister command '{cmd}' for plugin '{name}': {e}", "Plugins")
         if plugin_def.on_unload:
-            plugin_def.on_unload(self, plugin_instance)
-        self._unload_submodules(self.plugin_modules[name].__name__)
-        sys.modules.pop(self.plugin_modules[name].__name__, None)
+            try:
+                plugin_def.on_unload(self, plugin_instance)
+            except Exception as e:
+                Debug.log_exception(f"Plugin '{name}' on_unload handler failed", "Plugins")
+        mod_name = self.plugin_modules[name].__name__
+        self._unload_submodules(mod_name)
+        sys.modules.pop(mod_name, None)
         del self.plugins[name]
         del self.plugin_instances[name]
         del self.plugin_modules[name]
         del self.plugin_paths[name]
-        if hasattr(self.app.console_handler, 'unregister_plugin_command'):
-            for cmd in plugin_def.console_commands:
-                self.app.console_handler.unregister_plugin_command(cmd)
+        self.unregister_context_menu_contributor(name)
 
     def reload_plugin(self, name: str):
         if name not in self.plugin_paths:
@@ -237,11 +276,34 @@ class PluginManager:
         plugin_dir = self.plugin_paths[name]
         if not plugin_dir.exists():
             raise FileNotFoundError(f"Plugin {name} directory not found at {plugin_dir}")
-        self.unload_plugin(name)
-        importlib.invalidate_caches()
-        self.load_plugin(plugin_dir)
-        if hasattr(self.app, 'console_handler'):
-            self.register_console_commands(self.app.console_handler)
+        old_def = self.plugins.get(name)
+        old_inst = self.plugin_instances.get(name)
+        old_mod = self.plugin_modules.get(name)
+        try:
+            if hasattr(self.app, 'console_handler'):
+                for cmd in list(old_def.console_commands.keys() if old_def else []):
+                    try:
+                        self.app.console_handler.unregister_plugin_command(cmd)
+                    except Exception:
+                        pass
+            self.unload_plugin(name)
+            importlib.invalidate_caches()
+            new_instance = self.load_plugin(plugin_dir)
+            if hasattr(self.app, 'console_handler'):
+                self.register_console_commands(self.app.console_handler)
+
+            Debug.log_success(f"Plugin '{name}' reloaded successfully", "Plugins")
+
+        except Exception as e:
+            Debug.log_error(f"Failed to reload plugin '{name}', restoring previous state: {e}", "Plugins")
+            if old_def is not None:
+                self.plugins[name] = old_def
+            if old_inst is not None:
+                self.plugin_instances[name] = old_inst
+            if old_mod is not None:
+                self.plugin_modules[name] = old_mod
+                sys.modules[old_mod.__name__] = old_mod
+            raise
 
     def reload_all_plugins(self):
         plugin_names = list(self.plugins.keys())
@@ -342,21 +404,55 @@ class PluginManager:
     def _read_plugin_metadata(self, plugin_dir: Path) -> Optional[Plugin]:
         name = plugin_dir.name
         init_path = plugin_dir / "__init__.py"
+        if not init_path.exists():
+            Debug.log_error(f"Plugin '{name}' skipped: {init_path} not found", "Plugins")
+            return None
+
+        temp_module_name = f"_meta_{name}_{id(plugin_dir)}"
         try:
-            spec = importlib.util.spec_from_file_location(f"_meta_{name}", init_path)
-            if not spec or not spec.loader:
+            spec = importlib.util.spec_from_file_location(temp_module_name, init_path)
+            if spec is None or spec.loader is None:
+                Debug.log_error(f"Plugin '{name}' skipped: could not create module spec for {init_path}", "Plugins")
                 return None
+
             module = importlib.util.module_from_spec(spec)
             module.Plugin = Plugin
-            spec.loader.exec_module(module)
+            sys.modules[temp_module_name] = module
+
+            try:
+                spec.loader.exec_module(module)
+            except Exception as exec_err:
+                import traceback
+                tb_str = ''.join(traceback.format_exception(type(exec_err), exec_err, exec_err.__traceback__))
+                Debug.log_error(f"Plugin '{name}' skipped: exception while executing {init_path}\n{tb_str}", "Plugins")
+                return None
+
             plugin_obj = getattr(module, "PLUGIN", None)
-            if isinstance(plugin_obj, Plugin):
-                return plugin_obj
+            if plugin_obj is None:
+                Debug.log_error(f"Plugin '{name}' skipped: global variable 'PLUGIN' not found in {init_path}",
+                                "Plugins")
+                return None
+
+            if not isinstance(plugin_obj, Plugin):
+                actual_type = type(plugin_obj).__name__
+                Debug.log_error(
+                    f"Plugin '{name}' skipped: 'PLUGIN' in {init_path} is of type '{actual_type}', expected 'Plugin'",
+                    "Plugins")
+                return None
+
+            if not hasattr(plugin_obj, 'name') or not isinstance(plugin_obj.name, str) or not plugin_obj.name.strip():
+                Debug.log_error(
+                    f"Plugin '{name}' skipped: 'PLUGIN.name' is missing, empty, or not a string in {init_path}",
+                    "Plugins")
+                return None
+
+            return plugin_obj
+
         except Exception as e:
-            print(f"Metadata load error in {init_path}: {e}")
+            Debug.log_exception(f"Unexpected error while reading metadata for plugin '{name}'", "Plugins")
+            return None
         finally:
-            sys.modules.pop(f"_meta_{name}", None)
-        return None
+            sys.modules.pop(temp_module_name, None)
 
     def update(self, dt: float):
         for name, plugin in self.plugins.items():
@@ -386,5 +482,14 @@ class PluginManager:
         console_handler.clear_plugin_commands()
         for name, plugin in self.plugins.items():
             for cmd_name, cmd_func in plugin.console_commands.items():
-                bound_func = lambda expr, inst=self.plugin_instances[name], f=cmd_func: f(inst, expr)
-                console_handler.register_plugin_command(cmd_name, bound_func, plugin.command_help.get(cmd_name, ""))
+                inst = self.plugin_instances[name]
+                if hasattr(cmd_func, '__code__') and cmd_func.__code__.co_argcount >= 2:
+                    bound_func = partial(cmd_func, inst)
+                else:
+                    bound_func = lambda expr, i=inst, f=cmd_func: f(i, expr)
+                console_handler.register_plugin_command(
+                    cmd_name, bound_func, plugin.command_help.get(cmd_name, "")
+                )
+
+
+

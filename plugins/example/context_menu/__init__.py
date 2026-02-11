@@ -1,4 +1,4 @@
-from UPST.gui.contex_menu import ConfigOption
+from UPST.gui.windows.context_menu.config_option import ConfigOption
 
 
 def provide_context_items(plugin_manager, plugin_instance, clicked_object):

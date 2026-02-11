@@ -1,5 +1,6 @@
 import pygame
 import pygame_gui
+from UPST.debug.debug_manager import Debug
 from pygame_gui.elements import UIWindow, UIPanel, UIButton, UILabel, UIScrollingContainer, UIImage, UITooltip
 
 class PluginManagerWindow(UIWindow):
@@ -44,6 +45,9 @@ class PluginManagerWindow(UIWindow):
             panel_h = 80
             panel = UIPanel(relative_rect=pygame.Rect(10, y_offset, scroll_w - 20, panel_h), manager=self.ui_manager, container=self.scrolling_container)
             panel.plugin_name = name
+            if name not in self.plugin_manager.plugin_instances:
+                Debug.log_warning(f"Plugin '{name}' has metadata but no instance — skipping UI", "Plugins")
+                continue
 
             x = 10
             icon_w = 55
@@ -74,8 +78,10 @@ class PluginManagerWindow(UIWindow):
             UILabel(relative_rect=pygame.Rect(x, 25, scroll_w - x - 120, 20), text=author_text, manager=self.ui_manager, container=panel, object_id="#author_label")
             UILabel(relative_rect=pygame.Rect(x, 45, scroll_w - x - 120, 20), text=desc_text, manager=self.ui_manager, container=panel, object_id="#description_label")
 
-            reload_btn = UIButton(relative_rect=pygame.Rect(scroll_w - 150, 25, 70, 30), text="Reload", manager=self.ui_manager, container=panel)
-            disable_btn = UIButton(relative_rect=pygame.Rect(scroll_w - 75, 25, 70, 30), text="Disable", manager=self.ui_manager, container=panel)
+            reload_btn = UIButton(relative_rect=pygame.Rect(scroll_w - 150, 25, 70, 30), text="Reload",
+                                  manager=self.ui_manager, container=panel)
+            disable_btn = UIButton(relative_rect=pygame.Rect(scroll_w - 75, 25, 70, 30), text="Disable",
+                                   manager=self.ui_manager, container=panel)
 
             self.buttons[f"{name}_reload"] = reload_btn
             self.buttons[f"{name}_disable"] = disable_btn
@@ -118,11 +124,24 @@ class PluginManagerWindow(UIWindow):
             else:
                 for name in list(self.plugin_manager.plugins.keys()):
                     if event.ui_element == self.buttons.get(f"{name}_reload"):
-                        try:
-                            self.plugin_manager.reload_plugin(name)
-                            self._rebuild_ui()
-                        except Exception as e:
-                            print(f"Failed to reload plugin {name}: {e}")
+                        if name not in self.plugin_manager.plugin_instances:
+                            print(f"Cannot reload '{name}': instance missing — trying to force-reload...")
+                            try:
+                                if name in self.plugin_manager.plugins:
+                                    self.plugin_manager.unload_plugin(name)
+                            except Exception:
+                                pass
+                            try:
+                                self.plugin_manager.load_plugin(self.plugin_manager.plugin_paths[name])
+                                self._rebuild_ui()
+                            except Exception as e:
+                                print(f"Force-reload failed for {name}: {e}")
+                        else:
+                            try:
+                                self.plugin_manager.reload_plugin(name)
+                                self._rebuild_ui()
+                            except Exception as e:
+                                print(f"Reload failed for {name}: {e}")
                     elif event.ui_element == self.buttons.get(f"{name}_disable"):
                         self.plugin_manager.unload_plugin(name)
                         self._rebuild_ui()
