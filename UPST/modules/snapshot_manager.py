@@ -193,6 +193,18 @@ class SnapshotManager:
                     plugin_configs[name] = cfg_dict
             data["plugins"] = plugin_meta
             data["plugin_configs"] = plugin_configs
+        if hasattr(self.physics_manager.app, 'plugin_manager'):
+            plugin_states = {}
+            for name, instance in self.physics_manager.app.plugin_manager.plugin_instances.items():
+                plugin_def = self.physics_manager.app.plugin_manager.plugins[name]
+                if plugin_def.serialize:
+                    try:
+                        state = plugin_def.serialize(self.physics_manager.app.plugin_manager, instance)
+                        if state is not None:
+                            plugin_states[name] = state
+                    except Exception as e:
+                        Debug.log_error(f"Plugin '{name}' failed to serialize: {e}", "SaveLoadManager")
+            data["plugin_states"] = plugin_states
         return data
 
     def load_snapshot(self, snapshot_bytes):
@@ -371,6 +383,18 @@ class SnapshotManager:
                     except Exception as e:
                         Debug.log_error(f"Plugin '{name}' on_load failed during snapshot restore: {e}",
                                         "SnapshotManager")
+        plugin_states = data.get("plugin_states", {})
+        for name, state in plugin_states.items():
+            if name not in self.physics_manager.app.plugin_manager.plugin_instances:
+                Debug.log_warning(f"Saved state for unloaded plugin '{name}', skipping.", "SaveLoadManager")
+                continue
+            plugin_def = self.physics_manager.app.plugin_manager.plugins[name]
+            instance = self.physics_manager.app.plugin_manager.plugin_instances[name]
+            if plugin_def.deserialize:
+                try:
+                    plugin_def.deserialize(self.physics_manager.app.plugin_manager, instance, state)
+                except Exception as e:
+                    Debug.log_error(f"Plugin '{name}' failed to deserialize: {e}", "SaveLoadManager")
         str_body_map = {str(uid): body for uid, body in body_uuid_map.items()}
         self.physics_manager.script_manager.deserialize_from_save(data.get("scripts", {}), str_body_map)
         Debug.log_success("Snapshot restored.", category="SnapshotManager")

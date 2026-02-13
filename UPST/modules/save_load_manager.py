@@ -310,7 +310,18 @@ class SaveLoadManager:
                     plugin_configs[name] = cfg_dict
             data["plugins"] = plugin_meta
             data["plugin_configs"] = plugin_configs
-
+        if hasattr(self.app, 'plugin_manager'):
+            plugin_states = {}
+            for name, instance in self.app.plugin_manager.plugin_instances.items():
+                plugin_def = self.app.plugin_manager.plugins[name]
+                if plugin_def.serialize:
+                    try:
+                        state = plugin_def.serialize(self.app.plugin_manager, instance)
+                        if state is not None:
+                            plugin_states[name] = state
+                    except Exception as e:
+                        Debug.log_error(f"Plugin '{name}' failed to serialize: {e}", "SaveLoadManager")
+            data["plugin_states"] = plugin_states
         return data
 
     def load_world(self):

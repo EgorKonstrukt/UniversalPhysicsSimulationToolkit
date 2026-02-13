@@ -17,6 +17,7 @@ from packaging.version import Version, InvalidVersion
 from UPST.debug.debug_manager import Debug
 from UPST.config import config, Config
 from UPST.gui.windows.context_menu.config_option import ConfigOption
+from UPST.modules.undo_redo_manager import get_undo_redo
 
 
 @dataclass
@@ -38,6 +39,8 @@ class Plugin:
     context_menu_items: Optional[Callable[["PluginManager", Any, Any], List[Any]]] = None
     scripting_symbols: Dict[str, Any] = field(default_factory=dict)
     scripting_hooks: Optional[Callable[["PluginManager", Dict[str, Any]], None]] = None
+    serialize: Optional[Callable[["PluginManager", Any], Dict[str, Any]]] = None
+    deserialize: Optional[Callable[["PluginManager", Any, Dict[str, Any]], None]] = None
 
     def __post_init__(self):
         if self.console_commands is None:
@@ -50,6 +53,7 @@ class Plugin:
 class PluginManager:
     def __init__(self, app):
         self.app = app
+        self.undo_redo_manager = get_undo_redo()
         self.plugins: Dict[str, Plugin] = {}
         self.plugin_instances: Dict[str, Any] = {}
         self.plugin_modules = {}

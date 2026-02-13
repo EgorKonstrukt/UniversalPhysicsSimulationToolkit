@@ -127,6 +127,7 @@ class ToolSystem:
             GraphTool(self.app),
             FractalTool(self.app)
         ]
+
         self._pending_tools = spawn_tools + constraint_tools + special_tools
 
     def _register_tool_settings(self):
