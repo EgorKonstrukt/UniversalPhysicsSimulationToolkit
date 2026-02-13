@@ -36,12 +36,16 @@ class Plugin:
     console_commands: Dict[str, Callable] = field(default_factory=dict)
     command_help: Dict[str, str] = field(default_factory=dict)
     context_menu_items: Optional[Callable[["PluginManager", Any, Any], List[Any]]] = None
+    scripting_symbols: Dict[str, Any] = field(default_factory=dict)
+    scripting_hooks: Optional[Callable[["PluginManager", Dict[str, Any]], None]] = None
 
     def __post_init__(self):
         if self.console_commands is None:
             self.console_commands = {}
         if self.command_help is None:
             self.command_help = {}
+        if self.scripting_symbols is None:
+            self.scripting_symbols = {}
 
 class PluginManager:
     def __init__(self, app):
@@ -201,10 +205,14 @@ class PluginManager:
                 json.dump(cfg_dict, f, indent=4, ensure_ascii=False)
             setattr(self.app.config, name, config_instance)
 
-        try:
-            plugin_instance = module.PluginImpl(self.app)
-        except Exception as e:
-            raise RuntimeError(f"Failed to instantiate PluginImpl for '{name}'") from e
+        plugin_instance = None
+        if hasattr(module, "PluginImpl"):
+            try:
+                plugin_instance = module.PluginImpl(self.app)
+            except Exception as e:
+                raise RuntimeError(f"Failed to instantiate PluginImpl for '{name}'") from e
+        else:
+            plugin_instance = object()  # заглушка
 
         self.plugins[name] = plugin_def
         self.plugin_instances[name] = plugin_instance

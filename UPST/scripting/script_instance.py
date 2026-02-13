@@ -98,31 +98,44 @@ class ScriptInstance:
     def _build_base_namespace(self, for_recompile: bool = False) -> Dict[str, Any]:
         mm = self._main_manager() if for_recompile else None
         plotter_factory = (lambda *a, **kw: PlotterWindow(mm, *a, **kw)) if for_recompile else self._make_plotter()
-        threaded_decorator = self._user_thread_decorator if not for_recompile else (
-            lambda fn: (lambda *a, **k: self.spawn_thread(fn, *a, **k)).__setattr__('_is_user_threaded', True) or
-                       setattr(lambda *a, **k: self.spawn_thread(fn, *a, **k), '_original', fn) or
-                       (lambda *a, **k: self.spawn_thread(fn, *a, **k))
-        )
-        if for_recompile:
-            def threaded(fn):
-                wrapper = lambda *a, **k: self.spawn_thread(fn, *a, **k)
-                wrapper._is_user_threaded = True
-                wrapper._original = fn
-                return wrapper
-            threaded_decorator = threaded
-        return {
+
+        def make_threaded():
+            if not for_recompile:
+                return self._user_thread_decorator
+            else:
+                def threaded(fn):
+                    wrapper = lambda *a, **k: self.spawn_thread(fn, *a, **k)
+                    wrapper._is_user_threaded = True
+                    wrapper._original = fn
+                    return wrapper
+
+                return threaded
+
+        ns = {
             "owner": self.owner, "app": self.app, "config": config, "Camera": Camera,
             "Gizmos": Gizmos, "Debug": Debug, "synthesizer": synthesizer, "pymunk": pymunk,
             "time": time, "math": math, "random": random, "threading": threading,
             "pygame": pygame, "self": self, "traceback": traceback, "profile": profile,
             "thread_lock": self.thread_lock, "spawn_thread": self.spawn_thread,
             "log": lambda m: Debug.log_info(str(m), "UserScript"), "set_bg_fps": self.set_bg_fps,
-            "threaded": threaded_decorator, "np": np, "njit": njit,
+            "threaded": make_threaded(), "np": np, "njit": njit,
             "Optional": Optional, "Any": Any, "Callable": Callable, "TypeVar": TypeVar,
             "Dict": Dict, "List": List, "Tuple": Tuple, "Union": Union, "Set": Set,
             "PlotterWindow": plotter_factory, "load_script": self._load_script_wrapper,
             "gfxdraw": gfxdraw, "world": self.app.upst_api if self.app and hasattr(self.app, 'upst_api') else None,
         }
+
+        pm = getattr(self.app, 'plugin_manager', None)
+        if pm and hasattr(pm, 'plugins'):
+            for plugin_name, plugin in pm.plugins.items():
+                if hasattr(plugin, 'scripting_symbols') and plugin.scripting_symbols:
+                    ns.update(plugin.scripting_symbols)
+                if hasattr(plugin, 'scripting_hooks') and plugin.scripting_hooks:
+                    try:
+                        plugin.scripting_hooks(pm, ns)
+                    except Exception as e:
+                        Debug.log_exception(f"Plugin '{plugin_name}' scripting hook failed", "Scripting")
+        return ns
 
     def _init_namespace_and_compile(self):
         ns = self._build_base_namespace()

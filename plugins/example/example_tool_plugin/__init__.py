@@ -19,7 +19,7 @@ class PluginImpl:
         self.app = app
 
     def get_tools(self, app):
-        tool = MyNewTool(app.physics_manager, app)
+        tool = MyNewTool(app)
         return [tool]
 
 class MyNewTool(BaseTool):
@@ -28,7 +28,7 @@ class MyNewTool(BaseTool):
     icon_path=str(PLUGIN_DIR / "texture.png")
     tooltip = "Example custom tool from plugin"
 
-    def __init__(self, physics_manager, app):
+    def __init__(self, app):
         super().__init__(app)
         self.active = False
 

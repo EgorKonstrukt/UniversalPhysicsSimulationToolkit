@@ -74,7 +74,7 @@ class ThermalConfig:
     dt: float = 1.0 / 60.0
 
 class PluginImpl:
-    def __init__(self, app: "UniversalPhysicsSimulationToolkit"):
+    def __init__(self, app):
         self.app = app
         self.manager = None
         self.enabled = getattr(config.thermal_simulation, "enabled", True)
