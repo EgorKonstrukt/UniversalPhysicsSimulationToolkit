@@ -192,31 +192,33 @@ class PhysicsDebugManager:
                 continue
 
     def _calculate_body_properties(self, body_mass, body_moment, body_velocity, body_angular_velocity, body_position_y):
-        vel_sq = body_velocity.length_squared
-        if vel_sq > 1e15:
-            # Debug.log_warning(f"Clamped extreme velocity (v²={vel_sq:.2e}) for body {id(body_mass)}", "PhysicsDebug")
-            velocity_length = 1e7
-            kinetic_energy = 0.5 * body_mass * (1e7 ** 2)
-        else:
-            velocity_length = math.sqrt(vel_sq) if vel_sq > 0 else 0.0
-            kinetic_energy = 0.5 * body_mass * vel_sq
+        MAX_VEL = 1e7  # Prevent overflow in v^2
+        vx, vy = body_velocity.x, body_velocity.y
+        if abs(vx) > MAX_VEL or abs(vy) > MAX_VEL:
+            scale = MAX_VEL / max(abs(vx), abs(vy))
+            vx *= scale
+            vy *= scale
+        vel_sq = vx * vx + vy * vy
+
+        velocity_length = math.sqrt(vel_sq) if vel_sq > 0 else 0.0
+        kinetic_energy = 0.5 * body_mass * vel_sq
 
         rotational_energy = 0.5 * body_moment * (body_angular_velocity ** 2)
         if math.isnan(rotational_energy) or math.isinf(rotational_energy):
             rotational_energy = 0.0
 
         potential_energy = body_mass * self._cached_gravity_magnitude * max(0, (
-                    config.app.screen_height - body_position_y) * 0.001)
+                config.app.screen_height - body_position_y) * 0.001)
         total_energy = kinetic_energy + rotational_energy + potential_energy
         linear_momentum = body_mass * velocity_length
         angular_momentum = body_moment * body_angular_velocity
-        return (velocity_length     ,
-                kinetic_energy      ,
-                rotational_energy   ,
-                potential_energy    ,
-                total_energy        ,
-                linear_momentum     ,
-                angular_momentum    )
+        return (velocity_length,
+                kinetic_energy,
+                rotational_energy,
+                potential_energy,
+                total_energy,
+                linear_momentum,
+                angular_momentum)
 
     def _update_body_debug(self, body: pymunk.Body, dt: float, t: float, debug_cache: dict):
         pos = body.position

@@ -90,7 +90,7 @@ class DrawingManager:
             s1 = camera.world_to_screen(p1)
             s2 = camera.world_to_screen(p2)
             r = max(1, int(size * camera.scaling))
-            pygame.draw.line(screen, color, s1, s2, r)
+            pygame.draw.aaline(screen, color, s1, s2, r)
 
     def clear(self):
         self.strokes.clear()
