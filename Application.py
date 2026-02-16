@@ -172,12 +172,11 @@ class Application:
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
 
-
         self.node_graph_manager = NodeGraphManager(app=self)
         extend_snapshot_manager(self.snapshot_manager)
         extend_save_load_manager(self.save_load_manager)
         register_context_menu(self.plugin_manager)
-        self.node_graph_manager.register_console_commands(self.console_handler)
+        # self.node_graph_manager.register_console_commands(self.console_handler)
         register_tools(self.tool_manager)
 
         self.repository_manager = RepositoryManager()

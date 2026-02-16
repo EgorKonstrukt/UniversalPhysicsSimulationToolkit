@@ -1,11 +1,10 @@
-# UPST/modules/node_graph/node_core.py
+# UPST/modules/node_graph/node_registry.py
 import uuid, pygame, pymunk, math, time
 from typing import Dict, List, Optional, Any, Callable, Tuple, Set
 from dataclasses import dataclass, field
 from enum import Enum
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
-from UPST.modules.undo_redo_manager import get_undo_redo
 
 class PortType(Enum):
     INPUT = 0
@@ -29,12 +28,10 @@ class NodePort:
     value: Any = None
     connections: List[str] = field(default_factory=list)
     position: Tuple[float, float] = (0, 0)
-
     def serialize(self) -> dict:
         return {"id": self.id, "name": self.name, "port_type": self.port_type.value,
                 "data_type": self.data_type.value, "value": self.value,
                 "connections": self.connections, "position": self.position}
-
     @classmethod
     def deserialize(cls, data: dict) -> 'NodePort':
         return cls(id=data["id"], name=data["name"], port_type=PortType(data["port_type"]),
@@ -48,11 +45,9 @@ class NodeConnection:
     from_port: str
     to_node: str
     to_port: str
-
     def serialize(self) -> dict:
         return {"id": self.id, "from_node": self.from_node, "from_port": self.from_port,
                 "to_node": self.to_node, "to_port": self.to_port}
-
     @classmethod
     def deserialize(cls, data: dict) -> 'NodeConnection':
         return cls(id=data["id"], from_node=data["from_node"], from_port=data["from_port"],
@@ -74,35 +69,22 @@ class Node:
         self._compiled_fn: Optional[Callable] = None
         self._last_output: Dict[str, Any] = {}
         self._execution_order: int = 0
-
+        self.custom_data: Dict[str, Any] = {}
     def add_input(self, name: str, data_type: DataType = DataType.ANY, default: Any = None) -> str:
         port_id = f"in_{name}_{uuid.uuid4().hex[:8]}"
         self.inputs[port_id] = NodePort(id=port_id, name=name, port_type=PortType.INPUT,
                                         data_type=data_type, value=default)
         return port_id
-
     def add_output(self, name: str, data_type: DataType = DataType.ANY) -> str:
         port_id = f"out_{name}_{uuid.uuid4().hex[:8]}"
         self.outputs[port_id] = NodePort(id=port_id, name=name, port_type=PortType.OUTPUT,
                                          data_type=data_type)
         return port_id
-
     def get_input_value(self, port_identifier: str) -> Any:
-        """
-        Получает значение входа.
-        Сначала ищет по ID, если не найдено - ищет по имени порта.
-        """
-        # Прямой доступ по ID
-        if port_identifier in self.inputs:
-            return self.inputs[port_identifier].value
-
-        # Поиск по имени порта (критично для PrintNode)
+        if port_identifier in self.inputs: return self.inputs[port_identifier].value
         for pid, port in self.inputs.items():
-            if port.name == port_identifier:
-                return port.value
-
+            if port.name == port_identifier: return port.value
         return None
-
     def set_output_value(self, port_identifier: str, value: Any):
         if port_identifier in self.outputs:
             self.outputs[port_identifier].value = value
@@ -113,7 +95,6 @@ class Node:
                 port.value = value
                 self._last_output[pid] = value
                 return
-
     def execute(self, graph: 'NodeGraph') -> bool:
         if not self.enabled: return False
         try:
@@ -121,7 +102,7 @@ class Node:
                 ns = {"inputs": {p.name: p.value for p in self.inputs.values()},
                       "outputs": {}, "graph": graph, "node": self, "pymunk": pymunk,
                       "math": math, "random": __import__("random"),
-                      "Debug": Debug, "config": config, "time": time}
+                      "Debug": Debug, "config": config, "time": time, "custom_data": self.custom_data}
                 exec(self._compiled_fn, ns, ns)
                 for name, val in ns.get("outputs", {}).items():
                     self.set_output_value(name, val)
@@ -130,27 +111,20 @@ class Node:
         except Exception as e:
             Debug.log_error(f"Node {self.name} execution error: {e}", "NodeGraph")
             return False
-
-    def _execute_default(self, graph: 'NodeGraph') -> bool:
-        for out_port in self.outputs.values():
-            if out_port.value is None: out_port.value = 0
-        return True
-
+    def _execute_default(self, graph: 'NodeGraph') -> bool: return True
     def compile_script(self):
         if self.script_code:
-            try:
-                self._compiled_fn = compile(self.script_code, f"<node_{self.id}>", "exec")
+            try: self._compiled_fn = compile(self.script_code, f"<node_{self.id}>", "exec")
             except Exception as e:
                 Debug.log_error(f"Script compilation failed: {e}", "NodeGraph")
                 self._compiled_fn = None
-
     def serialize(self) -> dict:
         return {"id": self.id, "position": (self.position.x, self.position.y), "name": self.name,
                 "node_type": self.node_type, "inputs": {k: v.serialize() for k, v in self.inputs.items()},
                 "outputs": {k: v.serialize() for k, v in self.outputs.items()},
                 "script_code": self.script_code, "enabled": self.enabled, "color": self.color,
-                "size": self.size, "execution_order": self._execution_order}
-
+                "size": self.size, "execution_order": self._execution_order,
+                "custom_data": self.custom_data}
     @classmethod
     def deserialize(cls, data: dict) -> 'Node':
         node = cls(node_id=data["id"], position=data["position"], name=data["name"], node_type=data["node_type"])
@@ -161,6 +135,7 @@ class Node:
         node.color = tuple(data.get("color", (100, 100, 150)))
         node.size = tuple(data.get("size", (150, 100)))
         node._execution_order = data.get("execution_order", 0)
+        node.custom_data = data.get("custom_data", {})
         if node.script_code: node.compile_script()
         return node
 
@@ -174,31 +149,25 @@ class NodeGraph:
         self.execution_order: List[str] = []
         self._dirty: bool = True
         self._last_evaluation: float = 0
-
     def add_node(self, node: Node) -> str:
         self.nodes[node.id] = node
         self._dirty = True
         return node.id
-
     def remove_node(self, node_id: str):
         if node_id in self.nodes:
             for conn_id, conn in list(self.connections.items()):
-                if conn.from_node == node_id or conn.to_node == node_id:
-                    del self.connections[conn_id]
+                if conn.from_node == node_id or conn.to_node == node_id: del self.connections[conn_id]
             del self.nodes[node_id]
             self._dirty = True
-
     def connect(self, from_node: str, from_port: str, to_node: str, to_port: str) -> str:
         conn_id = f"conn_{uuid.uuid4().hex[:8]}"
-        self.connections[conn_id] = NodeConnection(id=conn_id, from_node=from_node, from_port=from_port,
-                                                   to_node=to_node, to_port=to_port)
+        self.connections[conn_id] = NodeConnection(id=conn_id, from_node=from_node, from_port=from_port, to_node=to_node, to_port=to_port)
         if from_node in self.nodes and from_port in self.nodes[from_node].outputs:
             self.nodes[from_node].outputs[from_port].connections.append(conn_id)
         if to_node in self.nodes and to_port in self.nodes[to_node].inputs:
             self.nodes[to_node].inputs[to_port].connections.append(conn_id)
         self._dirty = True
         return conn_id
-
     def disconnect(self, conn_id: str):
         if conn_id in self.connections:
             conn = self.connections[conn_id]
@@ -210,7 +179,6 @@ class NodeGraph:
                 if conn_id in ins: ins.remove(conn_id)
             del self.connections[conn_id]
             self._dirty = True
-
     def _compute_execution_order(self):
         in_degree = {nid: 0 for nid in self.nodes}
         adj = {nid: [] for nid in self.nodes}
@@ -229,7 +197,6 @@ class NodeGraph:
         self.execution_order = order if len(order) == len(self.nodes) else list(self.nodes.keys())
         for i, nid in enumerate(self.execution_order):
             if nid in self.nodes: self.nodes[nid]._execution_order = i
-
     def evaluate(self):
         if self._dirty:
             self._compute_execution_order()
@@ -242,25 +209,20 @@ class NodeGraph:
                         from_node = self.nodes[conn.from_node]
                         if conn.from_port in from_node.outputs:
                             val = from_node.outputs[conn.from_port].value
-                            if conn.to_port in node.inputs:
-                                node.inputs[conn.to_port].value = val
+                            if conn.to_port in node.inputs: node.inputs[conn.to_port].value = val
                 node.execute(self)
         self._last_evaluation = pygame.time.get_ticks() / 1000.0
-
     def get_node_at_position(self, world_pos: Tuple[float, float]) -> Optional[Node]:
         for node in self.nodes.values():
             x, y = node.position
             w, h = node.size
-            if x <= world_pos[0] <= x + w and y <= world_pos[1] <= y + h:
-                return node
+            if x <= world_pos[0] <= x + w and y <= world_pos[1] <= y + h: return node
         return None
-
     def serialize(self) -> dict:
         return {"id": self.id, "name": self.name, "world_space": self.world_space,
                 "nodes": {k: v.serialize() for k, v in self.nodes.items()},
                 "connections": {k: v.serialize() for k, v in self.connections.items()},
                 "execution_order": self.execution_order}
-
     @classmethod
     def deserialize(cls, data: dict) -> 'NodeGraph':
         graph = cls(graph_id=data["id"], name=data["name"])
