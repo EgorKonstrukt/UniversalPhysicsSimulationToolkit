@@ -1,7 +1,11 @@
 # UPST/modules/node_graph/integration.py
 import pickle
+
+import pygame
+
 from UPST.modules.node_graph.node_graph_manager import NodeGraphManager
 from UPST.debug.debug_manager import Debug
+from UPST.modules.node_graph.node_types import KeyInputNode
 
 
 def extend_snapshot_manager(snapshot_manager):
@@ -80,6 +84,10 @@ def register_context_menu(plugin_manager):
                 items.append(ConfigOption("---", handler=lambda cm: None))
                 items.append(ConfigOption(f"Force State ({'ON' if target_node.state else 'OFF'})",
                                           handler=lambda cm: ngm._toggle_force(target_node)))
+            elif isinstance(target_node, KeyInputNode):
+                items.append(ConfigOption("---", handler=lambda cm: None))
+                items.append(ConfigOption(f"Current Key: {pygame.key.name(target_node.key_code).upper()}", handler=lambda cm: None))
+                items.append(ConfigOption("Change Key (Cycle)", handler=lambda cm: ngm.prompt_change_key(target_node)))
             return items
 
         if obj is None and world_pos and ngm.active_graph:
@@ -100,7 +108,7 @@ def register_tools(tool_system):
         LogicAndTool, LogicOrTool, LogicNotTool,
         MathAddTool, MathSubTool, MathMulTool, MathDivTool,
         ScriptNodeTool, OutputNodeTool,
-        ButtonTool, ToggleTool, PrintTool, OscillatorTool
+        ButtonTool, ToggleTool, PrintTool, OscillatorTool, KeyInputTool
     )
 
     tool_system.register_tool(NodeGraphEditorTool(tool_system.app))
@@ -109,7 +117,8 @@ def register_tools(tool_system):
         LogicAndTool, LogicOrTool, LogicNotTool,
         MathAddTool, MathSubTool, MathMulTool, MathDivTool,
         ScriptNodeTool, OutputNodeTool,
-        ButtonTool, ToggleTool, PrintTool, OscillatorTool
+        ButtonTool, ToggleTool, PrintTool, OscillatorTool,
+        KeyInputTool
     ]
 
 

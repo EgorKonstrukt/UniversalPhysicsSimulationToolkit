@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Set
 from UPST.modules.node_graph.node_core import NodeGraph, Node, NodePort, PortType, DataType
 from UPST.debug.debug_manager import Debug
 from UPST.modules.node_graph.node_types import OscillatorNode, ToggleNode, LogicGateNode, MathNode, ButtonNode, \
-    PrintNode, OutputNode, ScriptNode
+    PrintNode, OutputNode, ScriptNode, KeyInputNode
 from UPST.modules.undo_redo_manager import get_undo_redo
 
 
@@ -38,7 +38,8 @@ class NodeGraphManager:
             ("logic_and", LogicGateNode), ("logic_or", LogicGateNode), ("logic_not", LogicGateNode),
             ("logic_xor", LogicGateNode), ("script", ScriptNode), ("output", OutputNode),
             ("math_add", MathNode), ("math_sub", MathNode), ("math_mul", MathNode), ("math_div", MathNode),
-            ("button", ButtonNode), ("toggle", ToggleNode), ("print", PrintNode), ("oscillator", OscillatorNode)
+            ("button", ButtonNode), ("toggle", ToggleNode),
+            ("print", PrintNode), ("oscillator", OscillatorNode), ("key_input", KeyInputNode)
         ]
         for type_name, cls in mappings:
             self.register_node_type(type_name, cls)
@@ -108,7 +109,12 @@ class NodeGraphManager:
         return conn_id
 
     def update(self, dt: float):
-        for graph in self.graphs.values(): graph.evaluate()
+        keys_pressed = pygame.key.get_pressed()
+        for graph in self.graphs.values():
+            for node in graph.nodes.values():
+                if node.node_type == "key_input" and hasattr(node, 'update_state'):
+                    node.update_state(keys_pressed)
+            graph.evaluate()
 
     def serialize_for_save(self) -> dict:
         return {"graphs": {k: v.serialize() for k, v in self.graphs.items()},
@@ -294,6 +300,9 @@ class NodeGraphManager:
                 items.append(ConfigOption("---", handler=lambda cm: None))
                 items.append(ConfigOption(f"Force State ({'ON' if node.state else 'OFF'})",
                                           handler=lambda cm: self._toggle_force(node)))
+            elif isinstance(node, KeyInputNode):
+                items.append(ConfigOption("---", handler=lambda cm: None))
+                items.append(ConfigOption("Change Key...", handler=lambda cm: self._prompt_change_key(node)))
         else:
             if self.active_graph:
                 items.append(ConfigOption("Create Node Here", handler=lambda cm: self._open_spawn_menu(world_pos),
@@ -302,6 +311,19 @@ class NodeGraphManager:
                                           icon="sprites/gui/node_graph.png"))
         return items
 
+    def prompt_change_key(self, node: 'KeyInputNode'):
+        """Открывает диалог ожидания нажатия клавиши"""
+        Debug.log_info(f"Waiting for key press for node {node.name}...", "NodeGraph")
+        common_keys = [pygame.K_SPACE, pygame.K_RETURN, pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d, pygame.K_UP,
+                       pygame.K_DOWN]
+        try:
+            idx = common_keys.index(node.key_code)
+            next_key = common_keys[(idx + 1) % len(common_keys)]
+        except ValueError:
+            next_key = pygame.K_SPACE
+
+        node.set_key(next_key)
+        Debug.log_success(f"Key changed to: {pygame.key.name(next_key).upper()}", "NodeGraph")
     def _disconnect_all_node(self, node_id: str):
         if not self.active_graph: return
         to_remove = [cid for cid, conn in self.active_graph.connections.items() if

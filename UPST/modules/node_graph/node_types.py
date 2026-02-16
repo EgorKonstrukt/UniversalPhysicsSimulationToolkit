@@ -1,3 +1,5 @@
+from typing import Any
+
 import pygame
 import math
 import time
@@ -246,3 +248,52 @@ class OscillatorNode(Node):
         node.offset = data.get("offset", 0.0)
         node.enabled = data.get("enabled", True)
         return node
+
+
+class KeyInputNode(Node):
+    def __init__(self, position=(0, 0)):
+        super().__init__(position=position, name="Key Input", node_type="key_input")
+        self.color = (150, 150, 255)
+        self.add_output("Pressed", DataType.BOOL)
+        self.add_output("JustPressed", DataType.BOOL)
+        self.key_code: int = pygame.K_SPACE
+        self._is_pressed: bool = False
+        self._was_pressed: bool = False
+        self.size = (140, 70)
+
+    def set_key(self, key_code: int):
+        """Устанавливает код клавиши (pygame.K_...)"""
+        self.key_code = key_code
+        key_name = pygame.key.name(key_code) if hasattr(pygame, 'key') else str(key_code)
+        self.name = f"Key: {key_name.upper()}"
+
+    def update_state(self, keys_pressed):
+        """Вызывается каждый кадр для обновления состояния на основе ввода"""
+        self._was_pressed = self._is_pressed
+        self._is_pressed = keys_pressed[self.key_code] if self.key_code in keys_pressed else False
+
+    def _execute_default(self, graph):
+        self.set_output_value_by_name("Pressed", self._is_pressed)
+
+        just_pressed = self._is_pressed and not self._was_pressed
+        self.set_output_value_by_name("JustPressed", just_pressed)
+
+        return True
+
+    def serialize(self) -> dict:
+        data = super().serialize()
+        data["key_code"] = self.key_code
+        return data
+
+    @classmethod
+    def deserialize(cls, data: dict) -> 'KeyInputNode':
+        node = super().deserialize(data)
+        node.set_key(data.get("key_code", pygame.K_SPACE))
+        return node
+
+    def set_output_value_by_name(self, name: str, value: Any):
+        for pid, port in self.outputs.items():
+            if port.name == name:
+                port.value = value
+                self._last_output[pid] = value
+                return

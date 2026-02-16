@@ -240,6 +240,7 @@ class Application:
         self.plugin_manager.update(time_delta)
         self.undo_redo_manager.update()
         self.physics_manager.update_scripts(time_delta)
+        self.node_graph_manager.update(dt=time_delta)
 
     def toggle_grid(self):
         self.grid_manager.toggle_grid()

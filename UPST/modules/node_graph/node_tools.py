@@ -159,3 +159,7 @@ class PrintTool(NodeSpawnTool):
 
 class OscillatorTool(NodeSpawnTool):
     def __init__(self, app): super().__init__(app, "oscillator", "Oscillator", (200, 200, 100))
+
+class KeyInputTool(NodeSpawnTool):
+    def __init__(self, app):
+        super().__init__(app, "key_input", "Key Input", (150, 150, 255))
