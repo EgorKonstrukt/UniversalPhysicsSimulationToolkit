@@ -40,6 +40,9 @@ from UPST.modules.plugin_manager import PluginManager
 from UPST.modules.api_manager import APIManager
 
 from UPST.modules.contraption_save_load_manager import ContraptionSaveLoadManager
+
+from UPST.modules.node_graph.node_graph_manager import NodeGraphManager
+from UPST.modules.node_graph.integration import extend_snapshot_manager, extend_save_load_manager, register_context_menu, register_tools
 import sys
 
 # sys.set_int_max_str_digits(0)
@@ -168,6 +171,15 @@ class Application:
                                  physics_manager=self.physics_manager, gizmos_manager=self.gizmos,
                                  grid_manager=self.grid_manager, input_handler=self.input_handler,
                                  ui_manager=self.ui_manager, script_system=None, tool_manager=self.tool_manager)
+
+
+        self.node_graph_manager = NodeGraphManager(app=self)
+        extend_snapshot_manager(self.snapshot_manager)
+        extend_save_load_manager(self.save_load_manager)
+        register_context_menu(self.plugin_manager)
+        self.node_graph_manager.register_console_commands(self.console_handler)
+        register_tools(self.tool_manager)
+
         self.repository_manager = RepositoryManager()
         self.tool_manager.create_tool_buttons()
         self.plugin_manager.load_all_plugins()

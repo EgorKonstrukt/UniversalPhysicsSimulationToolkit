@@ -74,7 +74,11 @@ class ContextMenu(ContextMenuHandlers):
             self.clicked_object = selected_bodies
         else:
             self.clicked_object = clicked_object
-        self.menu_structure = build_menu_structure(self.clicked_object, self.app, self.plugin_manager)
+
+        world_pos = self.app.camera.screen_to_world(position) if self.app.camera else position
+
+        self.menu_structure = build_menu_structure(self.clicked_object, self.app, self.plugin_manager,
+                                                   world_pos=world_pos)
         self.create_menu()
         x, y = position
         max_x, max_y = pygame.display.get_surface().get_size()
