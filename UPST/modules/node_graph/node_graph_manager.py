@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Set
 from UPST.modules.node_graph.node_core import NodeGraph, Node, NodePort, PortType, DataType
 from UPST.debug.debug_manager import Debug
 from UPST.modules.node_graph.node_types import OscillatorNode, ToggleNode, LogicGateNode, MathNode, ButtonNode, \
-    PrintNode, OutputNode, ScriptNode, KeyInputNode
+    PrintNode, OutputNode, ScriptNode, KeyInputNode, LightBulbNode
 from UPST.modules.undo_redo_manager import get_undo_redo
 
 
@@ -39,7 +39,8 @@ class NodeGraphManager:
             ("logic_xor", LogicGateNode), ("script", ScriptNode), ("output", OutputNode),
             ("math_add", MathNode), ("math_sub", MathNode), ("math_mul", MathNode), ("math_div", MathNode),
             ("button", ButtonNode), ("toggle", ToggleNode),
-            ("print", PrintNode), ("oscillator", OscillatorNode), ("key_input", KeyInputNode)
+            ("print", PrintNode), ("oscillator", OscillatorNode), ("key_input", KeyInputNode),
+            ("light_bulb", LightBulbNode)
         ]
         for type_name, cls in mappings:
             self.register_node_type(type_name, cls)
@@ -457,6 +458,24 @@ class NodeGraphManager:
                     pts.append((x, y))
                 pygame.draw.lines(scr, wave_color, False, pts, 2)
                 indicator_drawn = True
+
+        if isinstance(node, LightBulbNode):
+            draw_color = node.current_color
+            center = (int(pos[0] + size[0] / 2), int(pos[1] + size[1] / 2))
+            radius = int(min(size[0], size[1]) / 2 - 5)
+
+            if node._is_on:
+                for i in range(3, 0, -1):
+                    glow_radius = radius + (i * 4 * scale)
+                    glow_alpha = 100 // i
+                    glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (*draw_color, glow_alpha), (glow_radius, glow_radius), glow_radius)
+                    scr.blit(glow_surf, (center[0] - glow_radius, center[1] - glow_radius))
+
+                pygame.draw.circle(scr, (255, 255, 255), center, int(radius * 0.6))
+
+            pygame.draw.circle(scr, draw_color, center, radius)
+            pygame.draw.circle(scr, (255, 255, 255), center, radius, 2)  # Обводк
 
         pygame.draw.rect(scr, color, rect, border_radius=4)
         pygame.draw.rect(scr, (255, 255, 255), rect, 2 if node in self.selected_nodes else 1, border_radius=4)

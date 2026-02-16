@@ -297,3 +297,35 @@ class KeyInputNode(Node):
                 port.value = value
                 self._last_output[pid] = value
                 return
+
+
+class LightBulbNode(Node):
+    def __init__(self, position=(0, 0)):
+        super().__init__(position=position, name="Light Bulb", node_type="light_bulb")
+        self.color_off = (60, 60, 60)
+        self.color_on = (255, 255, 100)
+        self.current_color = self.color_off
+
+        self.add_input("Power", DataType.BOOL, False)
+        self._is_on = False
+        self.size = (100, 100)
+
+    def _execute_default(self, graph):
+        power_val = False
+        for pid, port in self.inputs.items():
+            if port.name == "Power":
+                power_val = bool(port.value) if port.value is not None else False
+                break
+
+        self._is_on = power_val
+
+        if self._is_on:
+            self.current_color = self.color_on
+        else:
+            self.current_color = self.color_off
+
+        return True
+
+    def serialize(self) -> dict:
+        data = super().serialize()
+        return data

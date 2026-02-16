@@ -5,6 +5,7 @@ import pygame
 
 from UPST.modules.node_graph.node_graph_manager import NodeGraphManager
 from UPST.debug.debug_manager import Debug
+from UPST.modules.node_graph.node_tools import LightBulbTool
 from UPST.modules.node_graph.node_types import KeyInputNode
 
 
@@ -108,7 +109,8 @@ def register_tools(tool_system):
         LogicAndTool, LogicOrTool, LogicNotTool,
         MathAddTool, MathSubTool, MathMulTool, MathDivTool,
         ScriptNodeTool, OutputNodeTool,
-        ButtonTool, ToggleTool, PrintTool, OscillatorTool, KeyInputTool
+        ButtonTool, ToggleTool, PrintTool, OscillatorTool,
+        KeyInputTool, LightBulbTool
     )
 
     tool_system.register_tool(NodeGraphEditorTool(tool_system.app))
@@ -118,7 +120,7 @@ def register_tools(tool_system):
         MathAddTool, MathSubTool, MathMulTool, MathDivTool,
         ScriptNodeTool, OutputNodeTool,
         ButtonTool, ToggleTool, PrintTool, OscillatorTool,
-        KeyInputTool
+        KeyInputTool, LightBulbTool
     ]
 
 
