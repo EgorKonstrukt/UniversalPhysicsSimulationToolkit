@@ -4,9 +4,8 @@ from typing import Dict, List, Optional, Tuple, Set
 from UPST.modules.node_graph.node_core import NodeGraph, Node, NodePort, PortType, DataType
 from UPST.debug.debug_manager import Debug
 from UPST.modules.node_graph.node_types import ScriptNode, OscillatorNode, ToggleNode, KeyInputNode, ButtonNode, \
-    LightBulbNode
+    LightBulbNode, LogicGateNode, OutputNode, MathNode, PrintNode
 from UPST.modules.undo_redo_manager import get_undo_redo
-
 class NodeGraphManager:
     _instance = None
     def __new__(cls, *args, **kwargs):
@@ -27,18 +26,7 @@ class NodeGraphManager:
         self.node_types: Dict[str, type] = {}
         self._register_default_node_types()
     def _register_default_node_types(self):
-        from UPST.modules.node_graph.node_types import (
-            OscillatorNode, ToggleNode, LogicGateNode, MathNode, ButtonNode,
-            PrintNode, OutputNode, ScriptNode, KeyInputNode, LightBulbNode
-        )
-        mappings = [
-            ("logic_and", LogicGateNode), ("logic_or", LogicGateNode), ("logic_not", LogicGateNode),
-            ("logic_xor", LogicGateNode), ("script", ScriptNode), ("output", OutputNode),
-            ("math_add", MathNode), ("math_sub", MathNode), ("math_mul", MathNode), ("math_div", MathNode),
-            ("button", ButtonNode), ("toggle", ToggleNode),
-            ("print", PrintNode), ("oscillator", OscillatorNode), ("key_input", KeyInputNode),
-            ("light_bulb", LightBulbNode)
-        ]
+        mappings = [("logic_and", LogicGateNode), ("logic_or", LogicGateNode), ("logic_not", LogicGateNode), ("logic_xor", LogicGateNode), ("script", ScriptNode), ("output", OutputNode), ("math_add", MathNode), ("math_sub", MathNode), ("math_mul", MathNode), ("math_div", MathNode), ("button", ButtonNode), ("toggle", ToggleNode), ("print", PrintNode), ("oscillator", OscillatorNode), ("key_input", KeyInputNode), ("light_bulb", LightBulbNode)]
         for type_name, cls in mappings: self.register_node_type(type_name, cls)
     def register_node_type(self, type_name: str, node_class: type):
         self.node_types[type_name] = node_class
@@ -98,12 +86,10 @@ class NodeGraphManager:
         keys_pressed = pygame.key.get_pressed()
         for graph in self.graphs.values():
             for node in graph.nodes.values():
-                if node.node_type == "key_input" and hasattr(node, 'update_state'):
-                    node.update_state(keys_pressed)
+                if node.node_type == "key_input" and hasattr(node, 'update_state'): node.update_state(keys_pressed)
             graph.evaluate()
     def serialize_for_save(self) -> dict:
-        return {"graphs": {k: v.serialize() for k, v in self.graphs.items()},
-                "active_graph": self.active_graph.id if self.active_graph else None}
+        return {"graphs": {k: v.serialize() for k, v in self.graphs.items()}, "active_graph": self.active_graph.id if self.active_graph else None}
     def deserialize_from_save(self, data: dict):
         self.graphs.clear()
         self.selected_nodes.clear()
@@ -119,9 +105,7 @@ class NodeGraphManager:
     def get_node_at_world_pos(self, world_pos: tuple) -> Optional[Node]:
         return self.active_graph.get_node_at_position(world_pos) if self.active_graph else None
     def _get_port_color(self, data_type: DataType) -> Tuple[int, int, int]:
-        colors = {DataType.BOOL: (255, 100, 100), DataType.INT: (100, 200, 100), DataType.FLOAT: (100, 150, 255),
-                  DataType.STRING: (255, 200, 100), DataType.VECTOR: (200, 100, 255), DataType.OBJECT: (255, 255, 100),
-                  DataType.ANY: (200, 200, 200)}
+        colors = {DataType.BOOL: (255, 100, 100), DataType.INT: (100, 200, 100), DataType.FLOAT: (100, 150, 255), DataType.STRING: (255, 200, 100), DataType.VECTOR: (200, 100, 255), DataType.OBJECT: (255, 255, 100), DataType.ANY: (200, 200, 200)}
         return colors.get(data_type, (200, 200, 200))
     def _get_port_at_screen_pos(self, screen_pos: Tuple[int, int]) -> Optional[Tuple[str, Node, NodePort, PortType]]:
         if not self.active_graph: return None
@@ -221,14 +205,7 @@ class NodeGraphManager:
         from UPST.gui.windows.context_menu.config_option import ConfigOption
         items = []
         node = self.get_node_at_world_pos(world_pos)
-        if node:
-            items.append(ConfigOption(f"Delete Node '{node.name}'", handler=lambda cm: self.delete_node(node.id), icon="sprites/gui/erase.png"))
-            items.append(ConfigOption("---", handler=lambda cm: None))
-            items.append(ConfigOption("Disconnect All", handler=lambda cm: self._disconnect_all_node(node.id), icon="sprites/gui/disconnect.png"))
-            if isinstance(node, ScriptNode): items.append(ConfigOption("Edit Script...", handler=lambda cm: self._open_script_editor(node)))
-            elif isinstance(node, OscillatorNode): items.append(ConfigOption(f"Toggle Power ({'ON' if node.enabled else 'OFF'})", handler=lambda cm: self._toggle_oscillator(node)))
-            elif isinstance(node, ToggleNode): items.append(ConfigOption(f"Force State ({'ON' if node.state else 'OFF'})", handler=lambda cm: self._toggle_force(node)))
-            elif isinstance(node, KeyInputNode): items.append(ConfigOption("Change Key...", handler=lambda cm: self._prompt_change_key(node)))
+        if node: items.extend(node.get_context_menu_items(self))
         else:
             if self.active_graph:
                 items.append(ConfigOption("Create Node Here", handler=lambda cm: self._open_spawn_menu(world_pos), icon="sprites/gui/add.png"))
@@ -295,73 +272,4 @@ class NodeGraphManager:
                     end_pos = pygame.mouse.get_pos()
                     line_color = (0, 255, 0) if self.hovered_port else (255, 50, 50)
                     self._draw_bezier(scr, start_pos, end_pos, line_color, 2)
-        for node in self.active_graph.nodes.values(): self._draw_node(scr, camera, node)
-    def _draw_node(self, scr: pygame.Surface, camera, node: Node):
-        pos = camera.world_to_screen((node.position[0], node.position[1]))
-        scale = camera.scaling
-        size = (node.size[0] * scale, node.size[1] * scale)
-        rect = pygame.Rect(int(pos[0]), int(pos[1]), int(size[0]), int(size[1]))
-        base_color = node.color if node.enabled else (80, 80, 80)
-        color = base_color
-        if isinstance(node, ButtonNode):
-            if node.is_pressed:
-                color = tuple(min(255, c + 60) for c in base_color)
-                inner_rect = rect.inflate(-4 * scale, -4 * scale)
-                pygame.draw.rect(scr, (255, 255, 255), inner_rect, border_radius=4)
-        elif isinstance(node, ToggleNode):
-            center = (int(pos[0] + size[0] - 15 * scale), int(pos[1] + 15 * scale))
-            if node.state:
-                color = tuple(min(255, c + 40) for c in base_color)
-                pygame.draw.circle(scr, (0, 255, 0), center, int(7 * scale))
-                pygame.draw.circle(scr, (255, 255, 255), center, int(3 * scale), 2)
-            else:
-                color = tuple(max(0, c - 40) for c in base_color)
-                pygame.draw.circle(scr, (100, 100, 100), center, int(7 * scale))
-        elif isinstance(node, OscillatorNode):
-            if node.enabled:
-                wave_color = (255, 255, 100)
-                start_x, end_x = int(pos[0] + 10 * scale), int(pos[0] + size[0] - 10 * scale)
-                mid_y, amp = int(pos[1] + size[1] / 2), int(15 * scale)
-                pts = [(start_x + (end_x - start_x) * (i / 20.0), mid_y + math.sin(i * 0.5 + time.time() * node.frequency * 6) * amp) for i in range(21)]
-                pygame.draw.lines(scr, wave_color, False, pts, 2)
-        elif isinstance(node, LightBulbNode):
-            draw_color = node.current_color
-            center = (int(pos[0] + size[0] / 2), int(pos[1] + size[1] / 2))
-            radius = int(min(size[0], size[1]) / 2 - 5)
-            if node._is_on:
-                for i in range(3, 0, -1):
-                    glow_radius = radius + (i * 4 * scale)
-                    glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(glow_surf, (*draw_color, 100 // i), (glow_radius, glow_radius), glow_radius)
-                    scr.blit(glow_surf, (center[0] - glow_radius, center[1] - glow_radius))
-            pygame.draw.circle(scr, (255, 255, 255), center, int(radius * 0.6))
-            pygame.draw.circle(scr, draw_color, center, radius)
-            pygame.draw.circle(scr, (255, 255, 255), center, radius, 2)
-        pygame.draw.rect(scr, color, rect, border_radius=4)
-        pygame.draw.rect(scr, (255, 255, 255), rect, 2 if node in self.selected_nodes else 1, border_radius=4)
-        font = pygame.font.SysFont("Consolas", 14)
-        scr.blit(font.render(node.name, True, (255, 255, 255)), (pos[0] + 5, pos[1] + 5))
-        y_off, step = 30.0, 20.0
-        for pid, port in node.inputs.items():
-            px, py = pos[0], pos[1] + y_off
-            port.position = (px - pos[0], py - pos[1])
-            is_hovered = (self.hovered_port and self.hovered_port[1].id == node.id and self.hovered_port[0] == pid and
-                          self.drag_connection_start and self._are_types_compatible(self.drag_connection_start[3], port.data_type))
-            self._draw_port_circle(scr, int(px), int(py), port.data_type, PortType.INPUT, is_hovered)
-            y_off += step
-        y_off = 30.0
-        for pid, port in node.outputs.items():
-            px, py = pos[0] + size[0], pos[1] + y_off
-            port.position = (px - pos[0], py - pos[1])
-            is_hovered = (self.hovered_port and self.hovered_port[1].id == node.id and self.hovered_port[0] == pid and
-                          self.drag_connection_start and self._are_types_compatible(self.drag_connection_start[3], port.data_type))
-            self._draw_port_circle(scr, int(px), int(py), port.data_type, PortType.OUTPUT, is_hovered)
-            y_off += step
-        if node in self.selected_nodes: pygame.draw.rect(scr, (0, 255, 0), rect.inflate(6, 6), 2, border_radius=6)
-    def _draw_port_circle(self, scr: pygame.Surface, x: int, y: int, dtype: DataType, ptype: PortType, is_hovered: bool):
-        color = self._get_port_color(dtype)
-        radius = 6
-        pygame.draw.circle(scr, (40, 40, 40), (x, y), radius + 2)
-        pygame.draw.circle(scr, color, (x, y), radius)
-        pygame.draw.circle(scr, (255, 255, 255), (x, y), 2)
-        if is_hovered: pygame.draw.circle(scr, (0, 255, 0), (x, y), radius + 4, 2)
+        for node in self.active_graph.nodes.values(): node.draw(scr, camera, self)
