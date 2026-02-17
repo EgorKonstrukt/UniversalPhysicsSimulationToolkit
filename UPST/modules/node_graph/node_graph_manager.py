@@ -426,3 +426,10 @@ class NodeGraphManager:
             pygame.draw.rect(scr, (0, 255, 0, 100), s_rect, 2)
 
         for node in self.active_graph.nodes.values(): node.draw(scr, camera, self)
+
+    def open_oscillator_config(self, node):
+        from UPST.gui.windows.config.oscillator_config_window import OscillatorConfigWindow
+        ui_manager = self.app.ui_manager.manager
+        screen_pos = self.app.camera.world_to_screen(node.position)
+        rect = pygame.Rect(int(screen_pos[0]), int(screen_pos[1]), 400, 200)
+        window = OscillatorConfigWindow(rect, ui_manager, node)

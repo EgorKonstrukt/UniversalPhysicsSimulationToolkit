@@ -323,6 +323,7 @@ class OscillatorNode(Node):
         self.set_output_value_by_name("Signal", val)
         self.set_output_value_by_name("Bool", val > 0)
         return True
+
     def draw(self, scr, camera, manager):
         super().draw(scr, camera, manager)
         if self.enabled:
@@ -332,13 +333,15 @@ class OscillatorNode(Node):
             wave_color = (255, 255, 100)
             start_x, end_x = int(pos[0] + 10 * scale), int(pos[0] + size[0] - 10 * scale)
             mid_y = int(pos[1] + size[1] / 2)
-            amp_px = int(15 * scale)
+            max_amp_px = int(size[1] / 2 - 10 * scale)
             pts = []
             for i in range(21):
                 t = i / 20.0
                 x = start_x + (end_x - start_x) * t
                 wave_val = math.sin(2 * math.pi * self.frequency * self._time + i * 0.5) * self.amplitude
-                y = mid_y + wave_val * amp_px
+                y_offset = wave_val * max_amp_px
+                y_offset = max(-max_amp_px, min(max_amp_px, y_offset))
+                y = mid_y + y_offset
                 pts.append((x, y))
             if len(pts) > 1: pygame.draw.lines(scr, wave_color, False, pts, 2)
     def get_context_menu_items(self, manager):
@@ -346,6 +349,7 @@ class OscillatorNode(Node):
         from UPST.gui.windows.context_menu.config_option import ConfigOption
         items.append(ConfigOption("---", handler=lambda cm: None))
         items.append(ConfigOption(f"Toggle Power ({'ON' if self.enabled else 'OFF'})", handler=lambda cm: manager._toggle_oscillator(self)))
+        items.append(ConfigOption("Configure Oscillator...", handler=lambda cm: manager.open_oscillator_config(self)))
         return items
     def serialize(self) -> dict:
         data = super().serialize()
