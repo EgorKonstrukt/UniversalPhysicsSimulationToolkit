@@ -36,7 +36,7 @@ class Plugin:
     on_event: Optional[Callable[["PluginManager", Any, Any], bool]] = None
     console_commands: Dict[str, Callable] = field(default_factory=dict)
     command_help: Dict[str, str] = field(default_factory=dict)
-    context_menu_items: Optional[Callable[["PluginManager", Any, Any], List[Any]]] = None
+    context_menu_items: Optional[Callable[["PluginManager", Any, Any, Optional[Any]], List[Any]]] = None
     scripting_symbols: Dict[str, Any] = field(default_factory=dict)
     scripting_hooks: Optional[Callable[["PluginManager", Dict[str, Any]], None]] = None
     serialize: Optional[Callable[["PluginManager", Any], Dict[str, Any]]] = None
@@ -231,9 +231,25 @@ class PluginManager:
                 raise
 
         if plugin_def.context_menu_items:
-            self.register_context_menu_contributor(name, lambda pm, obj, pd=plugin_def,
-                                                                pi=plugin_instance: pd.context_menu_items(pm, pi, obj))
+            # Создаем замыкание, которое точно соответствует сигнатуре вызова в menu_builder.py
+            # Ожидается: func(plugin_manager, obj, world_pos=None)
+            def contributor_wrapper(pm, obj, world_pos=None):
+                try:
+                    # Передаем world_pos явно, если функция его поддерживает, иначе игнорируем
+                    # Но так как мы контролируем вызов, просто передадим все три аргумента
+                    return plugin_def.context_menu_items(pm, plugin_instance, obj, world_pos=world_pos)
+                except TypeError:
+                    # Fallback для старых плагинов, которые не принимают world_pos
+                    try:
+                        return plugin_def.context_menu_items(pm, plugin_instance, obj)
+                    except Exception as e_inner:
+                        Debug.log_error(f"Plugin '{name}' context menu fallback failed: {e_inner}", "Plugins")
+                        return []
+                except Exception as e_outer:
+                    Debug.log_error(f"Plugin '{name}' context menu failed: {e_outer}", "Plugins")
+                    return []
 
+            self.register_context_menu_contributor(name, contributor_wrapper)
         if hasattr(plugin_instance, 'get_tools') and callable(getattr(plugin_instance, 'get_tools')):
             try:
                 tools = plugin_instance.get_tools(self.app)

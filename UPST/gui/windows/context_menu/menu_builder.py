@@ -10,36 +10,34 @@ def _get_node_graph_items(obj, app, plugin_manager, world_pos=None):
     """Получает пункты меню от плагинов (включая NodeGraph) для конкретного объекта."""
     items = []
 
-    # Проверка: если это словарь (как планировалось)
-    if hasattr(plugin_manager, 'context_menu_contributors') and isinstance(plugin_manager.context_menu_contributors,
-                                                                           dict):
-        for name, contributor_func in plugin_manager.context_menu_contributors.items():
-            try:
-                res = contributor_func(plugin_manager, obj, world_pos=world_pos)
-                if res:
-                    items.extend(res)
-            except Exception as e:
-                Debug.log_error(f"Context menu contributor '{name}' failed: {e}", "ContextMenu")
+    if not hasattr(plugin_manager, 'context_menu_contributors'):
+        return items
 
-    # Проверка: если это список (как оказалось в реальности)
-    elif hasattr(plugin_manager, 'context_menu_contributors') and isinstance(plugin_manager.context_menu_contributors,
-                                                                             list):
-        for i, contributor_func in enumerate(plugin_manager.context_menu_contributors):
-            try:
-                # Предполагаем, что в списке хранятся только функции или кортежи (name, func)
-                if callable(contributor_func):
-                    res = contributor_func(plugin_manager, obj, world_pos=world_pos)
-                    if res:
-                        items.extend(res)
-                elif isinstance(contributor_func, (tuple, list)) and len(contributor_func) >= 2:
-                    # Если формат списка: [(name, func), ...]
-                    name, func = contributor_func[0], contributor_func[1]
-                    if callable(func):
-                        res = func(plugin_manager, obj, world_pos=world_pos)
-                        if res:
-                            items.extend(res)
-            except Exception as e:
-                Debug.log_error(f"Context menu contributor (index {i}) failed: {e}", "ContextMenu")
+    contributors = plugin_manager.context_menu_contributors
+
+    for item in contributors:
+        func = None
+        name = "Unknown"
+
+        if isinstance(item, tuple) and len(item) >= 2:
+            name, func = item[0], item[1]
+        elif callable(item):
+            func = item
+        else:
+            continue
+
+        if not callable(func):
+            continue
+
+        try:
+            res = func(plugin_manager, obj, world_pos=world_pos)
+            if res:
+                if isinstance(res, list):
+                    items.extend(res)
+                else:
+                    items.append(res)
+        except Exception as e:
+            Debug.log_error(f"Context menu contributor '{name}' failed: {e}", "ContextMenu")
 
     return items
 

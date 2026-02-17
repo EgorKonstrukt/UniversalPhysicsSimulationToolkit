@@ -244,9 +244,10 @@ class NodeGraph:
         self._last_evaluation = pygame.time.get_ticks() / 1000.0
     def get_node_at_position(self, world_pos: Tuple[float, float]) -> Optional[Node]:
         for node in self.nodes.values():
-            x, y = node.position
+            x, y = node.position.x, node.position.y
             w, h = node.size
-            if x <= world_pos[0] <= x + w and y <= world_pos[1] <= y + h: return node
+            if x <= world_pos[0] <= x + w and y <= world_pos[1] <= y + h:
+                return node
         return None
     def serialize(self) -> dict:
         return {"id": self.id, "name": self.name, "world_space": self.world_space, "nodes": {k: v.serialize() for k, v in self.nodes.items()}, "connections": {k: v.serialize() for k, v in self.connections.items()}, "execution_order": self.execution_order}
