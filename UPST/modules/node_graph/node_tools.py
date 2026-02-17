@@ -2,11 +2,10 @@
 import pygame
 import pygame_gui
 from UPST.modules.node_graph.node_graph_manager import NodeGraphManager
+from UPST.modules.node_graph.node_types import NODE_TYPE_REGISTRY
 from UPST.debug.debug_manager import Debug
 from UPST.tools.base_tool import BaseTool
-from UPST.modules.node_graph.node_types import (
-    LogicGateNode, MathNode, ScriptNode, OutputNode, ButtonNode, ToggleNode, PrintNode, OscillatorNode, KeyInputNode, LightBulbNode
-)
+
 class NodeGraphEditorTool(BaseTool):
     name = "NodeGraphEditor"
     icon_path = "sprites/gui/node_graph.png"
@@ -49,17 +48,19 @@ class NodeGraphEditorTool(BaseTool):
             scr.blit(txt, (10, 10))
     def serialize_for_save(self) -> dict: return self.ngm.serialize_for_save()
     def deserialize_from_save(self, data: dict): self.ngm.deserialize_from_save(data)
-class NodeSpawnTool(BaseTool):
+
+class DynamicNodeSpawnTool(BaseTool):
     category = "Node Spawners"
-    def __init__(self, app, node_type: str, name: str, color: tuple, node_class: type):
+    def __init__(self, app, node_type: str, node_class: type):
         super().__init__(app)
         self.node_type = node_type
-        self.name = name
-        self.color = color
-        self.icon_path = "sprites/gui/node.png"
-        self.tooltip = f"Spawn {name} node"
-        self.ngm = NodeGraphManager(app=app)
         self.node_class = node_class
+        instance = node_class()
+        self.name = instance.name
+        self.color = instance.color
+        self.icon_path = "sprites/gui/node.png"
+        self.tooltip = f"Spawn {self.name} node"
+        self.ngm = NodeGraphManager(app=app)
     def handle_event(self, event, world_pos):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not self.ui_manager.manager.get_focus_set():
             if not self.ngm.active_graph: self.ngm.create_graph()
@@ -73,33 +74,9 @@ class NodeSpawnTool(BaseTool):
         else:
             txt = self.font.render("No Active Graph. Create one in settings.", True, (255, 255, 0))
             scr.blit(txt, (10, 10))
-class LogicAndTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "logic_and", "Logic AND", (150, 100, 50), LogicGateNode)
-class LogicOrTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "logic_or", "Logic OR", (150, 100, 50), LogicGateNode)
-class LogicNotTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "logic_not", "Logic NOT", (150, 100, 50), LogicGateNode)
-class MathAddTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "math_add", "Math Add", (50, 150, 100), MathNode)
-class MathSubTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "math_sub", "Math Sub", (50, 150, 100), MathNode)
-class MathMulTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "math_mul", "Math Mul", (50, 150, 100), MathNode)
-class MathDivTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "math_div", "Math Div", (50, 150, 100), MathNode)
-class ScriptNodeTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "script", "Script Node", (100, 50, 150), ScriptNode)
-class OutputNodeTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "output", "Output Node", (200, 50, 50), OutputNode)
-class ButtonTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "button", "Button", (200, 100, 100), ButtonNode)
-class ToggleTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "toggle", "Toggle", (100, 200, 100), ToggleNode)
-class PrintTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "print", "Print", (100, 100, 200), PrintNode)
-class OscillatorTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "oscillator", "Oscillator", (200, 200, 100), OscillatorNode)
-class KeyInputTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "key_input", "Key Input", (150, 150, 255), KeyInputNode)
-class LightBulbTool(NodeSpawnTool):
-    def __init__(self, app): super().__init__(app, "light_bulb", "Light Bulb", (255, 255, 100), LightBulbNode)
+
+def get_all_node_tools(app):
+    tools = [NodeGraphEditorTool(app)]
+    for type_name, node_cls in NODE_TYPE_REGISTRY.items():
+        tools.append(DynamicNodeSpawnTool(app, type_name, node_cls))
+    return tools

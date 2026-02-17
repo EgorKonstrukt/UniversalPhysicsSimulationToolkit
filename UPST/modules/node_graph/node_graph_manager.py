@@ -3,8 +3,9 @@ import math, time, pygame, pymunk
 from typing import Dict, List, Optional, Tuple, Set
 from UPST.modules.node_graph.node_core import NodeGraph, Node, NodePort, PortType, DataType, NodeConnection
 from UPST.debug.debug_manager import Debug
-from UPST.modules.node_graph.node_types import ScriptNode, OscillatorNode, ToggleNode, KeyInputNode, ButtonNode, LightBulbNode, LogicGateNode, MathNode, PrintNode, OutputNode
+from UPST.modules.node_graph.node_types import NODE_TYPE_REGISTRY
 from UPST.modules.undo_redo_manager import get_undo_redo
+
 class NodeGraphManager:
     _instance = None
     def __new__(cls, *args, **kwargs):
@@ -25,8 +26,8 @@ class NodeGraphManager:
         self.node_types: Dict[str, type] = {}
         self._register_default_node_types()
     def _register_default_node_types(self):
-        mappings = [("logic_and", LogicGateNode), ("logic_or", LogicGateNode), ("logic_not", LogicGateNode), ("logic_xor", LogicGateNode), ("script", ScriptNode), ("output", OutputNode), ("math_add", MathNode), ("math_sub", MathNode), ("math_mul", MathNode), ("math_div", MathNode), ("button", ButtonNode), ("toggle", ToggleNode), ("print", PrintNode), ("oscillator", OscillatorNode), ("key_input", KeyInputNode), ("light_bulb", LightBulbNode)]
-        for type_name, cls in mappings: self.register_node_type(type_name, cls)
+        for type_name, cls in NODE_TYPE_REGISTRY.items():
+            self.register_node_type(type_name, cls)
     def register_node_type(self, type_name: str, node_class: type):
         self.node_types[type_name] = node_class
     def create_graph(self, name: str = "NewGraph") -> NodeGraph:
@@ -211,8 +212,8 @@ class NodeGraphManager:
                 if to_node.id != from_nid and from_ptype != to_ptype:
                     if from_ptype == PortType.OUTPUT: self.connect_nodes(from_nid, from_pid, to_node.id, to_pid)
                     else: self.connect_nodes(to_node.id, to_pid, from_nid, from_pid)
-            self.drag_connection_start = None; self.hovered_port = None
-            return
+                self.drag_connection_start = None; self.hovered_port = None
+                return
         if self.dragging_node: self.dragging_node = None; get_undo_redo().take_snapshot()
     def get_context_menu_items(self, world_pos: tuple):
         from UPST.gui.windows.context_menu.config_option import ConfigOption
@@ -222,10 +223,6 @@ class NodeGraphManager:
             items.append(ConfigOption(f"Delete Node '{node.name}'", handler=lambda cm: self.delete_node(node.id), icon="sprites/gui/erase.png"))
             items.append(ConfigOption("---", handler=lambda cm: None))
             items.append(ConfigOption("Disconnect All", handler=lambda cm: self._disconnect_all_node(node.id), icon="sprites/gui/disconnect.png"))
-            if isinstance(node, ScriptNode): items.append(ConfigOption("Edit Script...", handler=lambda cm: self._open_script_editor(node)))
-            elif isinstance(node, OscillatorNode): items.append(ConfigOption(f"Toggle Power ({'ON' if node.enabled else 'OFF'})", handler=lambda cm: self._toggle_oscillator(node)))
-            elif isinstance(node, ToggleNode): items.append(ConfigOption(f"Force State ({'ON' if node.state else 'OFF'})", handler=lambda cm: self._toggle_force(node)))
-            elif isinstance(node, KeyInputNode): items.append(ConfigOption("Change Key...", handler=lambda cm: self._prompt_change_key(node)))
         else:
             if self.active_graph:
                 items.append(ConfigOption("Create Node Here", handler=lambda cm: self._open_spawn_menu(world_pos), icon="sprites/gui/add.png"))

@@ -120,14 +120,14 @@ class Node:
         if self in manager.selected_nodes: pygame.draw.rect(scr, (0, 255, 0), rect.inflate(6, 6), 2, border_radius=6)
     def _draw_ports(self, scr, pos, size, manager):
         scale = manager.app.camera.scaling
-        y_off, step = 30.0, 20.0
+        y_off, step = 30.0*scale, 20.0*scale
         for pid, port in self.inputs.items():
             px, py = pos[0], pos[1] + y_off
             port.position = (px - pos[0], py - pos[1])
             is_hovered = manager.hovered_port and manager.hovered_port[1].id == self.id and manager.hovered_port[0] == pid
             self._draw_port_circle(scr, int(px), int(py), port.data_type, PortType.INPUT, is_hovered, manager)
             y_off += step
-        y_off = 30.0
+        y_off = 30.0*scale
         for pid, port in self.outputs.items():
             px, py = pos[0] + size[0], pos[1] + y_off
             port.position = (px - pos[0], py - pos[1])
