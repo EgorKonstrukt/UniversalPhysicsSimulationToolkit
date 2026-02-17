@@ -6,15 +6,24 @@ from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import get_gizmos
 
 NODE_TYPE_REGISTRY: Dict[str, Type[Node]] = {}
+NODE_TOOL_METADATA: Dict[str, Dict[str, str]] = {}
 
-def register_node_type(type_name: str):
+def register_node_type(type_name: str, display_name: str = None, description: str = None, icon: str = None):
     def decorator(cls: Type[Node]):
         NODE_TYPE_REGISTRY[type_name] = cls
         cls._registered_type_name = type_name
+        if display_name: cls.tool_name = display_name
+        if description: cls.tool_description = description
+        if icon: cls.tool_icon_path = icon
+        NODE_TOOL_METADATA[type_name] = {
+            'name': cls.tool_name,
+            'description': cls.tool_description,
+            'icon': cls.tool_icon_path
+        }
         return cls
     return decorator
 
-@register_node_type("logic_and")
+@register_node_type("logic_and", display_name="Logic AND", description="Logical AND gate", icon="sprites/gui/logic_and.png")
 class LogicGateNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), gate_type: str = "and", node_id: str = None, name: str = None, node_type: str = None):
         final_name = name or f"Logic_{gate_type.upper()}"
@@ -41,73 +50,37 @@ class LogicGateNode(Node):
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicGateNode':
-        node = cls(position=data["position"], gate_type=data.get("gate_type", "and"), node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (150, 100, 50)))
-        node.size = tuple(data.get("size", (150, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
-        if node.script_code: node.compile_script()
+        node = super().deserialize(data)
+        node.gate_type = data.get("gate_type", "and")
+        node.node_type = f"logic_{node.gate_type}"
+        node.name = data.get("name", f"Logic_{node.gate_type.upper()}")
         return node
 
-@register_node_type("logic_or")
+@register_node_type("logic_or", display_name="Logic OR", description="Logical OR gate", icon="sprites/gui/logic_or.png")
 class LogicOrNode(LogicGateNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(position=position, gate_type="or", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicOrNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (150, 100, 50)))
-        node.size = tuple(data.get("size", (150, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
-        if node.script_code: node.compile_script()
-        return node
+        return LogicGateNode.deserialize(data)
 
-@register_node_type("logic_not")
+@register_node_type("logic_not", display_name="Logic NOT", description="Logical NOT gate", icon="sprites/gui/logic_not.png")
 class LogicNotNode(LogicGateNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(position=position, gate_type="not", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicNotNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (150, 100, 50)))
-        node.size = tuple(data.get("size", (150, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
-        if node.script_code: node.compile_script()
-        return node
+        return LogicGateNode.deserialize(data)
 
-@register_node_type("logic_xor")
+@register_node_type("logic_xor", display_name="Logic XOR", description="Logical XOR gate", icon="sprites/gui/logic_xor.png")
 class LogicXorNode(LogicGateNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(position=position, gate_type="xor", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicXorNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (150, 100, 50)))
-        node.size = tuple(data.get("size", (150, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
-        if node.script_code: node.compile_script()
-        return node
+        return LogicGateNode.deserialize(data)
 
-@register_node_type("math_add")
+@register_node_type("math_add", display_name="Math Add", description="Add two numbers", icon="sprites/gui/math_add.png")
 class MathNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), op: str = "add", node_id: str = None, name: str = None, node_type: str = None):
         final_name = name or f"Math_{op.upper()}"
@@ -134,73 +107,37 @@ class MathNode(Node):
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'MathNode':
-        node = cls(position=data["position"], op=data.get("op", "add"), node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (50, 150, 100)))
-        node.size = tuple(data.get("size", (150, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
-        if node.script_code: node.compile_script()
+        node = super().deserialize(data)
+        node.op = data.get("op", "add")
+        node.node_type = f"math_{node.op}"
+        node.name = data.get("name", f"Math_{node.op.upper()}")
         return node
 
-@register_node_type("math_sub")
+@register_node_type("math_sub", display_name="Math Sub", description="Subtract two numbers", icon="sprites/gui/math_sub.png")
 class MathSubNode(MathNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(position=position, op="sub", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'MathSubNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (50, 150, 100)))
-        node.size = tuple(data.get("size", (150, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
-        if node.script_code: node.compile_script()
-        return node
+        return MathNode.deserialize(data)
 
-@register_node_type("math_mul")
+@register_node_type("math_mul", display_name="Math Mul", description="Multiply two numbers", icon="sprites/gui/math_mul.png")
 class MathMulNode(MathNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(position=position, op="mul", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'MathMulNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (50, 150, 100)))
-        node.size = tuple(data.get("size", (150, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
-        if node.script_code: node.compile_script()
-        return node
+        return MathNode.deserialize(data)
 
-@register_node_type("math_div")
+@register_node_type("math_div", display_name="Math Div", description="Divide two numbers", icon="sprites/gui/math_div.png")
 class MathDivNode(MathNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(position=position, op="div", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'MathDivNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (50, 150, 100)))
-        node.size = tuple(data.get("size", (150, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
-        if node.script_code: node.compile_script()
-        return node
+        return MathNode.deserialize(data)
 
-@register_node_type("script")
+@register_node_type("script", display_name="Script Node", description="Custom Python script", icon="sprites/gui/script.png")
 class ScriptNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "Script", node_type=node_type or "script")
@@ -213,10 +150,10 @@ class ScriptNode(Node):
         items = super().get_context_menu_items(manager)
         from UPST.gui.windows.context_menu.config_option import ConfigOption
         items.append(ConfigOption("---", handler=lambda cm: None))
-        items.append(ConfigOption("Edit Script...", handler=lambda cm: manager._open_script_editor(self)))
+        items.append(ConfigOption("Edit Script...", handler=lambda cm: manager.open_script_editor(self)))
         return items
 
-@register_node_type("output")
+@register_node_type("output", display_name="Output Display", description="Displays value on screen", icon="sprites/gui/output.png")
 class OutputNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "Output", node_type=node_type or "output")
@@ -230,7 +167,7 @@ class OutputNode(Node):
         if gm: gm.draw_text(position=self.position, text=f"Out: {val}", font_size=16, color=(255, 255, 0), duration=0.1, world_space=True)
         return True
 
-@register_node_type("button")
+@register_node_type("button", display_name="Button", description="Interactive button", icon="sprites/gui/button.png")
 class ButtonNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "Button", node_type=node_type or "button")
@@ -263,21 +200,12 @@ class ButtonNode(Node):
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'ButtonNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (200, 100, 100)))
-        node.size = tuple(data.get("size", (120, 60)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
+        node = super().deserialize(data)
         node.is_pressed = False
         node._prev_pressed = False
-        if node.script_code: node.compile_script()
         return node
 
-@register_node_type("toggle")
+@register_node_type("toggle", display_name="Toggle Switch", description="On/Off switch", icon="sprites/gui/toggle.png")
 class ToggleNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "Toggle", node_type=node_type or "toggle")
@@ -325,21 +253,12 @@ class ToggleNode(Node):
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'ToggleNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (100, 200, 100)))
-        node.size = tuple(data.get("size", (120, 60)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
+        node = super().deserialize(data)
         node.state = data.get("state", False)
         node._triggered = False
-        if node.script_code: node.compile_script()
         return node
 
-@register_node_type("print")
+@register_node_type("print", display_name="Print Log", description="Prints value to debug log", icon="sprites/gui/print.png")
 class PrintNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "Print", node_type=node_type or "print")
@@ -367,7 +286,7 @@ class PrintNode(Node):
         if should_print:
             Debug.log_info(f"[PrintNode '{self.name}']: {in_val}", "NodeGraph")
             self._last_val_str = current_val_str
-            self._last_trigger_state = bool(trigger_val)
+        self._last_trigger_state = bool(trigger_val)
         return True
     def serialize(self) -> dict:
         data = super().serialize()
@@ -377,22 +296,13 @@ class PrintNode(Node):
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'PrintNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (100, 100, 200)))
-        node.size = tuple(data.get("size", (150, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
+        node = super().deserialize(data)
         node._first_run = True
         node._last_val_str = ""
         node._last_trigger_state = False
-        if node.script_code: node.compile_script()
         return node
 
-@register_node_type("oscillator")
+@register_node_type("oscillator", display_name="Oscillator", description="Sine wave generator", icon="sprites/gui/oscillator.png")
 class OscillatorNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "Oscillator", node_type=node_type or "oscillator")
@@ -447,23 +357,15 @@ class OscillatorNode(Node):
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'OscillatorNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (200, 200, 100)))
-        node.size = tuple(data.get("size", (140, 80)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
+        node = super().deserialize(data)
         node.frequency = data.get("frequency", 1.0)
         node.amplitude = data.get("amplitude", 1.0)
         node.offset = data.get("offset", 0.0)
+        node.enabled = data.get("enabled", True)
         node._time = 0.0
-        if node.script_code: node.compile_script()
         return node
 
-@register_node_type("key_input")
+@register_node_type("key_input", display_name="Key Input", description="Keyboard input detector", icon="sprites/gui/key.png")
 class KeyInputNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "Key Input", node_type=node_type or "key_input")
@@ -501,22 +403,13 @@ class KeyInputNode(Node):
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'KeyInputNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (150, 150, 255)))
-        node.size = tuple(data.get("size", (140, 70)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
+        node = super().deserialize(data)
         node.set_key(data.get("key_code", pygame.K_SPACE))
         node._is_pressed = False
         node._was_pressed = False
-        if node.script_code: node.compile_script()
         return node
 
-@register_node_type("light_bulb")
+@register_node_type("light_bulb", display_name="Light Bulb", description="Visual indicator", icon="sprites/gui/bulb.png")
 class LightBulbNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "Light Bulb", node_type=node_type or "light_bulb")
@@ -543,7 +436,6 @@ class LightBulbNode(Node):
         draw_color = self.current_color
         center = (int(pos[0] + size[0] / 2), int(pos[1] + size[1] / 2))
         radius = int(min(size[0], size[1]) / 2 - 5)
-
         pygame.draw.circle(scr, draw_color, center, radius)
         pygame.draw.circle(scr, (255, 255, 255), center, radius, 2)
         pygame.draw.rect(scr, self.color if self.enabled else (80, 80, 80), rect, border_radius=4)
@@ -565,21 +457,12 @@ class LightBulbNode(Node):
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'LightBulbNode':
-        node = cls(position=data["position"], node_id=data["id"])
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (100, 100, 150)))
-        node.size = tuple(data.get("size", (100, 100)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
+        node = super().deserialize(data)
         node._is_on = False
         node.current_color = node.color_off
-        if node.script_code: node.compile_script()
         return node
 
-@register_node_type("seven_segment")
+@register_node_type("seven_segment", display_name="7-Segment Display", description="Digital number display", icon="sprites/gui/7seg.png")
 class SevenSegmentNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "7-Segment", node_type=node_type or "seven_segment")
@@ -609,14 +492,14 @@ class SevenSegmentNode(Node):
         dp_x = right_x + int(sw * 1.5)
         dp_y = bot_y + int(sw * 1.5)
         self._seg_rects = [
-            {"rect": pygame.Rect(left_x, top_y - sw//2, right_x - left_x, sw), "type": "h"},  # A
-            {"rect": pygame.Rect(right_x - sw//2, top_y, sw, mid_y - top_y), "type": "v"},   # B
-            {"rect": pygame.Rect(right_x - sw//2, mid_y, sw, bot_y - mid_y), "type": "v"},   # C
-            {"rect": pygame.Rect(left_x, bot_y - sw//2, right_x - left_x, sw), "type": "h"},  # D
-            {"rect": pygame.Rect(left_x - sw//2, mid_y, sw, bot_y - mid_y), "type": "v"},    # E
-            {"rect": pygame.Rect(left_x - sw//2, top_y, sw, mid_y - top_y), "type": "v"},    # F
-            {"rect": pygame.Rect(left_x, mid_y - sw//2, right_x - left_x, sw), "type": "h"},  # G
-            {"rect": pygame.Rect(dp_x - dp_r, dp_y - dp_r, dp_r*2, dp_r*2), "type": "dot"}   # DP
+            {"rect": pygame.Rect(left_x, top_y - sw//2, right_x - left_x, sw), "type": "h"},
+            {"rect": pygame.Rect(right_x - sw//2, top_y, sw, mid_y - top_y), "type": "v"},
+            {"rect": pygame.Rect(right_x - sw//2, mid_y, sw, bot_y - mid_y), "type": "v"},
+            {"rect": pygame.Rect(left_x, bot_y - sw//2, right_x - left_x, sw), "type": "h"},
+            {"rect": pygame.Rect(left_x - sw//2, mid_y, sw, bot_y - mid_y), "type": "v"},
+            {"rect": pygame.Rect(left_x - sw//2, top_y, sw, mid_y - top_y), "type": "v"},
+            {"rect": pygame.Rect(left_x, mid_y - sw//2, right_x - left_x, sw), "type": "h"},
+            {"rect": pygame.Rect(dp_x - dp_r, dp_y - dp_r, dp_r*2, dp_r*2), "type": "dot"}
         ]
     def draw(self, scr: pygame.Surface, camera: Any, manager: Any) -> None:
         super().draw(scr, camera, manager)
@@ -640,16 +523,9 @@ class SevenSegmentNode(Node):
         return data
     @classmethod
     def deserialize(cls, data: Dict[str, Any]) -> 'SevenSegmentNode':
-        node = cls(position=data.get("position", (0, 0)), node_id=data.get("id"))
-        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
-        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
-        node.script_code = data.get("script_code", "")
-        node.enabled = data.get("enabled", True)
-        node.color = tuple(data.get("color", (50, 50, 60)))
-        node.size = tuple(data.get("size", (140, 200)))
-        node._execution_order = data.get("execution_order", 0)
-        node.custom_data = data.get("custom_data", {})
+        node = super().deserialize(data)
         node.segments = data.get("segments", [False] * 8)
         if len(node.segments) != 8: node.segments = [False] * 8
-        if node.script_code: node.compile_script()
+        node.size = tuple(data.get("size", (140, 200)))
+        node.color = tuple(data.get("color", (50, 50, 60)))
         return node

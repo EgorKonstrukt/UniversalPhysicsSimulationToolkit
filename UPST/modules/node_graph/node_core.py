@@ -1,13 +1,15 @@
 # UPST/modules/node_graph/node_core.py
 import uuid, pygame, pymunk, math, time
-from typing import Dict, List, Optional, Any, Callable, Tuple, Set
+from typing import Dict, List, Optional, Any, Callable, Tuple, Set, Type
 from dataclasses import dataclass, field
 from enum import Enum
 from UPST.config import config
 from UPST.debug.debug_manager import Debug
+
 class PortType(Enum):
     INPUT = 0
     OUTPUT = 1
+
 class DataType(Enum):
     BOOL = 0
     INT = 1
@@ -16,6 +18,7 @@ class DataType(Enum):
     VECTOR = 4
     OBJECT = 5
     ANY = 6
+
 @dataclass
 class NodePort:
     id: str
@@ -30,6 +33,7 @@ class NodePort:
     @classmethod
     def deserialize(cls, data: dict) -> 'NodePort':
         return cls(id=data["id"], name=data["name"], port_type=PortType(data["port_type"]), data_type=DataType(data["data_type"]), value=data.get("value"), connections=data.get("connections", []), position=tuple(data.get("position", (0, 0))))
+
 @dataclass
 class NodeConnection:
     id: str
@@ -42,7 +46,11 @@ class NodeConnection:
     @classmethod
     def deserialize(cls, data: dict) -> 'NodeConnection':
         return cls(id=data["id"], from_node=data["from_node"], from_port=data["from_port"], to_node=data["to_node"], to_port=data["to_port"])
+
 class Node:
+    tool_name: str = "Base Node"
+    tool_description: str = "A basic node."
+    tool_icon_path: str = "sprites/gui/node.png"
     def __init__(self, node_id: str = None, position: Tuple[float, float] = (0, 0), name: str = "Node", node_type: str = "base"):
         self.id = node_id or str(uuid.uuid4())
         self.position = pymunk.Vec2d(*position)
@@ -162,6 +170,7 @@ class Node:
         node.custom_data = data.get("custom_data", {})
         if node.script_code: node.compile_script()
         return node
+
 class NodeGraph:
     def __init__(self, graph_id: str = None, name: str = "NodeGraph"):
         self.id = graph_id or str(uuid.uuid4())

@@ -2,7 +2,7 @@
 import pygame
 import pygame_gui
 from UPST.modules.node_graph.node_graph_manager import NodeGraphManager
-from UPST.modules.node_graph.node_types import NODE_TYPE_REGISTRY
+from UPST.modules.node_graph.node_types import NODE_TYPE_REGISTRY, NODE_TOOL_METADATA
 from UPST.debug.debug_manager import Debug
 from UPST.tools.base_tool import BaseTool
 
@@ -55,11 +55,12 @@ class DynamicNodeSpawnTool(BaseTool):
         super().__init__(app)
         self.node_type = node_type
         self.node_class = node_class
-        instance = node_class()
-        self.name = instance.name
-        self.color = instance.color
-        self.icon_path = "sprites/gui/node.png"
-        self.tooltip = f"Spawn {self.name} node"
+        meta = NODE_TOOL_METADATA.get(node_type, {})
+        self.name = meta.get('name', node_class.tool_name)
+        self.description = meta.get('description', node_class.tool_description)
+        self.icon_path = meta.get('icon', node_class.tool_icon_path)
+        self.tooltip = f"{self.description}"
+        self.color = node_class().color
         self.ngm = NodeGraphManager(app=app)
     def handle_event(self, event, world_pos):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not self.ui_manager.manager.get_focus_set():
