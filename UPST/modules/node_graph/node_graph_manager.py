@@ -23,10 +23,12 @@ class NodeGraphManager:
         self.selected_nodes: List[Node] = []
         self.selected_connections: List[str] = []
         self.dragging_node: Optional[Node] = None
-        self.drag_offset: Tuple[float, float] = (0, 0)
+        self.drag_offset: Dict[Node, Tuple[float, float]] = {}
         self.drag_connection_start: Optional[Tuple[str, str, PortType, DataType, Tuple[int, int]]] = None
         self.hovered_port: Optional[Tuple[str, Node, NodePort, PortType]] = None
         self.node_types: Dict[str, type] = {}
+        self.selection_rect: Optional[pygame.Rect] = None
+        self.selection_start_pos: Optional[Tuple[float, float]] = None
         self._register_default_node_types()
 
     def _register_default_node_types(self):
@@ -79,7 +81,7 @@ class NodeGraphManager:
         return frozenset({type_a, type_b}) in compatible_pairs
 
     def connect_nodes(self, from_node: str, from_port: str, to_node: str, to_port: str, graph: NodeGraph = None) -> \
-    Optional[str]:
+            Optional[str]:
         graph = graph or self.active_graph
         if not graph or from_node not in graph.nodes or to_node not in graph.nodes: return None
         f_node, t_node = graph.nodes[from_node], graph.nodes[to_node]
@@ -113,6 +115,7 @@ class NodeGraphManager:
         self.selected_connections.clear()
         self.drag_connection_start = None
         self.hovered_port = None
+        self.drag_offset.clear()
         for gid, gdata in data.get("graphs", {}).items():
             self.graphs[gid] = self._deserialize_graph_with_types(gdata)
         active_id = data.get("active_graph")
@@ -183,9 +186,9 @@ class NodeGraphManager:
                 t_val = i / 20.0
                 it = 1.0 - t_val
                 bx = (it ** 3 * start[0]) + (3 * it ** 2 * t_val * ctrl1[0]) + (3 * it * t_val ** 2 * ctrl2[0]) + (
-                            t_val ** 3 * end[0])
+                        t_val ** 3 * end[0])
                 by = (it ** 3 * start[1]) + (3 * it ** 2 * t_val * ctrl1[1]) + (3 * it * t_val ** 2 * ctrl2[1]) + (
-                            t_val ** 3 * end[1])
+                        t_val ** 3 * end[1])
                 if ((screen_pos[0] - bx) ** 2 + (screen_pos[1] - by) ** 2) ** 0.5 < click_threshold: return conn_id
         return None
 
@@ -218,7 +221,8 @@ class NodeGraphManager:
             if mods & pygame.KMOD_CTRL:
                 self.delete_connection(conn_id)
             else:
-                self.selected_connections = [conn_id]; self.selected_nodes.clear()
+                self.selected_connections = [conn_id];
+                self.selected_nodes.clear()
             return
         port_hit = self._get_port_at_screen_pos(screen_pos)
         if port_hit:
@@ -227,7 +231,7 @@ class NodeGraphManager:
             self.selected_connections.clear()
             return
         if node:
-            if not (mods & pygame.KMOD_SHIFT):
+            if not (mods & pygame.KMOD_SHIFT) and not (mods & pygame.KMOD_CTRL):
                 self.selected_nodes = [node]
             else:
                 if node in self.selected_nodes:
@@ -236,9 +240,13 @@ class NodeGraphManager:
                     self.selected_nodes.append(node)
             self.selected_connections.clear()
             self.dragging_node = node
-            self.drag_offset = (world_pos[0] - node.position[0], world_pos[1] - node.position[1])
+            self.drag_offset[node] = (world_pos[0] - node.position[0], world_pos[1] - node.position[1])
         else:
-            if not (mods & pygame.KMOD_SHIFT): self.selected_nodes.clear(); self.selected_connections.clear()
+            if not (mods & pygame.KMOD_SHIFT):
+                self.selected_nodes.clear()
+                self.selected_connections.clear()
+            self.selection_start_pos = world_pos
+            self.selection_rect = pygame.Rect(world_pos[0], world_pos[1], 0, 0)
 
     def handle_mouse_up(self, world_pos: tuple, button: int):
         if button != 1: return
@@ -257,7 +265,21 @@ class NodeGraphManager:
             self.drag_connection_start = None;
             self.hovered_port = None
             return
-        if self.dragging_node: self.dragging_node = None; get_undo_redo().take_snapshot()
+        if self.dragging_node:
+            self.dragging_node = None
+            self.drag_offset.clear()
+            get_undo_redo().take_snapshot()
+        if self.selection_rect:
+            if self.selection_rect.width > 5 or self.selection_rect.height > 5:
+                nodes = self.active_graph.get_nodes_in_rect(self.selection_rect)
+                mods = pygame.key.get_mods()
+                if not (mods & pygame.KMOD_SHIFT):
+                    self.selected_nodes = nodes
+                else:
+                    for n in nodes:
+                        if n not in self.selected_nodes: self.selected_nodes.append(n)
+            self.selection_rect = None
+            self.selection_start_pos = None
 
     def get_context_menu_items(self, world_pos: tuple):
         from UPST.gui.windows.context_menu.config_option import ConfigOption
@@ -293,7 +315,8 @@ class NodeGraphManager:
         common_keys = [pygame.K_SPACE, pygame.K_RETURN, pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d, pygame.K_UP,
                        pygame.K_DOWN]
         try:
-            idx = common_keys.index(node.key_code); next_key = common_keys[(idx + 1) % len(common_keys)]
+            idx = common_keys.index(node.key_code);
+            next_key = common_keys[(idx + 1) % len(common_keys)]
         except ValueError:
             next_key = pygame.K_SPACE
         node.set_key(next_key)
@@ -332,18 +355,32 @@ class NodeGraphManager:
                 self.hovered_port = None
         else:
             self.hovered_port = self._get_port_at_screen_pos(screen_pos)
+
         if self.dragging_node and buttons[0] and self.active_graph:
-            self.dragging_node.position = pymunk.Vec2d(world_pos[0] - self.drag_offset[0],
-                                                       world_pos[1] - self.drag_offset[1])
+            for node in self.selected_nodes:
+                if node in self.drag_offset:
+                    off = self.drag_offset[node]
+                    node.position = pymunk.Vec2d(world_pos[0] - off[0], world_pos[1] - off[1])
             self.active_graph._dirty = True
 
+        if self.selection_start_pos and buttons[0] and not self.dragging_node and not self.drag_connection_start:
+            x, y = min(self.selection_start_pos[0], world_pos[0]), min(self.selection_start_pos[1], world_pos[1])
+            w, h = abs(world_pos[0] - self.selection_start_pos[0]), abs(world_pos[1] - self.selection_start_pos[1])
+            self.selection_rect = pygame.Rect(x, y, w, h)
+
     def _draw_bezier(self, scr: pygame.Surface, start: Tuple[int, int], end: Tuple[int, int],
-                     color: Tuple[int, int, int], width: int, is_active_bool: bool = False):
+                     color: Tuple[int, int, int], width: int, is_active_bool: bool = False,
+                     is_false_bool: bool = False):
         dist = abs(end[0] - start[0])
         ctrl_offset = max(dist * 0.5, 50)
         ctrl1, ctrl2 = (start[0] + ctrl_offset, start[1]), (end[0] - ctrl_offset, end[1])
-        draw_color = (0, 255, 0) if is_active_bool else color
-        draw_width = width + 2 if is_active_bool else width
+        if is_active_bool:
+            draw_color = (255, 130, 130)
+        elif is_false_bool:
+            draw_color = (120, 30, 30)
+        else:
+            draw_color = color
+        draw_width = width + 2 if (is_active_bool or is_false_bool) else width
         pygame.draw.lines(scr, draw_color, False, [start, ctrl1, ctrl2, end], draw_width)
 
     def draw(self, scr: pygame.Surface, camera):
@@ -361,9 +398,12 @@ class NodeGraphManager:
             is_selected = conn_id in self.selected_connections
             base_color = self._get_port_color(f_port.data_type)
             width = 5 if is_selected else 3
+
             is_bool_true = (f_port.data_type == DataType.BOOL and f_port.value is True)
+            is_bool_false = (f_port.data_type == DataType.BOOL and f_port.value is False)
+
             draw_color = (255, 255, 255) if is_selected else base_color
-            self._draw_bezier(scr, start_pos, end_pos, draw_color, width, is_bool_true)
+            self._draw_bezier(scr, start_pos, end_pos, draw_color, width, is_bool_true, is_bool_false)
         if self.drag_connection_start:
             fnid, fpid, fptype, fdtype, start_screen = self.drag_connection_start
             if fnid in self.active_graph.nodes:
@@ -375,4 +415,14 @@ class NodeGraphManager:
                     end_pos = pygame.mouse.get_pos()
                     line_color = (0, 255, 0) if self.hovered_port else (255, 50, 50)
                     self._draw_bezier(scr, start_pos, end_pos, line_color, 2)
+
+        if self.selection_rect:
+            s_rect = pygame.Rect(
+                camera.world_to_screen((self.selection_rect.x, self.selection_rect.y))[0],
+                camera.world_to_screen((self.selection_rect.x, self.selection_rect.y))[1],
+                self.selection_rect.width * camera.scaling,
+                self.selection_rect.height * camera.scaling
+            )
+            pygame.draw.rect(scr, (0, 255, 0, 100), s_rect, 2)
+
         for node in self.active_graph.nodes.values(): node.draw(scr, camera, self)

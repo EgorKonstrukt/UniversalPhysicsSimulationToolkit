@@ -121,7 +121,8 @@ class Node:
         rect = pygame.Rect(int(pos[0]), int(pos[1]), int(size[0]), int(size[1]))
         base_color = self.color if self.enabled else (80, 80, 80)
         pygame.draw.rect(scr, base_color, rect, border_radius=4)
-        pygame.draw.rect(scr, (255, 255, 255), rect, 2 if self in manager.selected_nodes else 1, border_radius=4)
+        border_w = 2 if self in manager.selected_nodes else 1
+        pygame.draw.rect(scr, (255, 255, 255), rect, border_w, border_radius=4)
         font = pygame.font.SysFont("Consolas", 14)
         scr.blit(font.render(self.name, True, (255, 255, 255)), (pos[0] + 5, pos[1] + 5))
         self._draw_ports(scr, pos, size, manager)
@@ -146,6 +147,9 @@ class Node:
         color = manager._get_port_color(dtype)
         radius = 6 * manager.app.camera.scaling
         pygame.draw.circle(scr, (40, 40, 40), (x, y), int(radius + 2))
+        if dtype == DataType.BOOL:
+            val = self.get_input_value(ptype.name.lower() + "_port") if ptype == PortType.INPUT else self._last_output.get(list(self.outputs.keys())[0])
+            color = (255, 150, 150) if val is True else (100, 0, 0)
         pygame.draw.circle(scr, color, (x, y), int(radius))
         if is_hovered: pygame.draw.circle(scr, (0, 255, 0), (x, y), int(radius + 4), 2)
     def get_context_menu_items(self, manager: 'NodeGraphManager') -> List:
@@ -249,6 +253,14 @@ class NodeGraph:
             if x <= world_pos[0] <= x + w and y <= world_pos[1] <= y + h:
                 return node
         return None
+    def get_nodes_in_rect(self, rect: pygame.Rect) -> List[Node]:
+        selected = []
+        for node in self.nodes.values():
+            nx, ny = node.position.x, node.position.y
+            nw, nh = node.size
+            node_rect = pygame.Rect(nx, ny, nw, nh)
+            if rect.colliderect(node_rect): selected.append(node)
+        return selected
     def serialize(self) -> dict:
         return {"id": self.id, "name": self.name, "world_space": self.world_space, "nodes": {k: v.serialize() for k, v in self.nodes.items()}, "connections": {k: v.serialize() for k, v in self.connections.items()}, "execution_order": self.execution_order}
     @classmethod
