@@ -5,6 +5,7 @@ from UPST.modules.node_graph.node_core import Node, DataType, PortType, NodePort
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import get_gizmos
 
+
 NODE_TYPE_REGISTRY: Dict[str, Type[Node]] = {}
 NODE_TOOL_METADATA: Dict[str, Dict[str, str]] = {}
 
@@ -532,4 +533,302 @@ class SevenSegmentNode(Node):
         if len(node.segments) != 8: node.segments = [False] * 8
         node.size = tuple(data.get("size", (140, 200)))
         node.color = tuple(data.get("color", (50, 50, 60)))
+        return node
+
+
+@register_node_type("bin_to_dec", display_name="Bin -> Dec", description="Converts 8-bit binary input to decimal value", icon="sprites/gui/bin_dec.png")
+class BinaryToDecimalNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Bin2Dec", node_type=node_type or "bin_to_dec")
+        self.color = (100, 150, 200)
+        self.size = (140, 220)
+        self._in_ids = []
+        for i in range(8):
+            pname = f"B{i}"
+            self.add_input(pname, DataType.BOOL, False)
+            self._in_ids.append(pname)
+        self._out_val_id = self.add_output("Value", DataType.BINARY)
+        self._out_str_id = self.add_output("Str", DataType.STRING)
+    def _execute_default(self, graph):
+        val = 0
+        bits = []
+        for i, pname in enumerate(self._in_ids):
+            b = bool(self.get_input_value(pname))
+            bits.append('1' if b else '0')
+            if b: val += (1 << i)
+        self.outputs[self._out_val_id].value = val
+        self.outputs[self._out_str_id].value = "".join(reversed(bits))
+        return True
+    def draw(self, scr, camera, manager):
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen((self.position[0], self.position[1]))
+        scale = camera.scaling
+        w, h = self.size[0] * scale, self.size[1] * scale
+        x, y = int(pos[0]), int(pos[1])
+        val = self.outputs[self._out_val_id].value
+        if val is None: val = 0
+        font = pygame.font.SysFont("Consolas", int(12 * scale))
+        start_y = y + int(30 * scale)
+        row_h = int(20 * scale)
+        for i, pname in enumerate(self._in_ids):
+            is_high = bool(self.get_input_value(pname))
+            color = (0, 255, 0) if is_high else (60, 60, 60)
+            rect = pygame.Rect(x + int(10 * scale), start_y + i * row_h, int(15 * scale), int(15 * scale))
+            pygame.draw.rect(scr, color, rect, border_radius=int(3 * scale))
+            lbl = font.render(f"{7-i}", True, (200, 200, 200))
+            scr.blit(lbl, (rect.right + int(5 * scale), rect.top))
+        res_txt = font.render(f"Dec: {int(val)}", True, (255, 255, 100))
+        scr.blit(res_txt, (x + int(10 * scale), y + int(h - 25 * scale)))
+    def serialize(self) -> dict: return super().serialize()
+    @classmethod
+    def deserialize(cls, data: dict) -> 'BinaryToDecimalNode':
+        node = super().deserialize(data)
+        node._in_ids = [p.name for p in node.inputs.values()]
+        for pid, port in node.outputs.items():
+            if port.name == "Value": node._out_val_id = pid
+            elif port.name == "Str": node._out_str_id = pid
+        return node
+
+@register_node_type("dec_to_bool", display_name="Dec -> Bool", description="Splits binary/decimal value into 8 boolean outputs", icon="sprites/gui/dec_bool.png")
+class BinaryToBoolNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Dec2Bool", node_type=node_type or "dec_to_bool")
+        self.color = (200, 150, 100)
+        self.size = (140, 220)
+        self._in_id = self.add_input("Value", DataType.BINARY, 0)
+        self._out_ids = []
+        for i in range(8):
+            pname = f"B{i}"
+            self.add_output(pname, DataType.BOOL)
+            self._out_ids.append(pname)
+    def _execute_default(self, graph):
+        val = self.inputs[self._in_id].value
+        if val is None: val = 0
+        try: val = int(val)
+        except (ValueError, TypeError): val = 0
+        for i, pname in enumerate(self._out_ids):
+            bit = bool((val >> i) & 1)
+            self.set_output_value_by_name(pname, bit)
+        return True
+    def draw(self, scr, camera, manager):
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen((self.position[0], self.position[1]))
+        scale = camera.scaling
+        w, h = self.size[0] * scale, self.size[1] * scale
+        x, y = int(pos[0]), int(pos[1])
+        val = self.inputs[self._in_id].value
+        if val is None: val = 0
+        try: val = int(val)
+        except (ValueError, TypeError): val = 0
+        font = pygame.font.SysFont("Consolas", int(12 * scale))
+        start_y = y + int(30 * scale)
+        row_h = int(20 * scale)
+        inp_txt = font.render(f"In: {val}", True, (255, 255, 100))
+        scr.blit(inp_txt, (x + int(10 * scale), y + int(10 * scale)))
+        for i, pname in enumerate(self._out_ids):
+            is_high = bool(self.set_output_value_by_name(pname, bool((val >> i) & 1)) or ((val >> i) & 1))
+            # Получаем актуальное значение из порта для отрисовки
+            port_val = self.outputs[[pid for pid, p in self.outputs.items() if p.name == pname][0]].value
+            is_high = bool(port_val)
+            color = (0, 255, 0) if is_high else (60, 60, 60)
+            rect = pygame.Rect(x + int(10 * scale), start_y + i * row_h, int(15 * scale), int(15 * scale))
+            pygame.draw.rect(scr, color, rect, border_radius=int(3 * scale))
+            lbl = font.render(f"{7-i}", True, (200, 200, 200))
+            scr.blit(lbl, (rect.right + int(5 * scale), rect.top))
+    def serialize(self) -> dict: return super().serialize()
+    @classmethod
+    def deserialize(cls, data: dict) -> 'BinaryToBoolNode':
+        node = super().deserialize(data)
+        for pid, port in node.inputs.items():
+            if port.name == "Value": node._in_id = pid
+        node._out_ids = [p.name for p in node.outputs.values()]
+        return node
+
+@register_node_type("bin_to_7seg", display_name="Bin -> 7-Seg", description="Converts 4-bit binary to 7-segment signals (0-9, A-F)", icon="sprites/gui/bin_7seg.png")
+class BinaryTo7SegNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Bin27Seg", node_type=node_type or "bin_to_7seg")
+        self.color = (150, 100, 200)
+        self.size = (140, 180)
+        self._in_ids = []
+        for i in range(4):
+            pname = f"B{i}"
+            self.add_input(pname, DataType.BOOL, False)
+            self._in_ids.append(pname)
+        self._out_ids = []
+        segs = ["S0", "S1", "S2", "S3", "S4", "S5", "S6", "DP"]
+        for s in segs:
+            self.add_output(s, DataType.BOOL)
+            self._out_ids.append(s)
+        self._seg_map = [
+            [1,1,1,1,1,1,0], # 0
+            [0,1,1,0,0,0,0], # 1
+            [1,1,0,1,1,0,1], # 2
+            [1,1,1,1,0,0,1], # 3
+            [0,1,1,0,0,1,1], # 4
+            [1,0,1,1,0,1,1], # 5
+            [1,0,1,1,1,1,1], # 6
+            [1,1,1,0,0,0,0], # 7
+            [1,1,1,1,1,1,1], # 8
+            [1,1,1,1,0,1,1], # 9
+            [1,1,1,0,1,1,1], # A
+            [0,0,1,1,1,1,1], # b
+            [1,0,0,1,1,1,0], # C
+            [0,1,1,1,1,0,1], # d
+            [1,0,0,1,1,1,1], # E
+            [1,0,0,0,1,1,1]  # F
+        ]
+    def _execute_default(self, graph):
+        val = 0
+        for i, pid in enumerate(self._in_ids):
+            if bool(self.get_input_value(pid)): val |= (1 << i)
+        val = val & 0xF
+        pattern = self._seg_map[val]
+        for i, sid in enumerate(self._out_ids):
+            v = bool(pattern[i]) if i < 7 else False
+            self.set_output_value_by_name(sid, v)
+        return True
+    def draw(self, scr, camera, manager):
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen((self.position[0], self.position[1]))
+        scale = camera.scaling
+        x, y = int(pos[0]), int(pos[1])
+        val = 0
+        for i, pid in enumerate(self._in_ids):
+            if bool(self.get_input_value(pid)): val |= (1 << i)
+        val = val & 0xF
+        hex_chars = "0123456789ABCDEF"
+        font = pygame.font.SysFont("Consolas", int(24 * scale))
+        txt = font.render(hex_chars[val], True, (255, 255, 100))
+        rect = txt.get_rect(center=(x + self.size[0]*scale/2, y + self.size[1]*scale/2))
+        scr.blit(txt, rect)
+    def serialize(self) -> dict: return super().serialize()
+    @classmethod
+    def deserialize(cls, data: dict) -> 'BinaryTo7SegNode':
+        node = super().deserialize(data)
+        node._in_ids = [p.name for p in node.inputs.values()]
+        node._out_ids = [p.name for p in node.outputs.values()]
+        return node
+
+@register_node_type("full_adder", display_name="Full Adder", description="Adds two bits with carry input", icon="sprites/gui/full_adder.png")
+class FullAdderNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "FullAdder", node_type=node_type or "full_adder")
+        self.color = (120, 180, 140)
+        self.size = (130, 140)
+        self._in_a = self.add_input("A", DataType.BOOL, False)
+        self._in_b = self.add_input("B", DataType.BOOL, False)
+        self._in_cin = self.add_input("Cin", DataType.BOOL, False)
+        self._out_sum = self.add_output("Sum", DataType.BOOL)
+        self._out_cout = self.add_output("Cout", DataType.BOOL)
+    def _execute_default(self, graph):
+        a = bool(self.get_input_value("A"))
+        b = bool(self.get_input_value("B"))
+        cin = bool(self.get_input_value("Cin"))
+        s = a ^ b ^ cin
+        cout = (a and b) or (cin and (a ^ b))
+        self.outputs[self._out_sum].value = s
+        self.outputs[self._out_cout].value = cout
+        return True
+    def draw(self, scr, camera, manager):
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen((self.position[0], self.position[1]))
+        scale = camera.scaling
+        x, y = int(pos[0]), int(pos[1])
+        w, h = self.size[0] * scale, self.size[1] * scale
+        font = pygame.font.SysFont("Consolas", int(14 * scale))
+        a = bool(self.get_input_value("A"))
+        b = bool(self.get_input_value("B"))
+        cin = bool(self.get_input_value("Cin"))
+        s = a ^ b ^ cin
+        cout = (a and b) or (cin and (a ^ b))
+        labels = [
+            (f"A: {'1' if a else '0'}", (200, 200, 200)),
+            (f"B: {'1' if b else '0'}", (200, 200, 200)),
+            (f"Cin: {'1' if cin else '0'}", (200, 200, 200)),
+            ("---", (100, 100, 100)),
+            (f"Sum: {'1' if s else '0'}", (100, 255, 100) if s else (150, 150, 150)),
+            (f"Cout: {'1' if cout else '0'}", (255, 100, 100) if cout else (150, 150, 150))
+        ]
+        start_y = y + int(35 * scale)
+        # for i, (txt, color) in enumerate(labels):
+        #     surf = font.render(txt, True, color)
+        #     scr.blit(surf, (x + int(10 * scale), start_y + i * int(18 * scale)))
+    def serialize(self) -> dict: return super().serialize()
+    @classmethod
+    def deserialize(cls, data: dict) -> 'FullAdderNode':
+        node = super().deserialize(data)
+        node._in_a = node._in_b = node._in_cin = node._out_sum = node._out_cout = None
+        for pid, port in node.inputs.items():
+            if port.name == "A": node._in_a = pid
+            elif port.name == "B": node._in_b = pid
+            elif port.name == "Cin": node._in_cin = pid
+        for pid, port in node.outputs.items():
+            if port.name == "Sum": node._out_sum = pid
+            elif port.name == "Cout": node._out_cout = pid
+        return node
+
+@register_node_type("clk_random", display_name="Clocked Random", description="Generates random value on clock rising edge", icon="sprites/gui/random_clk.png")
+class ClockedRandomNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "ClkRandom", node_type=node_type or "clk_random")
+        self.color = (180, 140, 220)
+        self.size = (140, 160)
+        self.add_input("Clock", DataType.BOOL, False)
+        self.add_input("Min", DataType.FLOAT, 0.0)
+        self.add_input("Max", DataType.FLOAT, 1.0)
+        self.add_output("Value", DataType.FLOAT)
+        self.add_output("Int", DataType.INT)
+        self.add_output("Bool", DataType.BOOL)
+        self._prev_clk = False
+        self._current_val = 0.0
+        import random
+        self._random = random
+    def _execute_default(self, graph):
+        clk = bool(self.get_input_value("Clock"))
+        min_v = float(self.get_input_value("Min") or 0.0)
+        max_v = float(self.get_input_value("Max") or 1.0)
+        if max_v < min_v: min_v, max_v = max_v, min_v
+        if clk and not self._prev_clk:
+            self._current_val = self._random.uniform(min_v, max_v)
+        self._prev_clk = clk
+        val = self._current_val
+        self.set_output_value_by_name("Value", val)
+        self.set_output_value_by_name("Int", int(val))
+        self.set_output_value_by_name("Bool", val > (min_v + (max_v - min_v) * 0.5))
+        return True
+    def draw(self, scr, camera, manager):
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen((self.position[0], self.position[1]))
+        scale = camera.scaling
+        x, y = int(pos[0]), int(pos[1])
+        font = pygame.font.SysFont("Consolas", int(12 * scale))
+        clk = bool(self.get_input_value("Clock"))
+        edge = clk and not self._prev_clk
+        val = self._current_val
+        min_v = float(self.get_input_value("Min") or 0.0)
+        max_v = float(self.get_input_value("Max") or 1.0)
+        lines = [
+            (f"Range: [{min_v:.1f}, {max_v:.1f}]", (200, 200, 200)),
+            (f"Out: {val:.3f}", (255, 255, 100)),
+            # (f"Int: {int(val)}", (200, 200, 200)),
+            # (f"Clk: {'EDGE' if edge else 'HIGH' if clk else 'LOW'}", (0, 255, 0) if edge else (200, 200, 200))
+        ]
+        start_y = y + int(30 * scale)
+        for i, (txt, color) in enumerate(lines):
+            surf = font.render(txt, True, color)
+            scr.blit(surf, (x + int(10 * scale), start_y + i * int(18 * scale)))
+        # if edge:
+        #     center = (int(x + self.size[0]*scale/2), int(y + self.size[1]*scale/2))
+        #     pygame.draw.circle(scr, (0, 255, 0), center, int(5 * scale))
+    def serialize(self) -> dict:
+        data = super().serialize()
+        data["_prev_clk"] = False
+        return data
+    @classmethod
+    def deserialize(cls, data: dict) -> 'ClockedRandomNode':
+        node = super().deserialize(data)
+        node._prev_clk = False
+        import random
+        node._random = random
         return node

@@ -18,6 +18,7 @@ class DataType(Enum):
     VECTOR = 4
     OBJECT = 5
     ANY = 6
+    BINARY = 7
 
 @dataclass
 class NodePort:

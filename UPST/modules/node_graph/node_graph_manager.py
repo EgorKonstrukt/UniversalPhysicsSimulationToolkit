@@ -77,7 +77,11 @@ class NodeGraphManager:
     def _are_types_compatible(self, type_a: DataType, type_b: DataType) -> bool:
         if type_a == DataType.ANY or type_b == DataType.ANY: return True
         if type_a == type_b: return True
-        compatible_pairs: Set[frozenset] = {frozenset({DataType.INT, DataType.FLOAT})}
+        compatible_pairs: Set[frozenset] = {
+            frozenset({DataType.INT, DataType.FLOAT}),
+            frozenset({DataType.INT, DataType.BINARY}), # Разрешаем связь INT <-> BINARY
+            frozenset({DataType.FLOAT, DataType.BINARY}) # Разрешаем связь FLOAT <-> BINARY
+        }
         return frozenset({type_a, type_b}) in compatible_pairs
 
     def connect_nodes(self, from_node: str, from_port: str, to_node: str, to_port: str, graph: NodeGraph = None) -> \
@@ -142,9 +146,16 @@ class NodeGraphManager:
         return self.active_graph.get_node_at_position(world_pos) if self.active_graph else None
 
     def _get_port_color(self, data_type: DataType) -> Tuple[int, int, int]:
-        colors = {DataType.BOOL: (255, 100, 100), DataType.INT: (100, 200, 100), DataType.FLOAT: (100, 150, 255),
-                  DataType.STRING: (255, 200, 100), DataType.VECTOR: (200, 100, 255), DataType.OBJECT: (255, 255, 100),
-                  DataType.ANY: (200, 200, 200)}
+        colors = {
+            DataType.BOOL: (255, 100, 100),
+            DataType.INT: (100, 200, 100),
+            DataType.FLOAT: (100, 150, 255),
+            DataType.BINARY: (255, 165, 0),
+            DataType.STRING: (255, 200, 100),
+            DataType.VECTOR: (200, 100, 255),
+            DataType.OBJECT: (255, 255, 100),
+            DataType.ANY: (200, 200, 200)
+        }
         return colors.get(data_type, (200, 200, 200))
 
     def _get_port_at_screen_pos(self, screen_pos: Tuple[int, int]) -> Optional[Tuple[str, Node, NodePort, PortType]]:
@@ -433,3 +444,4 @@ class NodeGraphManager:
         screen_pos = self.app.camera.world_to_screen(node.position)
         rect = pygame.Rect(int(screen_pos[0]), int(screen_pos[1]), 400, 200)
         window = OscillatorConfigWindow(rect, ui_manager, node)
+
