@@ -1,7 +1,7 @@
 # UPST/modules/node_graph/node_types.py
 import pygame, math, time
 from typing import Any, List
-from UPST.modules.node_graph.node_core import Node, DataType, PortType
+from UPST.modules.node_graph.node_core import Node, DataType, PortType, NodePort
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import get_gizmos
 class LogicGateNode(Node):
@@ -22,6 +22,24 @@ class LogicGateNode(Node):
         elif self.gate_type == "xor": res = a != b
         self.set_output_value("Out", res)
         return True
+    def serialize(self) -> dict:
+        data = super().serialize()
+        data["gate_type"] = self.gate_type
+        return data
+    @classmethod
+    def deserialize(cls, data: dict) -> 'LogicGateNode':
+        node = cls(position=data["position"], gate_type=data.get("gate_type", "and"))
+        node.id = data["id"]
+        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
+        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
+        node.script_code = data.get("script_code", "")
+        node.enabled = data.get("enabled", True)
+        node.color = tuple(data.get("color", (150, 100, 50)))
+        node.size = tuple(data.get("size", (150, 100)))
+        node._execution_order = data.get("execution_order", 0)
+        node.custom_data = data.get("custom_data", {})
+        if node.script_code: node.compile_script()
+        return node
 class MathNode(Node):
     def __init__(self, position=(0, 0), op="add"):
         super().__init__(position=position, name=f"Math_{op.upper()}", node_type=f"math_{op}")
@@ -40,6 +58,24 @@ class MathNode(Node):
         elif self.op == "div": res = a / b if b != 0 else 0
         self.set_output_value("Result", res)
         return True
+    def serialize(self) -> dict:
+        data = super().serialize()
+        data["op"] = self.op
+        return data
+    @classmethod
+    def deserialize(cls, data: dict) -> 'MathNode':
+        node = cls(position=data["position"], op=data.get("op", "add"))
+        node.id = data["id"]
+        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
+        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
+        node.script_code = data.get("script_code", "")
+        node.enabled = data.get("enabled", True)
+        node.color = tuple(data.get("color", (50, 150, 100)))
+        node.size = tuple(data.get("size", (150, 100)))
+        node._execution_order = data.get("execution_order", 0)
+        node.custom_data = data.get("custom_data", {})
+        if node.script_code: node.compile_script()
+        return node
 class ScriptNode(Node):
     def __init__(self, position=(0, 0)):
         super().__init__(position=position, name="Script", node_type="script")
@@ -89,20 +125,29 @@ class ButtonNode(Node):
     def _execute_default(self, graph):
         out_val = self.is_pressed and not self._prev_pressed
         self._prev_pressed = self.is_pressed
-        self.set_output_value("Pressed", out_val)
+        self.set_output_value_by_name("Pressed", out_val)
         return True
-    def draw(self, scr, camera, manager):
-        super().draw(scr, camera, manager)
-        if self.is_pressed:
-            pos = camera.world_to_screen((self.position[0], self.position[1]))
-            scale = camera.scaling
-            size = (self.size[0] * scale, self.size[1] * scale)
-            inner_rect = pygame.Rect(int(pos[0]), int(pos[1]), int(size[0]), int(size[1])).inflate(-4 * scale, -4 * scale)
-            pygame.draw.rect(scr, (255, 255, 255), inner_rect, border_radius=4)
     def serialize(self) -> dict:
         data = super().serialize()
         data["is_pressed"] = False
+        data["_prev_pressed"] = False
         return data
+    @classmethod
+    def deserialize(cls, data: dict) -> 'ButtonNode':
+        node = cls(position=data["position"])
+        node.id = data["id"]
+        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
+        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
+        node.script_code = data.get("script_code", "")
+        node.enabled = data.get("enabled", True)
+        node.color = tuple(data.get("color", (200, 100, 100)))
+        node.size = tuple(data.get("size", (120, 60)))
+        node._execution_order = data.get("execution_order", 0)
+        node.custom_data = data.get("custom_data", {})
+        node.is_pressed = False
+        node._prev_pressed = False
+        if node.script_code: node.compile_script()
+        return node
 class ToggleNode(Node):
     def __init__(self, position=(0, 0)):
         super().__init__(position=position, name="Toggle", node_type="toggle")
@@ -124,7 +169,7 @@ class ToggleNode(Node):
         self._triggered = False
         return False
     def _execute_default(self, graph):
-        self.set_output_value("State", self.state)
+        self.set_output_value_by_name("State", self.state)
         return True
     def draw(self, scr, camera, manager):
         super().draw(scr, camera, manager)
@@ -146,11 +191,23 @@ class ToggleNode(Node):
     def serialize(self) -> dict:
         data = super().serialize()
         data["state"] = self.state
+        data["_triggered"] = False
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'ToggleNode':
-        node = super().deserialize(data)
+        node = cls(position=data["position"])
+        node.id = data["id"]
+        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
+        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
+        node.script_code = data.get("script_code", "")
+        node.enabled = data.get("enabled", True)
+        node.color = tuple(data.get("color", (100, 200, 100)))
+        node.size = tuple(data.get("size", (120, 60)))
+        node._execution_order = data.get("execution_order", 0)
+        node.custom_data = data.get("custom_data", {})
         node.state = data.get("state", False)
+        node._triggered = False
+        if node.script_code: node.compile_script()
         return node
 class PrintNode(Node):
     def __init__(self, position=(0, 0)):
@@ -181,6 +238,29 @@ class PrintNode(Node):
             self._last_val_str = current_val_str
         self._last_trigger_state = bool(trigger_val)
         return True
+    def serialize(self) -> dict:
+        data = super().serialize()
+        data["_first_run"] = True
+        data["_last_val_str"] = ""
+        data["_last_trigger_state"] = False
+        return data
+    @classmethod
+    def deserialize(cls, data: dict) -> 'PrintNode':
+        node = cls(position=data["position"])
+        node.id = data["id"]
+        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
+        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
+        node.script_code = data.get("script_code", "")
+        node.enabled = data.get("enabled", True)
+        node.color = tuple(data.get("color", (100, 100, 200)))
+        node.size = tuple(data.get("size", (150, 100)))
+        node._execution_order = data.get("execution_order", 0)
+        node.custom_data = data.get("custom_data", {})
+        node._first_run = True
+        node._last_val_str = ""
+        node._last_trigger_state = False
+        if node.script_code: node.compile_script()
+        return node
 class OscillatorNode(Node):
     def __init__(self, position=(0, 0)):
         super().__init__(position=position, name="Oscillator", node_type="oscillator")
@@ -198,8 +278,8 @@ class OscillatorNode(Node):
         self._time += dt
         if not self.enabled: val = self.offset
         else: val = math.sin(2 * math.pi * self.frequency * self._time) * self.amplitude + self.offset
-        self.set_output_value("Signal", val)
-        self.set_output_value("Bool", val > 0)
+        self.set_output_value_by_name("Signal", val)
+        self.set_output_value_by_name("Bool", val > 0)
         return True
     def draw(self, scr, camera, manager):
         super().draw(scr, camera, manager)
@@ -209,9 +289,16 @@ class OscillatorNode(Node):
             size = (self.size[0] * scale, self.size[1] * scale)
             wave_color = (255, 255, 100)
             start_x, end_x = int(pos[0] + 10 * scale), int(pos[0] + size[0] - 10 * scale)
-            mid_y, amp = int(pos[1] + size[1] / 2), int(15 * scale)
-            pts = [(start_x + (end_x - start_x) * (i / 20.0), mid_y + math.sin(i * 0.5 + time.time() * self.frequency * 6) * amp) for i in range(21)]
-            pygame.draw.lines(scr, wave_color, False, pts, 2)
+            mid_y = int(pos[1] + size[1] / 2)
+            amp_px = int(15 * scale)
+            pts = []
+            for i in range(21):
+                t = i / 20.0
+                x = start_x + (end_x - start_x) * t
+                wave_val = math.sin(2 * math.pi * self.frequency * self._time + i * 0.5) * self.amplitude
+                y = mid_y + wave_val * amp_px
+                pts.append((x, y))
+            if len(pts) > 1: pygame.draw.lines(scr, wave_color, False, pts, 2)
     def get_context_menu_items(self, manager):
         items = super().get_context_menu_items(manager)
         from UPST.gui.windows.context_menu.config_option import ConfigOption
@@ -224,14 +311,25 @@ class OscillatorNode(Node):
         data["amplitude"] = self.amplitude
         data["offset"] = self.offset
         data["enabled"] = self.enabled
+        data["_time"] = 0.0
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'OscillatorNode':
-        node = super().deserialize(data)
+        node = cls(position=data["position"])
+        node.id = data["id"]
+        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
+        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
+        node.script_code = data.get("script_code", "")
+        node.enabled = data.get("enabled", True)
+        node.color = tuple(data.get("color", (200, 200, 100)))
+        node.size = tuple(data.get("size", (140, 80)))
+        node._execution_order = data.get("execution_order", 0)
+        node.custom_data = data.get("custom_data", {})
         node.frequency = data.get("frequency", 1.0)
         node.amplitude = data.get("amplitude", 1.0)
         node.offset = data.get("offset", 0.0)
-        node.enabled = data.get("enabled", True)
+        node._time = 0.0
+        if node.script_code: node.compile_script()
         return node
 class KeyInputNode(Node):
     def __init__(self, position=(0, 0)):
@@ -251,9 +349,9 @@ class KeyInputNode(Node):
         self._was_pressed = self._is_pressed
         self._is_pressed = keys_pressed[self.key_code] if self.key_code in keys_pressed else False
     def _execute_default(self, graph):
-        self.set_output_value("Pressed", self._is_pressed)
+        self.set_output_value_by_name("Pressed", self._is_pressed)
         just_pressed = self._is_pressed and not self._was_pressed
-        self.set_output_value("JustPressed", just_pressed)
+        self.set_output_value_by_name("JustPressed", just_pressed)
         return True
     def get_context_menu_items(self, manager):
         items = super().get_context_menu_items(manager)
@@ -265,11 +363,25 @@ class KeyInputNode(Node):
     def serialize(self) -> dict:
         data = super().serialize()
         data["key_code"] = self.key_code
+        data["_is_pressed"] = False
+        data["_was_pressed"] = False
         return data
     @classmethod
     def deserialize(cls, data: dict) -> 'KeyInputNode':
-        node = super().deserialize(data)
+        node = cls(position=data["position"])
+        node.id = data["id"]
+        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
+        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
+        node.script_code = data.get("script_code", "")
+        node.enabled = data.get("enabled", True)
+        node.color = tuple(data.get("color", (150, 150, 255)))
+        node.size = tuple(data.get("size", (140, 70)))
+        node._execution_order = data.get("execution_order", 0)
+        node.custom_data = data.get("custom_data", {})
         node.set_key(data.get("key_code", pygame.K_SPACE))
+        node._is_pressed = False
+        node._was_pressed = False
+        if node.script_code: node.compile_script()
         return node
 class LightBulbNode(Node):
     def __init__(self, position=(0, 0)):
@@ -311,3 +423,24 @@ class LightBulbNode(Node):
         font = pygame.font.SysFont("Consolas", 14)
         scr.blit(font.render(self.name, True, (255, 255, 255)), (pos[0] + 5, pos[1] + 5))
         self._draw_ports(scr, pos, size, manager)
+    def serialize(self) -> dict:
+        data = super().serialize()
+        data["_is_on"] = False
+        data["current_color"] = self.color_off
+        return data
+    @classmethod
+    def deserialize(cls, data: dict) -> 'LightBulbNode':
+        node = cls(position=data["position"])
+        node.id = data["id"]
+        node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
+        node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
+        node.script_code = data.get("script_code", "")
+        node.enabled = data.get("enabled", True)
+        node.color = tuple(data.get("color", (100, 100, 150)))
+        node.size = tuple(data.get("size", (100, 100)))
+        node._execution_order = data.get("execution_order", 0)
+        node.custom_data = data.get("custom_data", {})
+        node._is_on = False
+        node.current_color = node.color_off
+        if node.script_code: node.compile_script()
+        return node

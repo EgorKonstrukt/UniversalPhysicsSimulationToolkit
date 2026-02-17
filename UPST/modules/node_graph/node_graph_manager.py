@@ -1,10 +1,9 @@
 # UPST/modules/node_graph/node_graph_manager.py
 import math, time, pygame, pymunk
 from typing import Dict, List, Optional, Tuple, Set
-from UPST.modules.node_graph.node_core import NodeGraph, Node, NodePort, PortType, DataType
+from UPST.modules.node_graph.node_core import NodeGraph, Node, NodePort, PortType, DataType, NodeConnection
 from UPST.debug.debug_manager import Debug
-from UPST.modules.node_graph.node_types import ScriptNode, OscillatorNode, ToggleNode, KeyInputNode, ButtonNode, \
-    LightBulbNode, LogicGateNode, OutputNode, MathNode, PrintNode
+from UPST.modules.node_graph.node_types import ScriptNode, OscillatorNode, ToggleNode, KeyInputNode, ButtonNode, LightBulbNode, LogicGateNode, MathNode, PrintNode, OutputNode
 from UPST.modules.undo_redo_manager import get_undo_redo
 class NodeGraphManager:
     _instance = None
@@ -97,11 +96,25 @@ class NodeGraphManager:
         self.drag_connection_start = None
         self.hovered_port = None
         for gid, gdata in data.get("graphs", {}).items():
-            self.graphs[gid] = NodeGraph.deserialize(gdata)
+            self.graphs[gid] = self._deserialize_graph_with_types(gdata)
         active_id = data.get("active_graph")
         self.active_graph = self.graphs.get(active_id) if active_id else None
         if not self.active_graph and self.graphs: self.active_graph = list(self.graphs.values())[0]
         Debug.log_success("Node graph data loaded", "NodeGraph")
+    def _deserialize_graph_with_types(self, data: dict) -> NodeGraph:
+        graph = NodeGraph(graph_id=data["id"], name=data["name"])
+        graph.world_space = data.get("world_space", True)
+        for nid, ndata in data.get("nodes", {}).items():
+            node_type = ndata.get("node_type", "base")
+            if node_type in self.node_types:
+                node = self.node_types[node_type].deserialize(ndata)
+            else:
+                node = Node.deserialize(ndata)
+            graph.nodes[nid] = node
+        graph.connections = {k: NodeConnection.deserialize(v) for k, v in data.get("connections", {}).items()}
+        graph.execution_order = data.get("execution_order", [])
+        graph._dirty = True
+        return graph
     def get_node_at_world_pos(self, world_pos: tuple) -> Optional[Node]:
         return self.active_graph.get_node_at_position(world_pos) if self.active_graph else None
     def _get_port_color(self, data_type: DataType) -> Tuple[int, int, int]:
@@ -205,7 +218,14 @@ class NodeGraphManager:
         from UPST.gui.windows.context_menu.config_option import ConfigOption
         items = []
         node = self.get_node_at_world_pos(world_pos)
-        if node: items.extend(node.get_context_menu_items(self))
+        if node:
+            items.append(ConfigOption(f"Delete Node '{node.name}'", handler=lambda cm: self.delete_node(node.id), icon="sprites/gui/erase.png"))
+            items.append(ConfigOption("---", handler=lambda cm: None))
+            items.append(ConfigOption("Disconnect All", handler=lambda cm: self._disconnect_all_node(node.id), icon="sprites/gui/disconnect.png"))
+            if isinstance(node, ScriptNode): items.append(ConfigOption("Edit Script...", handler=lambda cm: self._open_script_editor(node)))
+            elif isinstance(node, OscillatorNode): items.append(ConfigOption(f"Toggle Power ({'ON' if node.enabled else 'OFF'})", handler=lambda cm: self._toggle_oscillator(node)))
+            elif isinstance(node, ToggleNode): items.append(ConfigOption(f"Force State ({'ON' if node.state else 'OFF'})", handler=lambda cm: self._toggle_force(node)))
+            elif isinstance(node, KeyInputNode): items.append(ConfigOption("Change Key...", handler=lambda cm: self._prompt_change_key(node)))
         else:
             if self.active_graph:
                 items.append(ConfigOption("Create Node Here", handler=lambda cm: self._open_spawn_menu(world_pos), icon="sprites/gui/add.png"))

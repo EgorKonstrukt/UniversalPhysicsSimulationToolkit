@@ -81,6 +81,12 @@ class Node:
                 port.value = value
                 self._last_output[pid] = value
                 return
+    def set_output_value_by_name(self, name: str, value: Any):
+        for pid, port in self.outputs.items():
+            if port.name == name:
+                port.value = value
+                self._last_output[pid] = value
+                return
     def execute(self, graph: 'NodeGraph') -> bool:
         if not self.enabled: return False
         try:
@@ -119,18 +125,18 @@ class Node:
             px, py = pos[0], pos[1] + y_off
             port.position = (px - pos[0], py - pos[1])
             is_hovered = manager.hovered_port and manager.hovered_port[1].id == self.id and manager.hovered_port[0] == pid
-            self._draw_port_circle(scr, int(px), int(py), port.data_type, PortType.INPUT, is_hovered, scale)
+            self._draw_port_circle(scr, int(px), int(py), port.data_type, PortType.INPUT, is_hovered, manager)
             y_off += step
         y_off = 30.0
         for pid, port in self.outputs.items():
             px, py = pos[0] + size[0], pos[1] + y_off
             port.position = (px - pos[0], py - pos[1])
             is_hovered = manager.hovered_port and manager.hovered_port[1].id == self.id and manager.hovered_port[0] == pid
-            self._draw_port_circle(scr, int(px), int(py), port.data_type, PortType.OUTPUT, is_hovered, scale)
+            self._draw_port_circle(scr, int(px), int(py), port.data_type, PortType.OUTPUT, is_hovered, manager)
             y_off += step
-    def _draw_port_circle(self, scr, x, y, dtype, ptype, is_hovered, scale):
-        color = manager._get_port_color(dtype) if 'manager' in globals() else (200, 200, 200)
-        radius = 6 * scale
+    def _draw_port_circle(self, scr, x, y, dtype, ptype, is_hovered, manager):
+        color = manager._get_port_color(dtype)
+        radius = 6 * manager.app.camera.scaling
         pygame.draw.circle(scr, (40, 40, 40), (x, y), int(radius + 2))
         pygame.draw.circle(scr, color, (x, y), int(radius))
         if is_hovered: pygame.draw.circle(scr, (0, 255, 0), (x, y), int(radius + 4), 2)
