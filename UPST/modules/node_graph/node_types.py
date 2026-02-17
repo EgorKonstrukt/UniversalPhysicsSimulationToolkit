@@ -543,6 +543,12 @@ class LightBulbNode(Node):
         draw_color = self.current_color
         center = (int(pos[0] + size[0] / 2), int(pos[1] + size[1] / 2))
         radius = int(min(size[0], size[1]) / 2 - 5)
+
+        pygame.draw.circle(scr, draw_color, center, radius)
+        pygame.draw.circle(scr, (255, 255, 255), center, radius, 2)
+        pygame.draw.rect(scr, self.color if self.enabled else (80, 80, 80), rect, border_radius=4)
+        pygame.draw.rect(scr, (255, 255, 255), rect, 2 if self in manager.selected_nodes else 1, border_radius=4)
+        font = pygame.font.SysFont("Consolas", 14)
         if self._is_on:
             for i in range(3, 0, -1):
                 glow_radius = radius + (i * 4 * scale)
@@ -550,11 +556,6 @@ class LightBulbNode(Node):
                 pygame.draw.circle(glow_surf, (*draw_color, 100 // i), (glow_radius, glow_radius), glow_radius)
                 scr.blit(glow_surf, (center[0] - glow_radius, center[1] - glow_radius))
             pygame.draw.circle(scr, (255, 255, 255), center, int(radius * 0.6))
-        pygame.draw.circle(scr, draw_color, center, radius)
-        pygame.draw.circle(scr, (255, 255, 255), center, radius, 2)
-        pygame.draw.rect(scr, self.color if self.enabled else (80, 80, 80), rect, border_radius=4)
-        pygame.draw.rect(scr, (255, 255, 255), rect, 2 if self in manager.selected_nodes else 1, border_radius=4)
-        font = pygame.font.SysFont("Consolas", 14)
         scr.blit(font.render(self.name, True, (255, 255, 255)), (pos[0] + 5, pos[1] + 5))
         self._draw_ports(scr, pos, size, manager)
     def serialize(self) -> dict:
@@ -582,50 +583,64 @@ class LightBulbNode(Node):
 class SevenSegmentNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
         super().__init__(node_id=node_id, position=position, name=name or "7-Segment", node_type=node_type or "seven_segment")
-        self.color = (50, 50, 60)
-        self.seg_colors = [(255, 50, 50) for _ in range(7)]
-        self.segments = [False] * 7
-        self.size = (140, 200)
+        self.color: Tuple[int, int, int] = (50, 50, 60)
+        self.size: Tuple[int, int] = (140, 200)
+        self.seg_active_color: Tuple[int, int, int] = (255, 40, 40)
+        self.seg_inactive_color: Tuple[int, int, int] = (70, 20, 20)
+        self.segments: list = [False] * 8
+        self._seg_rects: list = []
         for i in range(7): self.add_input(f"S{i}", DataType.BOOL, False)
-    def _execute_default(self, graph):
-        for i in range(7):
-            val = bool(self.get_input_value(f"S{i}"))
+        self.add_input("DP", DataType.BOOL, False)
+    def _execute_default(self, graph) -> bool:
+        for i in range(8):
+            val: bool = bool(self.get_input_value(f"S{i}" if i < 7 else "DP"))
             self.segments[i] = val
-            self.seg_colors[i] = (255, 50, 50) if val else (80, 30, 30)
         return True
-    def draw(self, scr, camera, manager):
-        super().draw(scr, camera, manager)
-        pos = camera.world_to_screen((self.position[0], self.position[1]))
-        scale = camera.scaling
-        w, h = self.size[0] * scale, self.size[1] * scale
-        x, y = int(pos[0]), int(pos[1])
-        sw = max(4, int(6 * scale))
-        seg_len_h = int(w * 0.6)
-        seg_len_v = int(h * 0.35)
-        cx, cy = x + int(w / 2), y + int(h / 2)
-        offsets = [
-            ((-seg_len_h/2, -cy+y+int(h*0.15)), (seg_len_h/2, -cy+y+int(h*0.15))),
-            ((-seg_len_h/2, cy+y-int(h*0.15)), (seg_len_h/2, cy+y-int(h*0.15))),
-            ((-seg_len_h/2, -cy+y+int(h*0.15)), (-seg_len_h/2, cy+y-int(h*0.15))),
-            ((seg_len_h/2, -cy+y+int(h*0.15)), (seg_len_h/2, cy+y-int(h*0.15))),
-            ((-seg_len_h/2, cy+y-int(h*0.15)), (-seg_len_h/2, int(h*0.85)+y-int(h*0.15))),
-            ((seg_len_h/2, cy+y-int(h*0.15)), (seg_len_h/2, int(h*0.85)+y-int(h*0.15))),
-            ((-seg_len_h/2, cy+y), (seg_len_h/2, cy+y))
+    def _update_segments(self, w: int, h: int, x: int, y: int) -> None:
+        sw = max(8, int(w * 0.1))
+        hw, hh = int(w * 0.35), int(h * 0.22)
+        cx, cy = x + w // 2, y + h // 2
+        top_y = y + int(h * 0.18)
+        mid_y = y + h // 2
+        bot_y = y + int(h * 0.82)
+        left_x = x + int(w * 0.2)
+        right_x = x + int(w * 0.8)
+        dp_r = max(4, int(sw * 0.6))
+        dp_x = right_x + int(sw * 1.5)
+        dp_y = bot_y + int(sw * 1.5)
+        self._seg_rects = [
+            {"rect": pygame.Rect(left_x, top_y - sw//2, right_x - left_x, sw), "type": "h"},  # A
+            {"rect": pygame.Rect(right_x - sw//2, top_y, sw, mid_y - top_y), "type": "v"},   # B
+            {"rect": pygame.Rect(right_x - sw//2, mid_y, sw, bot_y - mid_y), "type": "v"},   # C
+            {"rect": pygame.Rect(left_x, bot_y - sw//2, right_x - left_x, sw), "type": "h"},  # D
+            {"rect": pygame.Rect(left_x - sw//2, mid_y, sw, bot_y - mid_y), "type": "v"},    # E
+            {"rect": pygame.Rect(left_x - sw//2, top_y, sw, mid_y - top_y), "type": "v"},    # F
+            {"rect": pygame.Rect(left_x, mid_y - sw//2, right_x - left_x, sw), "type": "h"},  # G
+            {"rect": pygame.Rect(dp_x - dp_r, dp_y - dp_r, dp_r*2, dp_r*2), "type": "dot"}   # DP
         ]
-        indices = [0, 1, 2, 3, 4, 5, 6]
-        for i, idx in enumerate(indices):
+    def draw(self, scr: pygame.Surface, camera: Any, manager: Any) -> None:
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen(self.position)
+        scale = camera.scaling
+        w, h = int(self.size[0] * scale), int(self.size[1] * scale)
+        x, y = int(pos[0]), int(pos[1])
+        self._update_segments(w, h, x, y)
+        for i, seg in enumerate(self._seg_rects):
             if i >= len(self.segments): break
-            start = (int(x + w/2 + offsets[i][0][0]), int(y + h/2 + offsets[i][0][1]))
-            end = (int(x + w/2 + offsets[i][1][0]), int(y + h/2 + offsets[i][1][1]))
-            pygame.draw.line(scr, self.seg_colors[idx], start, end, sw)
-    def serialize(self) -> dict:
+            color = self.seg_active_color if self.segments[i] else self.seg_inactive_color
+            if seg["type"] == "dot":
+                pygame.draw.circle(scr, color, seg["rect"].center, seg["rect"].width // 2)
+            else:
+                pygame.draw.rect(scr, color, seg["rect"], border_radius=int(seg["rect"].height // 2))
+    def serialize(self) -> Dict[str, Any]:
         data = super().serialize()
-        data["segments"] = [False]*7
-        data["seg_colors"] = [(80, 30, 30)]*7
+        data["segments"] = self.segments
+        data["size"] = self.size
+        data["color"] = list(self.color)
         return data
     @classmethod
-    def deserialize(cls, data: dict) -> 'SevenSegmentNode':
-        node = cls(position=data["position"], node_id=data["id"])
+    def deserialize(cls, data: Dict[str, Any]) -> 'SevenSegmentNode':
+        node = cls(position=data.get("position", (0, 0)), node_id=data.get("id"))
         node.inputs = {k: NodePort.deserialize(v) for k, v in data.get("inputs", {}).items()}
         node.outputs = {k: NodePort.deserialize(v) for k, v in data.get("outputs", {}).items()}
         node.script_code = data.get("script_code", "")
@@ -634,7 +649,7 @@ class SevenSegmentNode(Node):
         node.size = tuple(data.get("size", (140, 200)))
         node._execution_order = data.get("execution_order", 0)
         node.custom_data = data.get("custom_data", {})
-        node.segments = [False]*7
-        node.seg_colors = [(80, 30, 30)]*7
+        node.segments = data.get("segments", [False] * 8)
+        if len(node.segments) != 8: node.segments = [False] * 8
         if node.script_code: node.compile_script()
         return node
