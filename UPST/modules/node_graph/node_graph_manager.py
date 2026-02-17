@@ -240,7 +240,7 @@ class NodeGraphManager:
         for cid in to_remove: self.delete_connection(cid)
     def _toggle_oscillator(self, node): node.enabled = not node.enabled
     def _toggle_force(self, node): node.state = not node.state
-    def _open_script_editor(self, node): Debug.log_info(f"Opening script editor for {node.name}", "NodeGraph")
+    def open_script_editor(self, node): Debug.log_info(f"Opening script editor for {node.name}", "NodeGraph")
     def _open_spawn_menu(self, pos): Debug.log_info(f"Open spawn menu at {pos}", "NodeGraph")
     def handle_mouse_motion(self, world_pos: tuple, buttons: tuple):
         screen_pos = self.app.camera.world_to_screen(world_pos)

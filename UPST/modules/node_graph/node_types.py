@@ -1,6 +1,6 @@
 # UPST/modules/node_graph/node_types.py
 import pygame, math, time
-from typing import Any, List, Dict, Type, Tuple, Optional
+from typing import Any, List, Dict, Tuple, Optional, Type
 from UPST.modules.node_graph.node_core import Node, DataType, PortType, NodePort
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import get_gizmos
@@ -16,8 +16,10 @@ def register_node_type(type_name: str):
 
 @register_node_type("logic_and")
 class LogicGateNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), gate_type: str = "and", node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name=f"Logic_{gate_type.upper()}", node_type=f"logic_{gate_type}")
+    def __init__(self, position: Tuple[float, float] = (0, 0), gate_type: str = "and", node_id: str = None, name: str = None, node_type: str = None):
+        final_name = name or f"Logic_{gate_type.upper()}"
+        final_type = node_type or f"logic_{gate_type}"
+        super().__init__(node_id=node_id, position=position, name=final_name, node_type=final_type)
         self.gate_type = gate_type
         self.color = (150, 100, 50)
         self.add_input("A", DataType.BOOL, False)
@@ -53,8 +55,8 @@ class LogicGateNode(Node):
 
 @register_node_type("logic_or")
 class LogicOrNode(LogicGateNode):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(position=position, gate_type="or", node_id=node_id)
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(position=position, gate_type="or", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicOrNode':
         node = cls(position=data["position"], node_id=data["id"])
@@ -71,8 +73,8 @@ class LogicOrNode(LogicGateNode):
 
 @register_node_type("logic_not")
 class LogicNotNode(LogicGateNode):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(position=position, gate_type="not", node_id=node_id)
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(position=position, gate_type="not", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicNotNode':
         node = cls(position=data["position"], node_id=data["id"])
@@ -89,8 +91,8 @@ class LogicNotNode(LogicGateNode):
 
 @register_node_type("logic_xor")
 class LogicXorNode(LogicGateNode):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(position=position, gate_type="xor", node_id=node_id)
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(position=position, gate_type="xor", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicXorNode':
         node = cls(position=data["position"], node_id=data["id"])
@@ -107,8 +109,10 @@ class LogicXorNode(LogicGateNode):
 
 @register_node_type("math_add")
 class MathNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), op: str = "add", node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name=f"Math_{op.upper()}", node_type=f"math_{op}")
+    def __init__(self, position: Tuple[float, float] = (0, 0), op: str = "add", node_id: str = None, name: str = None, node_type: str = None):
+        final_name = name or f"Math_{op.upper()}"
+        final_type = node_type or f"math_{op}"
+        super().__init__(node_id=node_id, position=position, name=final_name, node_type=final_type)
         self.op = op
         self.color = (50, 150, 100)
         self.add_input("A", DataType.FLOAT, 0)
@@ -144,8 +148,8 @@ class MathNode(Node):
 
 @register_node_type("math_sub")
 class MathSubNode(MathNode):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(position=position, op="sub", node_id=node_id)
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(position=position, op="sub", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'MathSubNode':
         node = cls(position=data["position"], node_id=data["id"])
@@ -162,8 +166,8 @@ class MathSubNode(MathNode):
 
 @register_node_type("math_mul")
 class MathMulNode(MathNode):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(position=position, op="mul", node_id=node_id)
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(position=position, op="mul", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'MathMulNode':
         node = cls(position=data["position"], node_id=data["id"])
@@ -180,8 +184,8 @@ class MathMulNode(MathNode):
 
 @register_node_type("math_div")
 class MathDivNode(MathNode):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(position=position, op="div", node_id=node_id)
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(position=position, op="div", node_id=node_id, name=name, node_type=node_type)
     @classmethod
     def deserialize(cls, data: dict) -> 'MathDivNode':
         node = cls(position=data["position"], node_id=data["id"])
@@ -198,12 +202,12 @@ class MathDivNode(MathNode):
 
 @register_node_type("script")
 class ScriptNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name="Script", node_type="script")
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Script", node_type=node_type or "script")
         self.color = (100, 50, 150)
         self.add_input("Input", DataType.ANY, None)
         self.add_output("Output", DataType.ANY)
-        self.script_code = 'outputs["Output"] = inputs.get("Input", 0) * 2'
+        self.script_code = 'val = inputs.get("Input"); outputs["Output"] = (val if val is not None else 0) * 2'
         self.compile_script()
     def get_context_menu_items(self, manager):
         items = super().get_context_menu_items(manager)
@@ -214,8 +218,8 @@ class ScriptNode(Node):
 
 @register_node_type("output")
 class OutputNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name="Output", node_type="output")
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Output", node_type=node_type or "output")
         self.color = (200, 50, 50)
         self.add_input("Value", DataType.ANY, None)
         self.add_output("Display", DataType.STRING)
@@ -228,8 +232,8 @@ class OutputNode(Node):
 
 @register_node_type("button")
 class ButtonNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name="Button", node_type="button")
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Button", node_type=node_type or "button")
         self.color = (200, 100, 100)
         self.add_output("Pressed", DataType.BOOL)
         self.is_pressed = False
@@ -275,8 +279,8 @@ class ButtonNode(Node):
 
 @register_node_type("toggle")
 class ToggleNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name="Toggle", node_type="toggle")
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Toggle", node_type=node_type or "toggle")
         self.color = (100, 200, 100)
         self.add_output("State", DataType.BOOL)
         self.state = False
@@ -337,8 +341,8 @@ class ToggleNode(Node):
 
 @register_node_type("print")
 class PrintNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name="Print", node_type="print")
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Print", node_type=node_type or "print")
         self.color = (100, 100, 200)
         self.add_input("Input", DataType.ANY, None)
         self.add_input("Trigger", DataType.BOOL, True)
@@ -390,8 +394,8 @@ class PrintNode(Node):
 
 @register_node_type("oscillator")
 class OscillatorNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name="Oscillator", node_type="oscillator")
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Oscillator", node_type=node_type or "oscillator")
         self.color = (200, 200, 100)
         self.add_output("Signal", DataType.FLOAT)
         self.add_output("Bool", DataType.BOOL)
@@ -461,8 +465,8 @@ class OscillatorNode(Node):
 
 @register_node_type("key_input")
 class KeyInputNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name="Key Input", node_type="key_input")
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Key Input", node_type=node_type or "key_input")
         self.color = (150, 150, 255)
         self.add_output("Pressed", DataType.BOOL)
         self.add_output("JustPressed", DataType.BOOL)
@@ -514,8 +518,8 @@ class KeyInputNode(Node):
 
 @register_node_type("light_bulb")
 class LightBulbNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name="Light Bulb", node_type="light_bulb")
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Light Bulb", node_type=node_type or "light_bulb")
         self.color_off = (60, 60, 60)
         self.color_on = (255, 255, 100)
         self.current_color = self.color_off
@@ -576,8 +580,8 @@ class LightBulbNode(Node):
 
 @register_node_type("seven_segment")
 class SevenSegmentNode(Node):
-    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None):
-        super().__init__(node_id=node_id, position=position, name="7-Segment", node_type="seven_segment")
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "7-Segment", node_type=node_type or "seven_segment")
         self.color = (50, 50, 60)
         self.seg_colors = [(255, 50, 50) for _ in range(7)]
         self.segments = [False] * 7
