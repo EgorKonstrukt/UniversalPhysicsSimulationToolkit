@@ -112,22 +112,24 @@ class Node:
     def compile_script(self):
         if self.script_code:
             try: self._compiled_fn = compile(self.script_code, f"<node_{self.id}>", "exec")
-            except Exception as e:
-                Debug.log_error(f"Script compilation failed: {e}", "NodeGraph")
-                self._compiled_fn = None
+            except Exception as e: Debug.log_error(f"Script compilation failed: {e}", "NodeGraph"); self._compiled_fn = None
     def draw(self, scr: pygame.Surface, camera, manager: 'NodeGraphManager'):
         pos = camera.world_to_screen((self.position[0], self.position[1]))
         scale = camera.scaling
         size = (self.size[0] * scale, self.size[1] * scale)
-        rect = pygame.Rect(int(pos[0]), int(pos[1]), int(size[0]), int(size[1]))
+        rx, ry, rw, rh = int(pos[0]), int(pos[1]), int(size[0]), int(size[1])
+        rect = pygame.Rect(rx, ry, rw, rh)
         base_color = self.color if self.enabled else (80, 80, 80)
-        pygame.draw.rect(scr, base_color, rect, border_radius=4)
+        pygame.gfxdraw.box(scr, rect, base_color)
         border_w = 2 if self in manager.selected_nodes else 1
-        pygame.draw.rect(scr, (255, 255, 255), rect, border_w, border_radius=4)
+        pygame.gfxdraw.rectangle(scr, rect, (255, 255, 255))
+        if border_w > 1: pygame.gfxdraw.rectangle(scr, rect.inflate(-2, -2), (255, 255, 255))
         font = pygame.font.SysFont("Consolas", 14)
-        scr.blit(font.render(self.name, True, (255, 255, 255)), (pos[0] + 5, pos[1] + 5))
+        scr.blit(font.render(self.name, True, (255, 255, 255)), (rx + 5, ry + 5))
         self._draw_ports(scr, pos, size, manager)
-        if self in manager.selected_nodes: pygame.draw.rect(scr, (0, 255, 0), rect.inflate(6, 6), 2, border_radius=6)
+        if self in manager.selected_nodes:
+            ir = rect.inflate(6, 6)
+            pygame.gfxdraw.rectangle(scr, ir, (0, 255, 0))
     def _draw_ports(self, scr, pos, size, manager):
         scale = manager.app.camera.scaling
         y_off, step = 30.0*scale, 20.0*scale
@@ -146,13 +148,19 @@ class Node:
             y_off += step
     def _draw_port_circle(self, scr, x, y, dtype, ptype, is_hovered, manager):
         color = manager._get_port_color(dtype)
-        radius = 6 * manager.app.camera.scaling
-        pygame.draw.circle(scr, (40, 40, 40), (x, y), int(radius + 2))
+        radius = int(6 * manager.app.camera.scaling)
+        if radius < 1: radius = 1
+        if radius > 32767: radius = 32767
+        pygame.gfxdraw.filled_circle(scr, x, y, radius+2, (40, 40, 40))
         if dtype == DataType.BOOL:
-            val = self.get_input_value(ptype.name.lower() + "_port") if ptype == PortType.INPUT else self._last_output.get(list(self.outputs.keys())[0])
-            color = (255, 150, 150) if val is True else (100, 0, 0)
-        pygame.draw.circle(scr, color, (x, y), int(radius))
-        if is_hovered: pygame.draw.circle(scr, (0, 255, 0), (x, y), int(radius + 4), 2)
+            val = None
+            if ptype == PortType.INPUT: val = self.get_input_value(ptype.name.lower() + "_port")
+            else:
+                if self._last_output: val = list(self._last_output.values())[0]
+            if val is True: color = (255, 150, 150)
+            elif val is False: color = (100, 0, 0)
+        pygame.gfxdraw.filled_circle(scr, x, y, radius, color)
+        if is_hovered: pygame.gfxdraw.aacircle(scr, x, y, radius + 4, (0, 255, 0))
     def get_context_menu_items(self, manager: 'NodeGraphManager') -> List:
         from UPST.gui.windows.context_menu.config_option import ConfigOption
         items = []
@@ -186,10 +194,7 @@ class NodeGraph:
         self.execution_order: List[str] = []
         self._dirty: bool = True
         self._last_evaluation: float = 0
-    def add_node(self, node: Node) -> str:
-        self.nodes[node.id] = node
-        self._dirty = True
-        return node.id
+    def add_node(self, node: Node) -> str: self.nodes[node.id] = node; self._dirty = True; return node.id
     def remove_node(self, node_id: str):
         if node_id in self.nodes:
             for conn_id, conn in list(self.connections.items()):
@@ -233,9 +238,7 @@ class NodeGraph:
         for i, nid in enumerate(self.execution_order):
             if nid in self.nodes: self.nodes[nid]._execution_order = i
     def evaluate(self):
-        if self._dirty:
-            self._compute_execution_order()
-            self._dirty = False
+        if self._dirty: self._compute_execution_order(); self._dirty = False
         for node_id in self.execution_order:
             if node_id in self.nodes:
                 node = self.nodes[node_id]
@@ -251,8 +254,7 @@ class NodeGraph:
         for node in self.nodes.values():
             x, y = node.position.x, node.position.y
             w, h = node.size
-            if x <= world_pos[0] <= x + w and y <= world_pos[1] <= y + h:
-                return node
+            if x <= world_pos[0] <= x + w and y <= world_pos[1] <= y + h: return node
         return None
     def get_nodes_in_rect(self, rect: pygame.Rect) -> List[Node]:
         selected = []

@@ -1,14 +1,13 @@
 # UPST/modules/node_graph/node_types.py
+import random
+
 import pygame, math, time
 from typing import Any, List, Dict, Tuple, Optional, Type
 from UPST.modules.node_graph.node_core import Node, DataType, PortType, NodePort
 from UPST.debug.debug_manager import Debug
 from UPST.gizmos.gizmos_manager import get_gizmos
-
-
 NODE_TYPE_REGISTRY: Dict[str, Type[Node]] = {}
 NODE_TOOL_METADATA: Dict[str, Dict[str, str]] = {}
-
 def register_node_type(type_name: str, display_name: str = None, description: str = None, icon: str = None):
     def decorator(cls: Type[Node]):
         NODE_TYPE_REGISTRY[type_name] = cls
@@ -16,14 +15,9 @@ def register_node_type(type_name: str, display_name: str = None, description: st
         if display_name: cls.tool_name = display_name
         if description: cls.tool_description = description
         if icon: cls.tool_icon_path = icon
-        NODE_TOOL_METADATA[type_name] = {
-            'name': cls.tool_name,
-            'description': cls.tool_description,
-            'icon': cls.tool_icon_path
-        }
+        NODE_TOOL_METADATA[type_name] = {'name': cls.tool_name, 'description': cls.tool_description, 'icon': cls.tool_icon_path}
         return cls
     return decorator
-
 @register_node_type("logic_and", display_name="Logic AND", description="Logical AND gate", icon="sprites/gui/logic_and.png")
 class LogicGateNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), gate_type: str = "and", node_id: str = None, name: str = None, node_type: str = None):
@@ -56,7 +50,6 @@ class LogicGateNode(Node):
         node.node_type = f"logic_{node.gate_type}"
         node.name = data.get("name", f"Logic_{node.gate_type.upper()}")
         return node
-
 @register_node_type("logic_or", display_name="Logic OR", description="Logical OR gate", icon="sprites/gui/logic_or.png")
 class LogicOrNode(LogicGateNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -64,7 +57,6 @@ class LogicOrNode(LogicGateNode):
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicOrNode':
         return LogicGateNode.deserialize(data)
-
 @register_node_type("logic_not", display_name="Logic NOT", description="Logical NOT gate", icon="sprites/gui/logic_not.png")
 class LogicNotNode(LogicGateNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -72,7 +64,6 @@ class LogicNotNode(LogicGateNode):
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicNotNode':
         return LogicGateNode.deserialize(data)
-
 @register_node_type("logic_xor", display_name="Logic XOR", description="Logical XOR gate", icon="sprites/gui/logic_xor.png")
 class LogicXorNode(LogicGateNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -80,7 +71,6 @@ class LogicXorNode(LogicGateNode):
     @classmethod
     def deserialize(cls, data: dict) -> 'LogicXorNode':
         return LogicGateNode.deserialize(data)
-
 @register_node_type("math_add", display_name="Math Add", description="Add two numbers", icon="sprites/gui/math_add.png")
 class MathNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), op: str = "add", node_id: str = None, name: str = None, node_type: str = None):
@@ -113,7 +103,6 @@ class MathNode(Node):
         node.node_type = f"math_{node.op}"
         node.name = data.get("name", f"Math_{node.op.upper()}")
         return node
-
 @register_node_type("math_sub", display_name="Math Sub", description="Subtract two numbers", icon="sprites/gui/math_sub.png")
 class MathSubNode(MathNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -121,7 +110,6 @@ class MathSubNode(MathNode):
     @classmethod
     def deserialize(cls, data: dict) -> 'MathSubNode':
         return MathNode.deserialize(data)
-
 @register_node_type("math_mul", display_name="Math Mul", description="Multiply two numbers", icon="sprites/gui/math_mul.png")
 class MathMulNode(MathNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -129,7 +117,6 @@ class MathMulNode(MathNode):
     @classmethod
     def deserialize(cls, data: dict) -> 'MathMulNode':
         return MathNode.deserialize(data)
-
 @register_node_type("math_div", display_name="Math Div", description="Divide two numbers", icon="sprites/gui/math_div.png")
 class MathDivNode(MathNode):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -137,7 +124,6 @@ class MathDivNode(MathNode):
     @classmethod
     def deserialize(cls, data: dict) -> 'MathDivNode':
         return MathNode.deserialize(data)
-
 @register_node_type("script", display_name="Script Node", description="Custom Python script", icon="sprites/gui/script.png")
 class ScriptNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -153,7 +139,6 @@ class ScriptNode(Node):
         items.append(ConfigOption("---", handler=lambda cm: None))
         items.append(ConfigOption("Edit Script...", handler=lambda cm: manager.open_script_editor(self)))
         return items
-
 @register_node_type("output", display_name="Output Display", description="Displays value on screen", icon="sprites/gui/output.png")
 class OutputNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -167,7 +152,6 @@ class OutputNode(Node):
         gm = get_gizmos()
         if gm: gm.draw_text(position=self.position, text=f"Out: {val}", font_size=16, color=(255, 255, 0), duration=0.1, world_space=True)
         return True
-
 @register_node_type("button", display_name="Button", description="Interactive button", icon="sprites/gui/button.png")
 class ButtonNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -205,7 +189,6 @@ class ButtonNode(Node):
         node.is_pressed = False
         node._prev_pressed = False
         return node
-
 @register_node_type("toggle", display_name="Toggle Switch", description="On/Off switch", icon="sprites/gui/toggle.png")
 class ToggleNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -222,7 +205,7 @@ class ToggleNode(Node):
             if not self._triggered:
                 self.state = not self.state
                 self._triggered = True
-                return True
+            return True
         return False
     def on_mouse_up(self, world_pos, button):
         self._triggered = False
@@ -236,11 +219,14 @@ class ToggleNode(Node):
         scale = camera.scaling
         size = (self.size[0] * scale, self.size[1] * scale)
         center = (int(pos[0] + size[0] - 15 * scale), int(pos[1] + 15 * scale))
+        radius = int(7 * scale)
         if self.state:
-            pygame.draw.circle(scr, (0, 255, 0), center, int(7 * scale))
-            pygame.draw.circle(scr, (255, 255, 255), center, int(3 * scale), 2)
+            pygame.gfxdraw.filled_circle(scr, center[0], center[1], radius, (0, 255, 0))
+            pygame.gfxdraw.aacircle(scr, center[0], center[1], radius, (255, 255, 255))
+            pygame.gfxdraw.aacircle(scr, center[0], center[1], int(3 * scale), (255, 255, 255))
         else:
-            pygame.draw.circle(scr, (100, 100, 100), center, int(7 * scale))
+            pygame.gfxdraw.filled_circle(scr, center[0], center[1], radius, (100, 100, 100))
+            pygame.gfxdraw.aacircle(scr, center[0], center[1], radius, (180, 180, 180))
     def get_context_menu_items(self, manager):
         items = super().get_context_menu_items(manager)
         from UPST.gui.windows.context_menu.config_option import ConfigOption
@@ -258,7 +244,6 @@ class ToggleNode(Node):
         node.state = data.get("state", False)
         node._triggered = False
         return node
-
 @register_node_type("print", display_name="Print Log", description="Prints value to debug log", icon="sprites/gui/print.png")
 class PrintNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -287,7 +272,7 @@ class PrintNode(Node):
         if should_print:
             Debug.log_info(f"[PrintNode '{self.name}']: {in_val}", "NodeGraph")
             self._last_val_str = current_val_str
-        self._last_trigger_state = bool(trigger_val)
+            self._last_trigger_state = bool(trigger_val)
         return True
     def serialize(self) -> dict:
         data = super().serialize()
@@ -302,7 +287,6 @@ class PrintNode(Node):
         node._last_val_str = ""
         node._last_trigger_state = False
         return node
-
 @register_node_type("oscillator", display_name="Oscillator", description="Sine wave generator", icon="sprites/gui/oscillator.png")
 class OscillatorNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -324,7 +308,6 @@ class OscillatorNode(Node):
         self.set_output_value_by_name("Signal", val)
         self.set_output_value_by_name("Bool", val > 0)
         return True
-
     def draw(self, scr, camera, manager):
         super().draw(scr, camera, manager)
         if self.enabled:
@@ -343,8 +326,10 @@ class OscillatorNode(Node):
                 y_offset = wave_val * max_amp_px
                 y_offset = max(-max_amp_px, min(max_amp_px, y_offset))
                 y = mid_y + y_offset
-                pts.append((x, y))
-            if len(pts) > 1: pygame.draw.lines(scr, wave_color, False, pts, 2)
+                pts.append((int(x), int(y)))
+            if len(pts) > 1:
+                for i in range(len(pts) - 1):
+                    pygame.gfxdraw.line(scr, pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1], wave_color)
     def get_context_menu_items(self, manager):
         items = super().get_context_menu_items(manager)
         from UPST.gui.windows.context_menu.config_option import ConfigOption
@@ -369,7 +354,6 @@ class OscillatorNode(Node):
         node.enabled = data.get("enabled", True)
         node._time = 0.0
         return node
-
 @register_node_type("key_input", display_name="Key Input", description="Keyboard input detector", icon="sprites/gui/key.png")
 class KeyInputNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -413,7 +397,6 @@ class KeyInputNode(Node):
         node._is_pressed = False
         node._was_pressed = False
         return node
-
 @register_node_type("light_bulb", display_name="Light Bulb", description="Visual indicator", icon="sprites/gui/bulb.png")
 class LightBulbNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -441,18 +424,22 @@ class LightBulbNode(Node):
         draw_color = self.current_color
         center = (int(pos[0] + size[0] / 2), int(pos[1] + size[1] / 2))
         radius = int(min(size[0], size[1]) / 2 - 5)
-        pygame.draw.circle(scr, draw_color, center, radius)
-        pygame.draw.circle(scr, (255, 255, 255), center, radius, 2)
+        pygame.gfxdraw.filled_circle(scr, center[0], center[1], radius, draw_color)
+        pygame.gfxdraw.aacircle(scr, center[0], center[1], radius, (255, 255, 255))
         pygame.draw.rect(scr, self.color if self.enabled else (80, 80, 80), rect, border_radius=4)
-        pygame.draw.rect(scr, (255, 255, 255), rect, 2 if self in manager.selected_nodes else 1, border_radius=4)
+        border_w = 2 if self in manager.selected_nodes else 1
+        pygame.draw.rect(scr, (255, 255, 255), rect, border_w, border_radius=4)
         font = pygame.font.SysFont("Consolas", 14)
         if self._is_on:
             for i in range(3, 0, -1):
-                glow_radius = radius + (i * 4 * scale)
+                glow_radius = int(radius + (i * 4 * scale))
                 glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(glow_surf, (*draw_color, 100 // i), (glow_radius, glow_radius), glow_radius)
+                alpha = int(100 // i)
+                pygame.gfxdraw.filled_circle(glow_surf, glow_radius, glow_radius, glow_radius, (*draw_color, alpha))
                 scr.blit(glow_surf, (center[0] - glow_radius, center[1] - glow_radius))
-            pygame.draw.circle(scr, (255, 255, 255), center, int(radius * 0.6))
+            inner_r = int(radius * 0.6)
+            pygame.gfxdraw.filled_circle(scr, center[0], center[1], inner_r, (255, 255, 255))
+            pygame.gfxdraw.aacircle(scr, center[0], center[1], inner_r, (255, 255, 255))
         scr.blit(font.render(self.name, True, (255, 255, 255)), (pos[0] + 5, pos[1] + 5))
         self._draw_ports(scr, pos, size, manager)
     def serialize(self) -> dict:
@@ -466,7 +453,6 @@ class LightBulbNode(Node):
         node._is_on = False
         node.current_color = node.color_off
         return node
-
 @register_node_type("seven_segment", display_name="7-Segment Display", description="Digital number display", icon="sprites/gui/7seg.png")
 class SevenSegmentNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -516,10 +502,12 @@ class SevenSegmentNode(Node):
         for i, seg in enumerate(self._seg_rects):
             if i >= len(self.segments): break
             color = self.seg_active_color if self.segments[i] else self.seg_inactive_color
+            r = seg["rect"]
             if seg["type"] == "dot":
-                pygame.draw.circle(scr, color, seg["rect"].center, seg["rect"].width // 2)
+                pygame.gfxdraw.filled_circle(scr, r.centerx, r.centery, r.width // 2, color)
+                pygame.gfxdraw.aacircle(scr, r.centerx, r.centery, r.width // 2, color)
             else:
-                pygame.draw.rect(scr, color, seg["rect"], border_radius=int(seg["rect"].height // 2))
+                pygame.draw.rect(scr, color, r, border_radius=int(r.height // 2))
     def serialize(self) -> Dict[str, Any]:
         data = super().serialize()
         data["segments"] = self.segments
@@ -534,8 +522,6 @@ class SevenSegmentNode(Node):
         node.size = tuple(data.get("size", (140, 200)))
         node.color = tuple(data.get("color", (50, 50, 60)))
         return node
-
-
 @register_node_type("bin_to_dec", display_name="Bin -> Dec", description="Converts 8-bit binary input to decimal value", icon="sprites/gui/bin_dec.png")
 class BinaryToDecimalNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -588,7 +574,6 @@ class BinaryToDecimalNode(Node):
             if port.name == "Value": node._out_val_id = pid
             elif port.name == "Str": node._out_str_id = pid
         return node
-
 @register_node_type("dec_to_bool", display_name="Dec -> Bool", description="Splits binary/decimal value into 8 boolean outputs", icon="sprites/gui/dec_bool.png")
 class BinaryToBoolNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -626,8 +611,6 @@ class BinaryToBoolNode(Node):
         inp_txt = font.render(f"In: {val}", True, (255, 255, 100))
         scr.blit(inp_txt, (x + int(10 * scale), y + int(10 * scale)))
         for i, pname in enumerate(self._out_ids):
-            is_high = bool(self.set_output_value_by_name(pname, bool((val >> i) & 1)) or ((val >> i) & 1))
-            # Получаем актуальное значение из порта для отрисовки
             port_val = self.outputs[[pid for pid, p in self.outputs.items() if p.name == pname][0]].value
             is_high = bool(port_val)
             color = (0, 255, 0) if is_high else (60, 60, 60)
@@ -643,7 +626,6 @@ class BinaryToBoolNode(Node):
             if port.name == "Value": node._in_id = pid
         node._out_ids = [p.name for p in node.outputs.values()]
         return node
-
 @register_node_type("bin_to_7seg", display_name="Bin -> 7-Seg", description="Converts 4-bit binary to 7-segment signals (0-9, A-F)", icon="sprites/gui/bin_7seg.png")
 class BinaryTo7SegNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -661,22 +643,10 @@ class BinaryTo7SegNode(Node):
             self.add_output(s, DataType.BOOL)
             self._out_ids.append(s)
         self._seg_map = [
-            [1,1,1,1,1,1,0], # 0
-            [0,1,1,0,0,0,0], # 1
-            [1,1,0,1,1,0,1], # 2
-            [1,1,1,1,0,0,1], # 3
-            [0,1,1,0,0,1,1], # 4
-            [1,0,1,1,0,1,1], # 5
-            [1,0,1,1,1,1,1], # 6
-            [1,1,1,0,0,0,0], # 7
-            [1,1,1,1,1,1,1], # 8
-            [1,1,1,1,0,1,1], # 9
-            [1,1,1,0,1,1,1], # A
-            [0,0,1,1,1,1,1], # b
-            [1,0,0,1,1,1,0], # C
-            [0,1,1,1,1,0,1], # d
-            [1,0,0,1,1,1,1], # E
-            [1,0,0,0,1,1,1]  # F
+            [1,1,1,1,1,1,0], [0,1,1,0,0,0,0], [1,1,0,1,1,0,1], [1,1,1,1,0,0,1],
+            [0,1,1,0,0,1,1], [1,0,1,1,0,1,1], [1,0,1,1,1,1,1], [1,1,1,0,0,0,0],
+            [1,1,1,1,1,1,1], [1,1,1,1,0,1,1], [1,1,1,0,1,1,1], [0,0,1,1,1,1,1],
+            [1,0,0,1,1,1,0], [0,1,1,1,1,0,1], [1,0,0,1,1,1,1], [1,0,0,0,1,1,1]
         ]
     def _execute_default(self, graph):
         val = 0
@@ -709,7 +679,6 @@ class BinaryTo7SegNode(Node):
         node._in_ids = [p.name for p in node.inputs.values()]
         node._out_ids = [p.name for p in node.outputs.values()]
         return node
-
 @register_node_type("full_adder", display_name="Full Adder", description="Adds two bits with carry input", icon="sprites/gui/full_adder.png")
 class FullAdderNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -751,9 +720,6 @@ class FullAdderNode(Node):
             (f"Cout: {'1' if cout else '0'}", (255, 100, 100) if cout else (150, 150, 150))
         ]
         start_y = y + int(35 * scale)
-        # for i, (txt, color) in enumerate(labels):
-        #     surf = font.render(txt, True, color)
-        #     scr.blit(surf, (x + int(10 * scale), start_y + i * int(18 * scale)))
     def serialize(self) -> dict: return super().serialize()
     @classmethod
     def deserialize(cls, data: dict) -> 'FullAdderNode':
@@ -767,7 +733,6 @@ class FullAdderNode(Node):
             if port.name == "Sum": node._out_sum = pid
             elif port.name == "Cout": node._out_cout = pid
         return node
-
 @register_node_type("clk_random", display_name="Clocked Random", description="Generates random value on clock rising edge", icon="sprites/gui/random_clk.png")
 class ClockedRandomNode(Node):
     def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
@@ -811,16 +776,11 @@ class ClockedRandomNode(Node):
         lines = [
             (f"Range: [{min_v:.1f}, {max_v:.1f}]", (200, 200, 200)),
             (f"Out: {val:.3f}", (255, 255, 100)),
-            # (f"Int: {int(val)}", (200, 200, 200)),
-            # (f"Clk: {'EDGE' if edge else 'HIGH' if clk else 'LOW'}", (0, 255, 0) if edge else (200, 200, 200))
         ]
         start_y = y + int(30 * scale)
         for i, (txt, color) in enumerate(lines):
             surf = font.render(txt, True, color)
             scr.blit(surf, (x + int(10 * scale), start_y + i * int(18 * scale)))
-        # if edge:
-        #     center = (int(x + self.size[0]*scale/2), int(y + self.size[1]*scale/2))
-        #     pygame.draw.circle(scr, (0, 255, 0), center, int(5 * scale))
     def serialize(self) -> dict:
         data = super().serialize()
         data["_prev_clk"] = False
@@ -831,4 +791,344 @@ class ClockedRandomNode(Node):
         node._prev_clk = False
         import random
         node._random = random
+        return node
+@register_node_type("dec_to_bin", display_name="Dec -> Bin", description="Converts decimal integer to 8-bit boolean outputs", icon="sprites/gui/dec_bin.png")
+class DecToBinNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Dec2Bin", node_type=node_type or "dec_to_bin")
+        self.color: Tuple[int, int, int] = (200, 150, 100)
+        self.size: Tuple[int, int] = (140, 220)
+        self._in_id: str = self.add_input("Value", DataType.BINARY, 0)
+        self._out_ids: List[str] = []
+        for i in range(8):
+            pname: str = f"B{i}"
+            self.add_output(pname, DataType.BOOL)
+            self._out_ids.append(pname)
+    def _execute_default(self, graph) -> bool:
+        val: Any = self.inputs[self._in_id].value
+        if val is None: val = 0
+        try: val = int(val)
+        except (ValueError, TypeError): val = 0
+        for i, pname in enumerate(self._out_ids):
+            bit: bool = bool((val >> i) & 1)
+            self.set_output_value_by_name(pname, bit)
+        return True
+    def draw(self, scr: pygame.Surface, camera: Any, manager: Any) -> None:
+        super().draw(scr, camera, manager)
+        pos: Tuple[int, int] = camera.world_to_screen(self.position)
+        scale: float = camera.scaling
+        w: int = int(self.size[0] * scale)
+        h: int = int(self.size[1] * scale)
+        x: int = int(pos[0])
+        y: int = int(pos[1])
+        val: Any = self.inputs[self._in_id].value
+        if val is None: val = 0
+        try: val = int(val)
+        except (ValueError, TypeError): val = 0
+        font = pygame.font.SysFont("Consolas", int(12 * scale))
+        inp_txt = font.render(f"In: {val}", True, (255, 255, 100))
+        scr.blit(inp_txt, (x + int(10 * scale), y + int(10 * scale)))
+        start_y: int = y + int(30 * scale)
+        row_h: int = int(20 * scale)
+        for i, pname in enumerate(self._out_ids):
+            port_val: Any = self.outputs[[pid for pid, p in self.outputs.items() if p.name == pname][0]].value
+            is_high: bool = bool(port_val)
+            color: Tuple[int, int, int] = (255, 100, 100) if is_high else (100, 50, 50)
+            rect_x: int = x + int(10 * scale)
+            rect_y: int = start_y + i * row_h
+            rect_size: int = int(15 * scale)
+            pygame.gfxdraw.filled_circle(scr, rect_x + rect_size//2, rect_y + rect_size//2, rect_size//2, color)
+            pygame.gfxdraw.aacircle(scr, rect_x + rect_size//2, rect_y + rect_size//2, rect_size//2, color)
+            lbl = font.render(f"{7-i}", True, (200, 200, 200))
+            scr.blit(lbl, (rect_x + rect_size + int(5 * scale), rect_y))
+    def serialize(self) -> Dict[str, Any]:
+        data: Dict[str, Any] = super().serialize()
+        return data
+    @classmethod
+    def deserialize(cls, data: Dict[str, Any]) -> 'DecToBinNode':
+        node: DecToBinNode = super().deserialize(data)
+        for pid, port in node.inputs.items():
+            if port.name == "Value": node._in_id = pid
+        node._out_ids = [p.name for p in node.outputs.values()]
+        return node
+
+@register_node_type("comparator", display_name="Comparator", description="Compares two values (==, !=, <, >, <=, >=)", icon="sprites/gui/comp.png")
+class ComparatorNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Compare", node_type=node_type or "comparator")
+        self.color: Tuple[int, int, int] = (100, 180, 120)
+        self.size: Tuple[int, int] = (140, 130)
+        self._op: str = "=="
+        self._in_a = self.add_input("A", DataType.FLOAT, 0.0)
+        self._in_b = self.add_input("B", DataType.FLOAT, 0.0)
+        self._out = self.add_output("Result", DataType.BOOL)
+        self._ops = ["==", "!=", "<", ">", "<=", ">="]
+        self._op_idx = 0
+    def _execute_default(self, graph) -> bool:
+        a = float(self.inputs[self._in_a].value or 0.0)
+        b = float(self.inputs[self._in_b].value or 0.0)
+        res = False
+        if self._op == "==": res = a == b
+        elif self._op == "!=": res = a != b
+        elif self._op == "<": res = a < b
+        elif self._op == ">": res = a > b
+        elif self._op == "<=": res = a <= b
+        elif self._op == ">=": res = a >= b
+        self.outputs[self._out].value = res
+        return True
+    def draw(self, scr: pygame.Surface, camera: Any, manager: Any) -> None:
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen(self.position)
+        scale = camera.scaling
+        x, y = int(pos[0]), int(pos[1])
+        w, h = int(self.size[0] * scale), int(self.size[1] * scale)
+        font = pygame.font.SysFont("Consolas", int(18 * scale))
+        txt = font.render(self._op, True, (200, 255, 200))
+        rect = txt.get_rect(center=(x + w//2, y + h//2))
+        scr.blit(txt, rect)
+    def on_click(self, pos: Tuple[int, int], button: int) -> bool:
+        if button == 1:
+            self._op_idx = (self._op_idx + 1) % len(self._ops)
+            self._op = self._ops[self._op_idx]
+            return True
+        return False
+    def serialize(self) -> Dict[str, Any]:
+        data = super().serialize()
+        data["_op"] = self._op
+        data["_op_idx"] = self._op_idx
+        return data
+    @classmethod
+    def deserialize(cls, data: Dict[str, Any]) -> 'ComparatorNode':
+        node = super().deserialize(data)
+        node._op = data.get("_op", "==")
+        node._op_idx = data.get("_op_idx", 0)
+        node._ops = ["==", "!=", "<", ">", "<=", ">="]
+        return node
+
+@register_node_type("string_concat", display_name="String Concat", description="Concatenates multiple strings", icon="sprites/gui/str_cat.png")
+class StringConcatNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "StrCat", node_type=node_type or "string_concat")
+        self.color: Tuple[int, int, int] = (160, 120, 200)
+        self.size: Tuple[int, int] = (150, 160)
+        self._ins = []
+        for i in range(4):
+            pid = self.add_input(f"S{i}", DataType.STRING, "")
+            self._ins.append(pid)
+        self._out = self.add_output("Result", DataType.STRING)
+    def _get_out_port(self):
+        for pid, p in self.outputs.items():
+            if p.name == "Result": return p
+        return None
+    def _execute_default(self, graph) -> bool:
+        res = ""
+        for pid in self._ins:
+            val = self.inputs[pid].value
+            if val is not None: res += str(val)
+        self.outputs[self._out].value = res
+        return True
+    def draw(self, scr: pygame.Surface, camera: Any, manager: Any) -> None:
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen(self.position)
+        scale = camera.scaling
+        x, y = int(pos[0]), int(pos[1])
+        font = pygame.font.SysFont("Consolas", int(12 * scale))
+        port = self._get_out_port()
+        res = port.value if port else ""
+        if len(res) > 15: res = res[:12] + "..."
+        txt = font.render(f"'{res}'", True, (255, 255, 150))
+        scr.blit(txt, (x + int(10*scale), y + int(40*scale)))
+    def serialize(self) -> Dict[str, Any]: return super().serialize()
+    @classmethod
+    def deserialize(cls, data: Dict[str, Any]) -> 'StringConcatNode':
+        node = super().deserialize(data)
+        node._ins = [p.name for p in node.inputs.values()]
+        return node
+
+@register_node_type("timer", display_name="Timer", description="Outputs elapsed time or pulse on interval", icon="sprites/gui/timer.png")
+class TimerNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Timer", node_type=node_type or "timer")
+        self.color: Tuple[int, int, int] = (200, 180, 100)
+        self.size: Tuple[int, int] = (140, 150)
+        self.add_input("Reset", DataType.BOOL, False)
+        self.add_input("Interval", DataType.FLOAT, 1.0)
+        self.add_output("Time", DataType.FLOAT)
+        self.add_output("Pulse", DataType.BOOL)
+        self._start_time: float = time.time()
+        self._last_pulse: float = 0.0
+        self._pulse_state: bool = False
+    def _get_time_port(self):
+        for pid, p in self.outputs.items():
+            if p.name == "Time": return p
+        return None
+    def _execute_default(self, graph) -> bool:
+        reset = bool(self.get_input_value("Reset"))
+        interval = float(self.get_input_value("Interval") or 1.0)
+        if reset:
+            self._start_time = time.time()
+            self._last_pulse = 0.0
+        now = time.time()
+        elapsed = now - self._start_time
+        t_port = self._get_time_port()
+        if t_port: t_port.value = elapsed
+        pulse = False
+        if interval > 0:
+            cycles = int(elapsed / interval)
+            if cycles > self._last_pulse:
+                pulse = True
+                self._last_pulse = cycles
+        p_port = None
+        for pid, p in self.outputs.items():
+            if p.name == "Pulse": p_port = p; break
+        if p_port: p_port.value = pulse
+        return True
+    def draw(self, scr: pygame.Surface, camera: Any, manager: Any) -> None:
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen(self.position)
+        scale = camera.scaling
+        x, y = int(pos[0]), int(pos[1])
+        font = pygame.font.SysFont("Consolas", int(14 * scale))
+        port = self._get_time_port()
+        t = port.value if port else 0.0
+        txt = font.render(f"{t:.2f}s", True, (255, 255, 100))
+        scr.blit(txt, (x + int(10*scale), y + int(40*scale)))
+    def serialize(self) -> Dict[str, Any]:
+        data = super().serialize()
+        data["_start_time"] = time.time()
+        data["_last_pulse"] = 0
+        return data
+    @classmethod
+    def deserialize(cls, data: Dict[str, Any]) -> 'TimerNode':
+        node = super().deserialize(data)
+        node._start_time = time.time()
+        node._last_pulse = 0.0
+        node._pulse_state = False
+        return node
+
+@register_node_type("clamp", display_name="Clamp", description="Clamps value between min and max", icon="sprites/gui/clamp.png")
+class ClampNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Clamp", node_type=node_type or "clamp")
+        self.color: Tuple[int, int, int] = (120, 140, 180)
+        self.size: Tuple[int, int] = (140, 150)
+        self._in_val = self.add_input("Value", DataType.FLOAT, 0.0)
+        self._in_min = self.add_input("Min", DataType.FLOAT, 0.0)
+        self._in_max = self.add_input("Max", DataType.FLOAT, 1.0)
+        self._out = self.add_output("Result", DataType.FLOAT)
+    def _get_out_port(self):
+        for pid, p in self.outputs.items():
+            if p.name == "Result": return p
+        return None
+    def _execute_default(self, graph) -> bool:
+        val = float(self.inputs[self._in_val].value or 0.0)
+        min_v = float(self.inputs[self._in_min].value or 0.0)
+        max_v = float(self.inputs[self._in_max].value or 1.0)
+        if max_v < min_v: min_v, max_v = max_v, min_v
+        res = max(min_v, min(val, max_v))
+        self.outputs[self._out].value = res
+        return True
+    def draw(self, scr: pygame.Surface, camera: Any, manager: Any) -> None:
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen(self.position)
+        scale = camera.scaling
+        x, y = int(pos[0]), int(pos[1])
+        font = pygame.font.SysFont("Consolas", int(12 * scale))
+        port = self._get_out_port()
+        val = port.value if port else 0.0
+        txt = font.render(f"[{val:.2f}]", True, (200, 255, 200))
+        scr.blit(txt, (x + int(10*scale), y + int(40*scale)))
+    def serialize(self) -> Dict[str, Any]: return super().serialize()
+    @classmethod
+    def deserialize(cls, data: Dict[str, Any]) -> 'ClampNode':
+        node = super().deserialize(data)
+        return node
+
+@register_node_type("lerp", display_name="Lerp", description="Linear interpolation between A and B by T", icon="sprites/gui/lerp.png")
+class LerpNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Lerp", node_type=node_type or "lerp")
+        self.color: Tuple[int, int, int] = (140, 180, 160)
+        self.size: Tuple[int, int] = (140, 150)
+        self._in_a = self.add_input("A", DataType.FLOAT, 0.0)
+        self._in_b = self.add_input("B", DataType.FLOAT, 1.0)
+        self._in_t = self.add_input("T", DataType.FLOAT, 0.5)
+        self._out = self.add_output("Result", DataType.FLOAT)
+    def _get_out_port(self):
+        for pid, p in self.outputs.items():
+            if p.name == "Result": return p
+        return None
+    def _execute_default(self, graph) -> bool:
+        a = float(self.inputs[self._in_a].value or 0.0)
+        b = float(self.inputs[self._in_b].value or 1.0)
+        t = float(self.inputs[self._in_t].value or 0.5)
+        t = max(0.0, min(1.0, t))
+        res = a + (b - a) * t
+        self.outputs[self._out].value = res
+        return True
+    def draw(self, scr: pygame.Surface, camera: Any, manager: Any) -> None:
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen(self.position)
+        scale = camera.scaling
+        x, y = int(pos[0]), int(pos[1])
+        font = pygame.font.SysFont("Consolas", int(12 * scale))
+        port = self._get_out_port()
+        val = port.value if port else 0.0
+        txt = font.render(f"{val:.2f}", True, (200, 255, 200))
+        scr.blit(txt, (x + int(10*scale), y + int(40*scale)))
+    def serialize(self) -> Dict[str, Any]: return super().serialize()
+    @classmethod
+    def deserialize(cls, data: Dict[str, Any]) -> 'LerpNode':
+        node = super().deserialize(data)
+        return node
+
+@register_node_type("random_range", display_name="Random Range", description="Generates random float/int in range", icon="sprites/gui/random.png")
+class RandomRangeNode(Node):
+    def __init__(self, position: Tuple[float, float] = (0, 0), node_id: str = None, name: str = None, node_type: str = None):
+        super().__init__(node_id=node_id, position=position, name=name or "Random", node_type=node_type or "random_range")
+        self.color: Tuple[int, int, int] = (180, 140, 220)
+        self.size: Tuple[int, int] = (140, 150)
+        self.add_input("Min", DataType.FLOAT, 0.0)
+        self.add_input("Max", DataType.FLOAT, 1.0)
+        self.add_input("Seed", DataType.INT, -1)
+        self.add_output("Float", DataType.FLOAT)
+        self.add_output("Int", DataType.INT)
+        self._rng = random.Random()
+    def _get_float_port(self):
+        for pid, p in self.outputs.items():
+            if p.name == "Float": return p
+        return None
+    def _execute_default(self, graph) -> bool:
+        min_v = float(self.get_input_value("Min") or 0.0)
+        max_v = float(self.get_input_value("Max") or 1.0)
+        seed = int(self.get_input_value("Seed") or -1)
+        if seed >= 0: self._rng.seed(seed)
+        if max_v < min_v: min_v, max_v = max_v, min_v
+        f_val = self._rng.uniform(min_v, max_v)
+        i_val = self._rng.randint(int(min_v), int(max_v))
+        f_port = self._get_float_port()
+        if f_port: f_port.value = f_val
+        i_port = None
+        for pid, p in self.outputs.items():
+            if p.name == "Int": i_port = p; break
+        if i_port: i_port.value = i_val
+        return True
+    def draw(self, scr: pygame.Surface, camera: Any, manager: Any) -> None:
+        super().draw(scr, camera, manager)
+        pos = camera.world_to_screen(self.position)
+        scale = camera.scaling
+        x, y = int(pos[0]), int(pos[1])
+        font = pygame.font.SysFont("Consolas", int(12 * scale))
+        port = self._get_float_port()
+        f_val = port.value if port else 0.0
+        txt = font.render(f"{f_val:.3f}", True, (255, 255, 150))
+        scr.blit(txt, (x + int(10*scale), y + int(40*scale)))
+    def serialize(self) -> Dict[str, Any]:
+        data = super().serialize()
+        data["_seed_state"] = None
+        return data
+    @classmethod
+    def deserialize(cls, data: Dict[str, Any]) -> 'RandomRangeNode':
+        node = super().deserialize(data)
+        node._rng = random.Random()
         return node
