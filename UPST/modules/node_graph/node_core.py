@@ -67,14 +67,23 @@ class Node:
         self._last_output: Dict[str, Any] = {}
         self._execution_order: int = 0
         self.custom_data: Dict[str, Any] = {}
+        self._cache_surface: Optional[pygame.Surface] = None
+        self._cache_rect: Optional[pygame.Rect] = None
+        self._cache_valid: bool = False
+        self._last_scale: float = -1.0
     def add_input(self, name: str, data_type: DataType = DataType.ANY, default: Any = None) -> str:
         port_id = f"in_{name}_{uuid.uuid4().hex[:8]}"
         self.inputs[port_id] = NodePort(id=port_id, name=name, port_type=PortType.INPUT, data_type=data_type, value=default)
+        self._invalidate_cache()
         return port_id
     def add_output(self, name: str, data_type: DataType = DataType.ANY) -> str:
         port_id = f"out_{name}_{uuid.uuid4().hex[:8]}"
         self.outputs[port_id] = NodePort(id=port_id, name=name, port_type=PortType.OUTPUT, data_type=data_type)
+        self._invalidate_cache()
         return port_id
+    def _invalidate_cache(self):
+        self._cache_valid = False
+        self._cache_surface = None
     def get_input_value(self, port_identifier: str) -> Any:
         if port_identifier in self.inputs: return self.inputs[port_identifier].value
         for pid, port in self.inputs.items():
@@ -118,26 +127,47 @@ class Node:
         scale = camera.scaling
         size = (self.size[0] * scale, self.size[1] * scale)
         rx, ry, rw, rh = int(pos[0]), int(pos[1]), int(size[0]), int(size[1])
-        rect = pygame.Rect(rx, ry, rw, rh)
-        base_color = self.color if self.enabled else (80, 80, 80)
-        pygame.gfxdraw.box(scr, rect, base_color)
-        border_w = 2 if self in manager.selected_nodes else 1
-        pygame.gfxdraw.rectangle(scr, rect, (255, 255, 255))
-        if border_w > 1: pygame.gfxdraw.rectangle(scr, rect.inflate(-2, -2), (255, 255, 255))
-        font = pygame.font.SysFont("Consolas", 14)
-        scr.blit(font.render(self.name, True, (255, 255, 255)), (rx + 5, ry + 5))
-        self._draw_ports(scr, pos, size, manager)
-        if self in manager.selected_nodes:
-            ir = rect.inflate(6, 6)
+        current_rect = pygame.Rect(rx, ry, rw, rh)
+        is_selected = self in manager.selected_nodes
+        if not self._cache_valid or self._last_scale != scale or self._cache_rect != current_rect:
+            self._render_cache(size, scale, is_selected)
+            self._last_scale = scale
+            self._cache_rect = current_rect
+        if self._cache_surface:
+            scr.blit(self._cache_surface, (rx, ry))
+        if is_selected:
+            ir = current_rect.inflate(6, 6)
             pygame.gfxdraw.rectangle(scr, ir, (0, 255, 0))
-    def _draw_ports(self, scr, pos, size, manager):
+        self._draw_ports_dynamic(scr, pos, size, manager)
+    def _render_cache(self, size: Tuple[float, float], scale: float, is_selected: bool):
+        w, h = int(size[0]), int(size[1])
+        if w <= 0 or h <= 0: return
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        base_color = self.color if self.enabled else (80, 80, 80)
+        rect = pygame.Rect(0, 0, w, h)
+        pygame.gfxdraw.box(surf, rect, base_color)
+        border_w = 2 if is_selected else 1
+        pygame.gfxdraw.rectangle(surf, rect, (255, 255, 255))
+        if border_w > 1: pygame.gfxdraw.rectangle(surf, rect.inflate(-2, -2), (255, 255, 255))
+        font = pygame.font.SysFont("Consolas", max(12, int(14 * scale)))
+        title_surf = font.render(self.name, True, (255, 255, 255))
+        surf.blit(title_surf, (5, 5))
+        self._cache_surface = surf
+        self._cache_valid = True
+    def _draw_ports_dynamic(self, scr, pos, size, manager):
         scale = manager.app.camera.scaling
         y_off, step = 30.0*scale, 20.0*scale
+        show_labels = pygame.key.get_mods() & pygame.KMOD_ALT
+        font_size = max(10, int(12 * scale))
+        font = manager._get_font(font_size)
         for pid, port in self.inputs.items():
             px, py = pos[0], pos[1] + y_off
             port.position = (px - pos[0], py - pos[1])
             is_hovered = manager.hovered_port and manager.hovered_port[1].id == self.id and manager.hovered_port[0] == pid
             self._draw_port_circle(scr, int(px), int(py), port.data_type, PortType.INPUT, is_hovered, manager)
+            if show_labels:
+                label = font.render(port.name, True, (220, 220, 220))
+                scr.blit(label, (int(px) + 10, int(py) - label.get_height() // 2))
             y_off += step
         y_off = 30.0*scale
         for pid, port in self.outputs.items():
@@ -145,6 +175,10 @@ class Node:
             port.position = (px - pos[0], py - pos[1])
             is_hovered = manager.hovered_port and manager.hovered_port[1].id == self.id and manager.hovered_port[0] == pid
             self._draw_port_circle(scr, int(px), int(py), port.data_type, PortType.OUTPUT, is_hovered, manager)
+            if show_labels:
+                label = font.render(port.name, True, (220, 220, 220))
+                w = label.get_width()
+                scr.blit(label, (int(px) - w - 10, int(py) - label.get_height() // 2))
             y_off += step
     def _draw_port_circle(self, scr, x, y, dtype, ptype, is_hovered, manager):
         color = manager._get_port_color(dtype)
