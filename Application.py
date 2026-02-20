@@ -226,6 +226,7 @@ class Application:
         stats.accumulate_session_time()
         stats.save()
         self.save_load_manager.create_snapshot()
+        self.config.save_to_file()
         pygame.quit()
 
     @profile("MAIN")
