@@ -441,7 +441,6 @@ class LightBulbNode(Node):
             pygame.gfxdraw.filled_circle(scr, center[0], center[1], inner_r, (255, 255, 255))
             pygame.gfxdraw.aacircle(scr, center[0], center[1], inner_r, (255, 255, 255))
         scr.blit(font.render(self.name, True, (255, 255, 255)), (pos[0] + 5, pos[1] + 5))
-        self._draw_ports(scr, pos, size, manager)
     def serialize(self) -> dict:
         data = super().serialize()
         data["_is_on"] = False

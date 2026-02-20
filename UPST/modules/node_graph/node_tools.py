@@ -33,8 +33,8 @@ class NodeGraphEditorTool(BaseTool):
             y += 35
     def handle_event(self, event, world_pos):
         if self.ui_manager.manager.get_focus_set():
-            if event.type == pygame.KEYDOWN and event.key in (pygame.K_DELETE, pygame.K_BACKSPACE): self.ngm.handle_key_down(event); return
-        if event.type == pygame.KEYDOWN and event.key in (pygame.K_DELETE, pygame.K_BACKSPACE): self.ngm.handle_key_down(event); return
+            if event.type == pygame.KEYDOWN and event.key in (pygame.K_DELETE, pygame.K_BACKSPACE, pygame.K_l, pygame.KMOD_CTRL): self.ngm.handle_key_down(event); return
+        if event.type == pygame.KEYDOWN and event.key in (pygame.K_DELETE, pygame.K_BACKSPACE, pygame.K_l, pygame.KMOD_CTRL): self.ngm.handle_key_down(event); return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: self.ngm.handle_mouse_down(world_pos, event.button)
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1: self.ngm.handle_mouse_up(world_pos, event.button)
         elif event.type == pygame.MOUSEMOTION: self.ngm.handle_mouse_motion(world_pos, pygame.mouse.get_pressed())
