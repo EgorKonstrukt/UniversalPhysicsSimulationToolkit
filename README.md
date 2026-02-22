@@ -12,40 +12,6 @@ A **2D physics sandbox** built with `Pygame` and `Pymunk`, inspired by Algodoo. 
 
 ---
 
-## Features
-
-- **Real-time Physics**: Rigid body dynamics, collisions, constraints, and forces powered by Pymunk.
-- **Interactive Gizmos**: Visualize velocity, angular momentum, force vectors, and center of mass in real-time.
-- **Network Mode**: Host/Connect functionality for collaborative simulations (experimental).
-- **Extensible**: Easily add new object types, behaviors, or visualization modes via OOP design.
-
----
-
-
-
- 
- # Project Dependencies
-
-This project leverages a curated stack of high-performance Python libraries for physics simulation, numerical computation, and interactive UI.
-
-## 📦 Required Packages
-
-| Package      | Version  | Purpose                                      |
-|--------------|----------|----------------------------------------------|
-| `numba`      | `0.62.1` | JIT compilation for accelerated numerics     |
-| `numpy`      | `2.3.3`  | Core N-dimensional array operations          |
-| `pygame-ce`  | `2.5.6`  | Multimedia framework for rendering & input   |
-| `pygame_gui` | `0.6.14` | UI toolkit for Pygame-based applications     |
-| `pymunk`     | `7.1.0`  | 2D physics simulation (Chipmunk backend)     |
-| `scipy`      | `1.16.2` | Scientific algorithms and advanced math      |
-
-## Installation
-
-Install all dependencies in one command:
-
-```bash
-pip install -r requirements.txt
-```
 ![python_NVHh4oaOrR](https://github.com/user-attachments/assets/1d7a92c0-f762-4a9e-b2e6-2f6e11829bd1)
 ![python_TE20saE9WA](https://github.com/user-attachments/assets/9427b5ee-b16b-4479-92d8-f17fb31f11db)
 ![python_sbGfFVQynE](https://github.com/user-attachments/assets/8da10f6c-792e-4226-bbf2-db83fd4dd05a)
