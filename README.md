@@ -46,7 +46,9 @@ Install all dependencies in one command:
 ```bash
 pip install -r requirements.txt
 ```
-
+![python_NVHh4oaOrR](https://github.com/user-attachments/assets/1d7a92c0-f762-4a9e-b2e6-2f6e11829bd1)
+![python_TE20saE9WA](https://github.com/user-attachments/assets/9427b5ee-b16b-4479-92d8-f17fb31f11db)
+![python_sbGfFVQynE](https://github.com/user-attachments/assets/8da10f6c-792e-4226-bbf2-db83fd4dd05a)
 
 <img width="2560" height="1432" alt="изображение" src="https://github.com/user-attachments/assets/b3dfd47c-2730-4ab1-906a-49ae94f6e1ae" />
 <img width="2552" height="1398" alt="изображение" src="https://github.com/user-attachments/assets/f1c8fcd5-81fb-4b1e-ade6-0feeb4b3e8e7" />
